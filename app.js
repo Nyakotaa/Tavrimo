@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '9.1.0';
+  const APP_VERSION = '9.1.1';
   const SCHEMA_VERSION = 11;
   const STORAGE_KEY = 'flowday-planner-v11';
   const LEGACY_KEYS = [
@@ -720,11 +720,11 @@
       <div class="health-card ${health.overdue ? 'danger' : ''}"><strong>${health.overdue}</strong><small>просрочено</small></div>
     `;
     const items = [];
-    if (health.overdue) items.push(`<div class="health-item"><span class="health-icon">!</span><div><strong>${health.overdue} просрочено</strong><small>Открой задачу и поставь новый дедлайн или ближайшее свободное окно.</small></div></div>`);
-    if (health.inbox) items.push(`<div class="health-item"><span class="health-icon">⌁</span><div><strong>${health.inbox} без времени</strong><small>Их можно поставить вручную в карточке задачи.</small></div></div>`);
-    if (health.due48h) items.push(`<div class="health-item"><span class="health-icon">◷</span><div><strong>${health.due48h} с дедлайном в ближайшие 48 часов</strong><small>Проверь, хватает ли свободного времени до срока.</small></div></div>`);
-    if (health.overloaded) items.push(`<div class="health-item"><span class="health-icon">↑</span><div><strong>${health.overloaded} перегруженных дня</strong><small>Открой задачи и перенеси часть слотов на свободные дни.</small></div></div>`);
-    if (!items.length) items.push(`<div class="health-item"><span class="health-icon">✓</span><div><strong>План в порядке</strong><small>Критичных конфликтов, просрочек и перегруженных дней не найдено.</small></div></div>`);
+    if (health.overdue) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">🚨</span><div><strong>${health.overdue} просрочено</strong><small>Открой задачу и поставь новый дедлайн или ближайшее свободное окно.</small></div></div>`);
+    if (health.inbox) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">📥</span><div><strong>${health.inbox} без времени</strong><small>Их можно поставить вручную в карточке задачи.</small></div></div>`);
+    if (health.due48h) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">⏰</span><div><strong>${health.due48h} с дедлайном в ближайшие 48 часов</strong><small>Проверь, хватает ли свободного времени до срока.</small></div></div>`);
+    if (health.overloaded) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">⚠️</span><div><strong>${health.overloaded} перегруженных дня</strong><small>Открой задачи и перенеси часть слотов на свободные дни.</small></div></div>`);
+    if (!items.length) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">✅</span><div><strong>План в порядке</strong><small>Критичных конфликтов, просрочек и перегруженных дней не найдено.</small></div></div>`);
     $('#healthList').innerHTML = items.join('');
     openModal('healthSheetBackdrop');
   }

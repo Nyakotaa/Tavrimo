@@ -1,4 +1,4 @@
-const VERSION = 'flowday-v9.1.0-final';
+const VERSION = 'flowday-v9.1.1-final';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './manifest.webmanifest',
   './assets/icons/apple-touch-icon-v11.png', './assets/icons/icon-180.png',

@@ -1,5 +1,10 @@
 # Changelog
 
+### 9.1.1 — 2026-09-28
+- Replaced ambiguous text glyphs in navigation, search, Focus, Statistics, plan health and settings with familiar iOS-friendly emoji.
+- Applied a restrained monochrome treatment to emoji icons so they stay visually quiet and aligned with the Flowday palette.
+- Updated app version and service-worker cache key to 9.1.1.
+
 
 ### 9.1.0 Final — 2026-09-27
 - Final manual-only release candidate promoted after full static, scheduler and mobile UI regression checks.

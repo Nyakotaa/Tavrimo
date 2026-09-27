@@ -2,6 +2,10 @@
 
 **Flowday 9.1.0 Final** — offline-first personal planner for iPhone with manual time placement. You choose the date and start time; Flowday validates working hours, lunch, duration, deadlines, conflicts and reserve after each task.
 
+## 9.1.1
+
+Небольшое UI-обновление: понятные эмодзи для основных иконок интерфейса без изменения логики ручного планирования.
+
 ## 9.1.0
 - Manual-only scheduling: the app never chooses a task time for the user.
 - New tasks can be saved without a slot and scheduled later.
