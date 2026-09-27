@@ -1,13 +1,14 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '8.0.0-rc.1';
-  const SCHEMA_VERSION = 8;
-  const STORAGE_KEY = 'flowday-planner-v8';
+  const APP_VERSION = '8.0.0-rc.2';
+  const SCHEMA_VERSION = 9;
+  const STORAGE_KEY = 'flowday-planner-v9';
   const LEGACY_KEYS = [
-    'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
+    'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
     'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'
   ];
+  const PLANNING_HORIZON_DAYS = 14;
   const DEMO_TITLES = new Set([
     'Собрать структуру презентации', 'Ответить на важные письма',
     'Подготовить идеи для проекта', 'Записаться на стоматолога', 'Изучить 2 главы курса'
@@ -40,6 +41,7 @@
   let focusRemaining = Math.max(1, Number(data.settings.focusLength) || 25) * 60;
   let focusTaskId = null;
   let focusPlannedMinutes = Number(data.settings.focusLength) || 25;
+  let focusSessionDate = null;
   let swRegistration = null;
 
   const $ = (selector) => document.querySelector(selector);
@@ -112,10 +114,9 @@
     return Number.isFinite(minutes) ? hm(minutes) : null;
   }
 
-  function normalizeTask(task, index = 0) {
-    const today = todayKey();
-    const candidateDeadline = String(task?.deadline || '');
-    const deadline = isValidDateKey(candidateDeadline) ? candidateDeadline : today;
+  function normalizeTask(task, index = 0, usedIds = new Set()) {
+    const candidateDeadline = String(task?.deadline || '').trim();
+    const deadline = candidateDeadline ? (isValidDateKey(candidateDeadline) ? candidateDeadline : null) : null;
     const deadlineTime = normalizeTime(task?.deadlineTime);
     const scheduledDateRaw = String(task?.scheduledDate || '');
     const scheduledStart = normalizeTime(task?.scheduledStart);
@@ -123,13 +124,17 @@
     const createdAt = safeIso(task?.createdAt, new Date().toISOString());
     const completedAt = task?.done ? safeIso(task?.completedAt, createdAt) : null;
     const category = ALLOWED_CATEGORIES.includes(String(task?.category || '')) ? String(task.category) : 'Учёба';
+    const rawId = task?.id != null && String(task.id).trim() ? String(task.id) : `task-${index + 1}`;
+    let id = rawId; let suffix = 2;
+    while (usedIds.has(id)) id = `${rawId}-${suffix++}`;
+    usedIds.add(id);
     return {
-      id: task?.id != null ? String(task.id) : `${Date.now()}-${index}`,
+      id,
       title: String(task?.title || '').trim().slice(0, 120),
       duration: ALLOWED_DURATIONS.includes(Number(task?.duration)) ? Number(task.duration) : 30,
       priority: ALLOWED_PRIORITIES.includes(Number(task?.priority)) ? Number(task.priority) : 2,
       deadline,
-      deadlineTime,
+      deadlineTime: deadline ? deadlineTime : null,
       category,
       note: String(task?.note || '').slice(0, 300),
       scheduledDate,
@@ -165,14 +170,17 @@
     settings.theme = ['system', 'light', 'dark'].includes(settings.theme) ? settings.theme : 'system';
 
     const rawTasks = Array.isArray(raw.tasks) ? raw.tasks : [];
-    const tasks = rawTasks.map((task, index) => normalizeTask(task, index)).filter((task) => task.title);
+    const usedIds = new Set();
+    const tasks = rawTasks.map((task, index) => normalizeTask(task, index, usedIds)).filter((task) => task.title);
+    const taskIds = new Set(tasks.map((task) => String(task.id)));
     const focusRaw = raw.focus && typeof raw.focus === 'object' ? raw.focus : {};
     const sessions = Array.isArray(focusRaw.sessions) ? focusRaw.sessions.slice(-500).map((session) => {
       const minutes = Math.round(Number(session?.minutes) || 0);
-      if (minutes <= 0) return null;
+      const date = isValidDateKey(session?.date) ? String(session.date) : null;
+      if (minutes <= 0 || !date) return null;
       return {
-        date: isValidDateKey(session?.date) ? String(session.date) : todayKey(),
-        taskId: session?.taskId != null ? String(session.taskId) : null,
+        date,
+        taskId: session?.taskId != null && taskIds.has(String(session.taskId)) ? String(session.taskId) : null,
         minutes: Math.min(1440, minutes),
         completedAt: safeIso(session?.completedAt, new Date().toISOString())
       };
@@ -190,28 +198,44 @@
 
   function repairData(input, settings = data?.settings || DEFAULTS.settings) {
     const repaired = clone(input);
-    const today = startOfDay(new Date());
     let changed = false;
-    repaired.tasks = repaired.tasks.map((task) => {
-      const next = { ...task };
-      if (!next.scheduledDate || !next.scheduledStart) {
-        if (next.scheduledDate || next.scheduledStart || next.locked) changed = true;
-        next.scheduledDate = null; next.scheduledStart = null; next.locked = false;
-        return next;
-      }
-      const validSlot = validatePersistedSlot(next, settings);
-      if (!validSlot.ok) {
-        next.scheduledDate = null; next.scheduledStart = null;
-        if (next.locked) next.locked = false;
-        changed = true;
-        return next;
-      }
-      if (next.done && !next.completedAt) {
-        next.completedAt = safeIso(next.createdAt, new Date().toISOString());
-        changed = true;
-      }
-      return next;
+    const seenSlots = {};
+
+    const sorted = [...repaired.tasks].sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      if (Boolean(a.locked) !== Boolean(b.locked)) return a.locked ? -1 : 1;
+      const ad = `${a.scheduledDate || '9999-99-99'} ${a.scheduledStart || '99:99'}`;
+      const bd = `${b.scheduledDate || '9999-99-99'} ${b.scheduledStart || '99:99'}`;
+      return ad.localeCompare(bd) || String(a.createdAt).localeCompare(String(b.createdAt));
     });
+
+    for (const task of sorted) {
+      if (task.done) continue;
+      if (task.scheduledDate && task.scheduledStart) {
+        const validSlot = validatePersistedSlot(task, settings);
+        if (!validSlot.ok) {
+          task.scheduledDate = null; task.scheduledStart = null; task.locked = false; changed = true;
+          continue;
+        }
+        const start = toMinutes(task.scheduledStart);
+        const end = start + task.duration + Number(settings.buffer || 0);
+        const day = task.scheduledDate;
+        const list = (seenSlots[day] ||= []);
+        const conflict = list.some((item) => start < item.e && end > item.s);
+        if (conflict) {
+          task.scheduledDate = null; task.scheduledStart = null; task.locked = false; changed = true;
+          continue;
+        }
+        list.push({ s: start, e: end, locked: Boolean(task.locked) });
+      } else if (task.scheduledDate || task.scheduledStart || task.locked) {
+        task.scheduledDate = null; task.scheduledStart = null; task.locked = false; changed = true;
+      }
+      if (task.done && !task.completedAt) {
+        task.completedAt = safeIso(task.createdAt, new Date().toISOString());
+        changed = true;
+      }
+    }
+
     if (repaired.focus.totalMinutes !== repaired.focus.sessions.reduce((sum, session) => sum + session.minutes, 0)) {
       repaired.focus.totalMinutes = repaired.focus.sessions.reduce((sum, session) => sum + session.minutes, 0);
       changed = true;
@@ -275,8 +299,10 @@
   function priorityLabel(priority) { return priority === 3 ? 'Высокий' : priority === 1 ? 'Низкий' : 'Средний'; }
   function priorityClass(priority) { return priority === 3 ? 'priority-high' : priority === 1 ? 'priority-low' : 'priority-mid'; }
   function deadlineMinutes(task) { return task.deadlineTime ? toMinutes(task.deadlineTime) : 1439; }
-  function deadlineTimestamp(task) { return startOfDay(dateFromKey(task.deadline)).getTime() + deadlineMinutes(task) * 60000; }
+  function deadlineTimestamp(task) { return task.deadline ? startOfDay(dateFromKey(task.deadline)).getTime() + deadlineMinutes(task) * 60000 : Infinity; }
   function deadlineLabel(task) {
+    if (task.done) return 'Выполнено';
+    if (!task.deadline) return 'Без дедлайна';
     const diff = daysBetween(new Date(), dateFromKey(task.deadline));
     const now = Date.now();
     const deadlineAt = deadlineTimestamp(task);
@@ -350,23 +376,29 @@
       lunchStart: Math.round(Number(settingsOverride.lunchStart) * 60),
       lunchEnd: Math.round(Number(settingsOverride.lunchEnd) * 60)
     };
-    const end = start + task.duration; const reservedEnd = end + Number(settingsOverride.buffer ?? data.settings.buffer ?? 0);
+    const end = start + task.duration; const buffer = Number(settingsOverride.buffer ?? data.settings.buffer ?? 0); const reservedEnd = end + buffer;
     if (!task.done && dateKey(day) === todayKey() && start < nowMinutes()) return { ok: false, reason: 'Время уже прошло.' };
     if (start % 15 !== 0) return { ok: false, reason: 'Некратное время.' };
     if (start < s.workStart || end > s.workEnd || reservedEnd > s.workEnd) return { ok: false, reason: 'За пределами рабочего дня.' };
     if (start < s.lunchEnd && end > s.lunchStart) return { ok: false, reason: 'Перерыв.' };
-    if (dateKey(dateFromKey(task.scheduledDate)) === task.deadline && end > deadlineMinutes(task)) return { ok: false, reason: 'После дедлайна.' };
+    if (start < s.lunchEnd && reservedEnd > s.lunchStart) return { ok: false, reason: 'Резерв пересекает перерыв.' };
+    if (task.deadline && day > dateFromKey(task.deadline)) return { ok: false, reason: 'Дата позже дедлайна.' };
+    if (task.deadline && dateKey(dateFromKey(task.scheduledDate)) === task.deadline && end > deadlineMinutes(task)) return { ok: false, reason: 'После дедлайна.' };
     return { ok: true };
   }
 
   function latestAllowedEnd(task, key) {
     const s = settingsMinutes();
-    return key === task.deadline ? Math.min(s.workEnd, deadlineMinutes(task)) : s.workEnd;
+    return task.deadline && key === task.deadline ? Math.min(s.workEnd, deadlineMinutes(task)) : s.workEnd;
+  }
+
+  function planningEndDate(task, fromDate) {
+    return task.deadline ? dateFromKey(task.deadline) : addDays(startOfDay(fromDate), PLANNING_HORIZON_DAYS);
   }
 
   function findSlot(task, fromDate, occupied) {
     const startDate = startOfDay(fromDate);
-    const deadlineDate = dateFromKey(task.deadline);
+    const deadlineDate = planningEndDate(task, startDate);
     const today = todayKey();
     for (let cursor = startDate; cursor <= deadlineDate; cursor = addDays(cursor, 1)) {
       if (!isWorkingDay(cursor)) continue;
@@ -384,64 +416,86 @@
     return null;
   }
 
+  function cloneOccupied(occupied) {
+    return Object.fromEntries(Object.entries(occupied).map(([key, list]) => [key, list.map((item) => ({ ...item }))]));
+  }
+
+  function canFitRemaining(tasks, fromDate, occupied) {
+    const simulation = cloneOccupied(occupied);
+    const ordered = [...tasks].sort((a, b) => deadlineTimestamp(a) - deadlineTimestamp(b) || b.priority - a.priority || b.duration - a.duration);
+    for (const task of ordered) {
+      const slot = findSlot(task, fromDate, simulation);
+      if (!slot) return false;
+      addOccupied(simulation, { ...task, scheduledDate: slot.date, scheduledStart: hm(slot.start), done: false });
+    }
+    return true;
+  }
+
   function planningScore(task) {
-    // Priority shifts urgency inside the admissible window, while the real deadline remains a hard limit.
-    const priorityLeadMinutes = task.priority === 3 ? 120 : task.priority === 2 ? 60 : 0;
-    return deadlineTimestamp(task) - priorityLeadMinutes * 60000;
+    const priorityLeadMinutes = task.priority === 3 ? 120 : task.priority === 2 ? 45 : 0;
+    if (!task.deadline) return 10 ** 18 - priorityLeadMinutes * 60000 - task.duration * 1000;
+    return deadlineTimestamp(task) - (task.duration + Number(data.settings.buffer || 0) + priorityLeadMinutes) * 60000;
   }
 
   function sortForPlanning(tasks) {
-    return [...tasks].sort((a, b) => planningScore(a) - planningScore(b) ||
-      deadlineTimestamp(a) - deadlineTimestamp(b) || b.priority - a.priority ||
-      b.duration - a.duration || String(a.createdAt).localeCompare(String(b.createdAt)));
+    return [...tasks].sort((a, b) => planningScore(a) - planningScore(b) || deadlineTimestamp(a) - deadlineTimestamp(b) || b.priority - a.priority || b.duration - a.duration || String(a.createdAt).localeCompare(String(b.createdAt)));
   }
 
   function autoPlanAll(showResult = true) {
     const today = startOfDay(new Date());
-    // Global plan always starts today, regardless of which day is currently open in the UI.
     data.tasks.forEach((task) => {
       if (!task.done && !task.locked) { task.scheduledDate = null; task.scheduledStart = null; }
     });
 
     const occupied = {};
     data.tasks.filter((task) => !task.done && task.locked).forEach((task) => addOccupied(occupied, task));
-    const openTasks = data.tasks.filter((task) => !task.done && !task.locked);
-    const overdue = openTasks.filter((task) => deadlineTimestamp(task) < Date.now()).length;
-    const pending = sortForPlanning(openTasks.filter((task) => deadlineTimestamp(task) >= Date.now()));
-    let placed = 0; let missed = 0;
-    for (const task of pending) {
-      const slot = findSlot(task, today, occupied);
-      if (!slot) { missed += 1; continue; }
-      task.scheduledDate = slot.date; task.scheduledStart = hm(slot.start); task.locked = false;
-      addOccupied(occupied, task); placed += 1;
-    }
-    saveData(); renderAll();
+    let remaining = data.tasks.filter((task) => !task.done && !task.locked && (task.deadline == null || deadlineTimestamp(task) >= Date.now()));
+    const overdue = data.tasks.filter((task) => !task.done && task.deadline && deadlineTimestamp(task) < Date.now()).length;
+    let placed = 0;
+    let missed = 0;
 
+    while (remaining.length) {
+      const ordered = sortForPlanning(remaining);
+      let chosen = null;
+      for (const candidate of ordered) {
+        const candidateSlot = findSlot(candidate, today, occupied);
+        if (!candidateSlot) continue;
+        const simulated = cloneOccupied(occupied);
+        addOccupied(simulated, { ...candidate, scheduledDate: candidateSlot.date, scheduledStart: hm(candidateSlot.start), done: false });
+        const rest = remaining.filter((item) => String(item.id) !== String(candidate.id));
+        if (!rest.length || canFitRemaining(rest, today, simulated)) {
+          chosen = { candidate, slot: candidateSlot };
+          break;
+        }
+      }
+      if (!chosen) {
+        const fallbackCandidates = remaining
+          .map((candidate) => ({ candidate, slot: findSlot(candidate, today, occupied) }))
+          .filter((entry) => entry.slot)
+          .sort((a, b) => deadlineTimestamp(a.candidate) - deadlineTimestamp(b.candidate) || b.candidate.priority - a.candidate.priority || b.candidate.duration - a.candidate.duration);
+        if (!fallbackCandidates.length) {
+          missed += remaining.length;
+          break;
+        }
+        chosen = fallbackCandidates[0];
+      }
+      const { candidate, slot } = chosen;
+      candidate.scheduledDate = slot.date; candidate.scheduledStart = hm(slot.start); candidate.locked = false;
+      addOccupied(occupied, candidate);
+      remaining = remaining.filter((item) => String(item.id) !== String(candidate.id));
+      placed += 1;
+    }
+
+    saveData(); renderAll();
     if (showResult) {
       if (placed && !missed) showToast(`План готов · ${placed} ${formatCount(placed, 'задача', 'задачи', 'задач')}`);
       else if (placed && missed) showToast(`План готов · ${placed} поставлено, ${missed} не поместилось до дедлайна.`);
       else if (missed && overdue) showToast(`План готов · ${missed} не поместилось, ${overdue} просрочено.`);
-      else if (missed) showToast(`Не удалось разместить ${missed} ${formatCount(missed, 'задачу', 'задачи', 'задач')} до дедлайна.`);
-      else if (overdue) showToast(`Просрочено: ${overdue} ${formatCount(overdue, 'задача', 'задачи', 'задач')}.`);
+      else if (missed) showToast(`Не удалось разместить ${missed} ${formatCount(missed, 'задачу', 'задачи', 'задач')}.`);
+      else if (overdue) showToast(`Просрочено: ${overdue} ${formatCount(overdue, 'задачу', 'задачи', 'задач')}.`);
       else showToast('Пока нечего планировать.');
     }
     return { placed, missed, overdue };
-  }
-
-  function scheduleSingle(taskId) {
-    const task = byId(taskId);
-    if (!task || task.done || task.locked) return false;
-    const occupied = {};
-    data.tasks.filter((other) => String(other.id) !== String(taskId) && !other.done).forEach((other) => addOccupied(occupied, other));
-    const slot = findSlot(task, startOfDay(new Date()), occupied);
-    if (!slot) {
-      task.scheduledDate = null; task.scheduledStart = null; task.locked = false;
-      saveData(); renderAll(); showToast(`Не нашлось окна до дедлайна ${deadlineLabel(task).toLowerCase()}.`);
-      return false;
-    }
-    task.scheduledDate = slot.date; task.scheduledStart = hm(slot.start); task.locked = false;
-    saveData(); renderAll(); showToast(`Поставлено · ${task.scheduledStart} ${shortDate(dateFromKey(task.scheduledDate))}`);
-    return true;
   }
 
   function validateManualSlot(task, scheduledDate, scheduledStart, duration) {
@@ -450,7 +504,7 @@
     if (!date) return 'Выбери существующую дату.';
     if (!isWorkingDay(date)) return 'Этот день не входит в рабочие дни.';
     if (date < today) return 'Нельзя поставить задачу в прошлое.';
-    if (date > dateFromKey(task.deadline)) return 'Слот позже дедлайна.';
+    if (task.deadline && date > dateFromKey(task.deadline)) return 'Слот позже дедлайна.';
     const start = toMinutes(scheduledStart); const end = start + duration;
     const s = settingsMinutes(); const buffer = Number(data.settings.buffer || 0);
     if (!Number.isFinite(start)) return 'Неверное время.';
@@ -458,7 +512,8 @@
     if (dateKey(date) === todayKey() && start < nowMinutes()) return 'Это время уже прошло.';
     if (start < s.workStart || end > s.workEnd || end + buffer > s.workEnd) return 'Слот выходит за пределы рабочего дня.';
     if (start < s.lunchEnd && end > s.lunchStart) return 'Слот пересекается с перерывом.';
-    if (dateKey(date) === task.deadline && end > deadlineMinutes(task)) return task.deadlineTime ? `Слот заканчивается позже ${task.deadlineTime}.` : 'Слот заканчивается после дедлайна.';
+    if (start < s.lunchEnd && end + buffer > s.lunchStart) return 'Резерв после задачи пересекает перерыв.';
+    if (task.deadline && dateKey(date) === task.deadline && end > deadlineMinutes(task)) return task.deadlineTime ? `Слот заканчивается позже ${task.deadlineTime}.` : 'Слот заканчивается после дедлайна.';
 
     const newStart = start; const newEnd = end + buffer;
     const conflict = data.tasks.some((other) => {
@@ -474,7 +529,7 @@
     if (!$('#manualScheduleToggle')?.checked) return '';
     const date = $('#taskScheduleDate')?.value; const time = $('#taskScheduleTime')?.value; const duration = Number($('#taskDuration')?.value || 0);
     if (!date || !time) return 'Выбери дату и время.';
-    const taskLike = task || { id: editingId || '__new__', deadline: $('#taskDeadline').value, deadlineTime: $('#taskDeadlineTime')?.value || null };
+    const taskLike = task || { id: editingId || '__new__', deadline: $('#taskDeadline').value || null, deadlineTime: $('#taskDeadlineTime')?.value || null };
     const error = validateManualSlot(taskLike, date, time, duration);
     return error || `Свободно · ${time}–${hm(toMinutes(time) + duration)} · резерв ${Number(data.settings.buffer || 0)}м`;
   }
@@ -487,11 +542,12 @@
     } else {
       task.done = false;
       task.completedAt = null;
-      const slotStillValid = task.scheduledDate && task.scheduledStart && validatePersistedSlot(task).ok && deadlineTimestamp(task) >= Date.now();
+      const slotStillValid = task.scheduledDate && task.scheduledStart && validatePersistedSlot(task).ok && (task.deadline == null || deadlineTimestamp(task) >= Date.now());
       if (!slotStillValid) {
         task.scheduledDate = null; task.scheduledStart = null;
         task.locked = false;
       }
+      // Returning a completed task must not silently change manual/auto mode if the slot is still valid.
     }
     saveData(); renderAll();
     showToast(task.done ? 'Задача выполнена.' : task.scheduledDate ? 'Задача снова в расписании.' : 'Задача возвращена в план.');
@@ -543,7 +599,8 @@
     const autoPlanned = data.tasks.some((task) => !task.done && !task.locked && task.scheduledDate && task.scheduledStart);
     const shouldShow = unplanned || autoPlanned;
     $('#planBtn').classList.toggle('hidden', !shouldShow);
-    $('#planBtnText').textContent = autoPlanned ? 'Перестроить' : 'Запланировать';
+    $('#planBtnText').textContent = autoPlanned ? 'Перестроить план' : 'Составить план';
+    $('#planBtn').setAttribute('aria-label', autoPlanned ? 'Перестроить весь автоматический план' : 'Составить план для открытых задач');
     const sheetMeta = $('#planMeta');
     if (sheetMeta) sheetMeta.textContent = autoPlanned ? 'Перестраивается весь автоматический план от сегодняшнего дня. Ручные блоки Flowday не тронет.' : `${unplanned} ${formatCount(unplanned, 'задача', 'задачи', 'задач')} без времени. Планировщик начнёт с сегодняшнего дня.`;
   }
@@ -561,7 +618,7 @@
     const capacity = workingCapacityMinutes(); const pctRaw = capacity ? Math.round((load.occupied / capacity) * 100) : 0; const pct = Math.min(100, Math.max(0, pctRaw));
     const isToday = key === todayKey(); const working = isWorkingDay(currentDate);
     const dueToday = data.tasks.filter((task) => !task.done && task.deadline === key).length;
-    const overdue = data.tasks.filter((task) => !task.done && deadlineTimestamp(task) < Date.now()).length;
+    const overdue = isToday ? data.tasks.filter((task) => !task.done && task.deadline && deadlineTimestamp(task) < Date.now()).length : 0;
     $('#todayEyebrow').textContent = isToday ? 'СЕГОДНЯ' : longDate(currentDate).toUpperCase();
     $('#todayTitle').textContent = isToday ? 'Твой день.' : `План на ${shortDate(currentDate)}.`;
     $('#todaySubtitle').textContent = !working ? 'Выходной. Автопланирование сюда ничего не ставит.' : data.tasks.length ? `${dueToday ? `${dueToday} ${formatCount(dueToday, 'задача', 'задачи', 'задач')} с дедлайном. ` : ''}${overdue ? `${overdue} просрочено. ` : ''}Flowday учитывает занятое время и резерв.` : 'Добавь первую задачу — время подберётся само.';
@@ -663,7 +720,7 @@
     $('#saveTaskBtn').textContent = task ? 'Сохранить' : 'Добавить'; $('#deleteTaskBtn').hidden = !task;
     const defaultDeadline = dateKey(currentDate < startOfDay(new Date()) ? new Date() : currentDate);
     $('#taskTitle').value = task?.title || ''; $('#taskDuration').value = String(task?.duration || 60); $('#taskPriority').value = String(task?.priority || 2);
-    $('#taskDeadline').value = task?.deadline || defaultDeadline; $('#taskDeadlineTime').value = task?.deadlineTime || '';
+    $('#taskDeadline').value = task ? (task.deadline || '') : ''; $('#taskDeadlineTime').value = task?.deadlineTime || '';
     $('#taskCategory').value = task?.category || 'Учёба'; $('#taskNote').value = task?.note || '';
     const isManual = Boolean(task?.locked); $('#manualScheduleToggle').checked = isManual; $('#manualScheduleFields').classList.toggle('hidden', !isManual);
     $('#taskScheduleDate').value = task?.scheduledDate || defaultDeadline; $('#taskScheduleTime').value = task?.scheduledStart || '';
@@ -675,6 +732,7 @@
     const duration = Number($('#taskDuration')?.value || 60); const priority = Number($('#taskPriority')?.value || 2); const deadline = $('#taskDeadline')?.value; const deadlineTime = $('#taskDeadlineTime')?.value;
     const bits = [`${formatDuration(duration)} — реальная длина`, `${priorityLabel(priority)} — влияет на порядок при авторазмещении`];
     if (deadline) bits.push(`дедлайн — ${deadlineTime ? `до ${deadlineTime}` : 'до конца дня'}`);
+    else bits.push('без дедлайна — Flowday найдёт окно в ближайшие 14 дней');
     $('#taskLogicHint').textContent = bits.join(' · ');
   }
 
@@ -684,7 +742,7 @@
     hint.className = `manual-hint ${isManual ? '' : 'hidden'}`;
     if (!isManual) return;
     const existing = editingId ? byId(editingId) : null;
-    const taskLike = { ...(existing || {}), id: existing?.id || '__new__', duration: Number($('#taskDuration')?.value || 0), deadline: $('#taskDeadline')?.value || todayKey(), deadlineTime: $('#taskDeadlineTime')?.value || null };
+    const taskLike = { ...(existing || {}), id: existing?.id || '__new__', duration: Number($('#taskDuration')?.value || 0), deadline: $('#taskDeadline')?.value || null, deadlineTime: $('#taskDeadlineTime')?.value || null };
     const text = slotValidationText(taskLike); hint.textContent = text; hint.dataset.state = text.startsWith('Свободно') ? 'ok' : 'error';
   }
 
@@ -723,7 +781,7 @@
   }
 
   function resetFocusTimer() {
-    clearInterval(focusTimer); focusTimer = null; focusRunning = false; focusEndAt = null;
+    clearInterval(focusTimer); focusTimer = null; focusRunning = false; focusEndAt = null; focusSessionDate = null;
     focusPlannedMinutes = Number(data.settings.focusLength) || 25; focusRemaining = focusBaseSeconds();
     focusTaskId = $('#focusTaskSelect')?.value || null; updateFocusUI();
   }
@@ -739,7 +797,7 @@
     }
     focusTaskId = focusTaskId || selectId; focusPlannedMinutes = focusPlannedMinutes || Number(data.settings.focusLength) || 25;
     if (focusRemaining <= 0 || focusRemaining > focusBaseSeconds()) focusRemaining = focusBaseSeconds();
-    focusRunning = true; focusEndAt = Date.now() + focusRemaining * 1000;
+    focusRunning = true; focusSessionDate = focusSessionDate || todayKey(); focusEndAt = Date.now() + focusRemaining * 1000;
     clearInterval(focusTimer); focusTimer = setInterval(tickFocusTimer, 250); tickFocusTimer(); updateFocusUI();
   }
 
@@ -749,11 +807,11 @@
     const taskId = focusTaskId || $('#focusTaskSelect').value || null;
     const task = taskId ? byId(taskId) : null;
     const minutes = Math.max(1, Number(focusPlannedMinutes || data.settings.focusLength));
-    data.focus.sessions.push({ date: todayKey(), taskId: taskId ? String(taskId) : null, minutes, completedAt: new Date().toISOString() });
+    data.focus.sessions.push({ date: focusSessionDate || todayKey(), taskId: taskId ? String(taskId) : null, minutes, completedAt: new Date().toISOString() });
     data.focus.sessions = data.focus.sessions.slice(-500); data.focus.totalMinutes = data.focus.sessions.reduce((sum, session) => sum + session.minutes, 0);
     focusRemaining = 0; saveData(); renderAll();
     showToast(task ? `Фокус завершён · ${task.title}` : 'Фокус-сессия завершена.');
-    focusRemaining = focusBaseSeconds(); updateFocusUI();
+    focusRemaining = focusBaseSeconds(); focusSessionDate = null; updateFocusUI();
   }
 
   function renderInsights() {
@@ -774,19 +832,28 @@
     openModal('insightsSheetBackdrop');
   }
 
+  function downloadBackup(json, fileName) {
+    const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = fileName; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 250); showToast('Резервная копия подготовлена.');
+  }
+
   function exportData() {
     const json = JSON.stringify({ ...data, exportedAt: new Date().toISOString() }, null, 2);
     const fileName = `flowday-backup-${todayKey()}.json`;
     try {
       const file = new File([json], fileName, { type: 'application/json' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        navigator.share({ title: 'Flowday — резервная копия', files: [file] }).then(() => showToast('Резервная копия подготовлена.')).catch(() => {});
+        navigator.share({ title: 'Flowday — резервная копия', files: [file] })
+          .then(() => showToast('Резервная копия подготовлена.'))
+          .catch((error) => {
+            if (error?.name === 'AbortError') showToast('Экспорт отменён.');
+            else downloadBackup(json, fileName);
+          });
         return;
       }
     } catch { /* fallback */ }
-    const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = fileName; document.body.appendChild(anchor); anchor.click(); anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 250); showToast('Резервная копия подготовлена.');
+    downloadBackup(json, fileName);
   }
 
   function importData(file) {
@@ -880,15 +947,16 @@
       event.preventDefault();
       const existing = editingId ? byId(editingId) : null;
       const title = $('#taskTitle').value.trim(); const duration = Number($('#taskDuration').value); const priority = Number($('#taskPriority').value);
-      const deadline = $('#taskDeadline').value || dateKey(currentDate); const deadlineTime = $('#taskDeadlineTime').value || null;
+      const deadline = $('#taskDeadline').value || null; const deadlineTime = $('#taskDeadlineTime').value || null;
       const category = ALLOWED_CATEGORIES.includes($('#taskCategory').value) ? $('#taskCategory').value : 'Другое'; const note = $('#taskNote').value.trim();
       const manual = $('#manualScheduleToggle').checked;
       if (!title) { showToast('Введите название задачи.'); return; }
-      if (!isValidDateKey(deadline) || dateFromKey(deadline) < startOfDay(new Date())) { showToast('Дедлайн не может быть в прошлом.'); return; }
+      if (deadline && (!isValidDateKey(deadline) || dateFromKey(deadline) < startOfDay(new Date()))) { showToast('Дедлайн не может быть в прошлом.'); return; }
+      if (deadlineTime && !deadline) { showToast('Укажи дату дедлайна, если задаёшь время.'); return; }
       if (deadlineTime && !Number.isFinite(toMinutes(deadlineTime))) { showToast('Проверь время дедлайна.'); return; }
       if (!ALLOWED_DURATIONS.includes(duration)) { showToast('Проверь длительность.'); return; }
 
-      const task = existing ? { ...existing } : { id: uid(), title: '', duration: 60, priority: 2, deadline, deadlineTime: null, category: 'Учёба', note: '', scheduledDate: null, scheduledStart: null, locked: false, done: false, createdAt: new Date().toISOString(), completedAt: null };
+      const task = existing ? { ...existing } : { id: uid(), title: '', duration: 60, priority: 2, deadline: null, deadlineTime: null, category: 'Учёба', note: '', scheduledDate: null, scheduledStart: null, locked: false, done: false, createdAt: new Date().toISOString(), completedAt: null };
       Object.assign(task, { title, duration, priority, deadline, deadlineTime, category, note });
 
       if (manual) {
@@ -900,7 +968,7 @@
         const oldAuto = existing && !existing.locked;
         const relevantChange = !existing || duration !== existing.duration || priority !== existing.priority || deadline !== existing.deadline || deadlineTime !== existing.deadlineTime;
         task.locked = false;
-        if (oldAuto && existing.scheduledDate && existing.scheduledStart && !relevantChange && deadlineTimestamp(existing) >= Date.now() && validatePersistedSlot(existing).ok) {
+        if (oldAuto && existing.scheduledDate && existing.scheduledStart && !relevantChange && (existing.deadline == null || deadlineTimestamp(existing) >= Date.now()) && validatePersistedSlot(existing).ok) {
           task.scheduledDate = existing.scheduledDate; task.scheduledStart = existing.scheduledStart;
         } else {
           task.scheduledDate = null; task.scheduledStart = null;
@@ -936,7 +1004,7 @@
       const error = validateSettingsDraft(workStart, workEnd, lunchStart, lunchEnd); if (error) { showToast(error); return; }
       data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: $('#appearanceInput').value };
       repairAndPersist(); if (!focusRunning) resetFocusTimer(); saveData(); closeModal('settingsSheetBackdrop');
-      if (data.tasks.some((task) => !task.done && !task.locked && deadlineTimestamp(task) >= Date.now())) autoPlanAll(false); else renderAll();
+      if (data.tasks.some((task) => !task.done && !task.locked && (task.deadline == null || deadlineTimestamp(task) >= Date.now()))) autoPlanAll(false); else renderAll();
       showToast('Настройки сохранены, план пересобран.');
     });
 
@@ -986,9 +1054,12 @@
     setCurrentDate: (value) => { currentDate = startOfDay(value); },
     normalizeData,
     validateManualSlot,
+    validatePersistedSlot,
     autoPlanAll,
     findSlot,
     sortForPlanning,
+    canFitRemaining,
+    repairData,
     planningScore,
     deadlineLabel,
     deadlineTimestamp,

@@ -13,7 +13,7 @@ if image.size != (1024, 1024):
     raise SystemExit(f'Ожидался исходник 1024x1024, получено: {image.size}')
 
 sizes = {
-    'apple-touch-icon-v8.png': 180,
+    'apple-touch-icon-v9.png': 180,
     'icon-180.png': 180,
     'icon-192.png': 192,
     'icon-512.png': 512,
