@@ -1,0 +1,5 @@
+Repository description:
+Offline-first PWA-планировщик для iPhone: автоматически распределяет задачи по свободным часам с учётом приоритета, дедлайна и рабочего времени.
+
+Suggested topics:
+pwa, ios, iphone, productivity, planner, task-manager, offline-first, github-pages, javascript, html, css, student, schedule
