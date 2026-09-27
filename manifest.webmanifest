@@ -1,0 +1,15 @@
+{
+  "name": "Flowday — умный планировщик",
+  "short_name": "Flowday",
+  "lang": "ru",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f7f9",
+  "theme_color": "#f7f7f9",
+  "description": "Персональный планировщик, который сам распределяет задачи по времени.",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"},
+    {"src":"icon-180.png","sizes":"180x180","type":"image/png","purpose":"any maskable"}
+  ]
+}

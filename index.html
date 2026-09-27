@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Flowday" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>Flowday — умный планировщик</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="app-header">
+      <div class="offline-pill" id="offlinePill" hidden>Офлайн</div>
+      <div class="header-side"><button class="circle-button" id="todayJump" aria-label="Сегодня">⌂</button></div>
+      <div class="header-center">
+        <div class="brand-inline"><span class="brand-glyph">◒</span><span>Flowday</span></div>
+        <div class="header-date" id="headerDate"></div>
+      </div>
+      <div class="header-side right"><button class="circle-button accent" id="addTaskBtn" aria-label="Новая задача">＋</button></div>
+    </header>
+
+    <main class="screen" id="screen">
+      <section class="view active" data-view="today" id="todayView">
+        <div class="hero-block">
+          <div class="eyebrow" id="heroEyebrow">СЕГОДНЯ</div>
+          <h1 id="heroTitle">Твой день, уже собранный.</h1>
+          <p id="heroSubtitle">Flowday сам раскладывает задачи по свободным часам, учитывая приоритеты и дедлайны.</p>
+          <div class="hero-actions">
+            <button class="primary-button" id="planBtn">✦ Составить план</button>
+            <button class="secondary-button" id="clearAutoBtn">Снять авто-план</button>
+          </div>
+        </div>
+
+        <div class="stat-strip card">
+          <div><span>Запланировано</span><strong id="plannedHours">0ч</strong></div>
+          <div><span>Свободно</span><strong id="freeHours">0ч</strong></div>
+          <div><span>Открыто задач</span><strong id="openCount">0</strong></div>
+        </div>
+
+        <section class="section-card card">
+          <div class="section-head">
+            <div><div class="section-kicker">РАСПИСАНИЕ</div><h2 id="timelineTitle">Сегодня</h2></div>
+            <div class="date-nav"><button class="tiny-button" id="prevDay">‹</button><button class="date-button" id="dateChip">27 сен</button><button class="tiny-button" id="nextDay">›</button></div>
+          </div>
+          <div class="timeline" id="timeline"></div>
+        </section>
+
+        <section class="section-card card" id="inboxSection">
+          <div class="section-head">
+            <div><div class="section-kicker">ВХОДЯЩИЕ</div><h2>Без времени</h2></div>
+            <span class="count-badge" id="inboxCount">0</span>
+          </div>
+          <div class="task-list" id="taskList"></div>
+        </section>
+
+        <section class="insight-card card" id="planningInsight">
+          <span class="insight-icon">✦</span>
+          <div><strong id="insightTitle">Автопланирование</strong><p id="insightText">Приоритетные и срочные задачи получают самые подходящие окна, а ручные блоки остаются на месте.</p></div>
+        </section>
+      </section>
+
+      <section class="view" data-view="week" id="weekView">
+        <div class="page-head"><div><div class="eyebrow">ОБЗОР</div><h1>Неделя</h1><p id="weekRange"></p></div><button class="secondary-button" id="weekPlanBtn">✦ Планировать</button></div>
+        <div class="week-grid" id="weekGrid"></div>
+      </section>
+
+      <section class="view" data-view="tasks" id="tasksView">
+        <div class="page-head"><div><div class="eyebrow">БИБЛИОТЕКА</div><h1>Все задачи</h1><p>Редактируй, завершай или назначай время вручную.</p></div><button class="primary-button" id="tasksAddBtn">＋</button></div>
+        <div class="filters card">
+          <div class="search-wrap"><span>⌕</span><input id="taskSearch" placeholder="Поиск задачи" autocomplete="off" /></div>
+          <div class="filter-row" id="filterRow">
+            <button class="filter-chip active" data-filter="all">Все</button>
+            <button class="filter-chip" data-filter="open">Открытые</button>
+            <button class="filter-chip" data-filter="planned">Запланированные</button>
+            <button class="filter-chip" data-filter="done">Готово</button>
+          </div>
+        </div>
+        <div class="all-task-list" id="allTaskList"></div>
+      </section>
+
+      <section class="view" data-view="settings" id="settingsView">
+        <div class="page-head"><div><div class="eyebrow">ПРИЛОЖЕНИЕ</div><h1>Настройки</h1><p>Параметры рабочего дня и локальные данные.</p></div></div>
+        <form class="settings-form" id="settingsForm">
+          <section class="settings-card card"><h3>Рабочее время</h3><div class="ios-row"><label>Начало <input type="time" id="workStartInput" step="900" /></label></div><div class="ios-row"><label>Конец <input type="time" id="workEndInput" step="900" /></label></div></section>
+          <section class="settings-card card"><h3>Перерыв</h3><div class="ios-row"><label>Обед с <input type="time" id="lunchStartInput" step="900" /></label></div><div class="ios-row"><label>Обед до <input type="time" id="lunchEndInput" step="900" /></label></div></section>
+          <section class="settings-card card"><h3>Планирование</h3><div class="ios-row"><label>Буфер между задачами <select id="bufferInput"><option value="0">Без буфера</option><option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option></select></label></div><div class="ios-row"><label>Максимальный фокус-блок <select id="blockInput"><option value="30">30 мин</option><option value="60">1 ч</option><option value="90">1 ч 30</option><option value="120">2 ч</option><option value="180">3 ч</option></select></label></div></section>
+          <section class="settings-card card"><h3>Данные</h3><button type="button" class="ios-action" id="exportBtn">Экспортировать данные <span>›</span></button><label class="ios-action file-action">Импортировать данные <span>›</span><input type="file" id="importInput" accept="application/json,.json" /></label><button type="button" class="ios-action danger" id="resetBtn">Сбросить всё <span>›</span></button></section>
+          <button class="primary-button wide" type="submit">Сохранить настройки</button>
+        </form>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="Навигация">
+      <button class="tab active" data-view="today"><span>⌂</span><small>Сегодня</small></button>
+      <button class="tab" data-view="week"><span>▦</span><small>Неделя</small></button>
+      <button class="tab tab-add" id="tabAdd" aria-label="Новая задача"><span>＋</span></button>
+      <button class="tab" data-view="tasks"><span>✓</span><small>Задачи</small></button>
+      <button class="tab" data-view="settings"><span>⚙</span><small>Настройки</small></button>
+    </nav>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="sheet-backdrop" id="taskSheetBackdrop" aria-hidden="true">
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="taskSheetTitle">
+      <div class="sheet-grabber"></div>
+      <div class="sheet-head"><div><div class="section-kicker" id="taskSheetKicker">НОВАЯ ЗАДАЧА</div><h2 id="taskSheetTitle">Что нужно сделать?</h2></div><button class="tiny-button" id="closeTaskSheet">×</button></div>
+      <form id="taskForm" class="sheet-form">
+        <label class="full-field">Название<input id="taskTitle" required maxlength="120" placeholder="Например, подготовить презентацию" /></label>
+        <div class="two-fields"><label>Длительность<select id="taskDuration"><option value="15">15 мин</option><option value="30">30 мин</option><option value="45">45 мин</option><option value="60" selected>1 час</option><option value="90">1 ч 30</option><option value="120">2 часа</option><option value="180">3 часа</option><option value="240">4 часа</option></select></label><label>Приоритет<select id="taskPriority"><option value="3">Высокий</option><option value="2" selected>Средний</option><option value="1">Низкий</option></select></label></div>
+        <div class="two-fields"><label>Дедлайн<input id="taskDeadline" type="date" /></label><label>Категория<select id="taskCategory"><option>Работа</option><option>Личное</option><option>Дом</option><option>Учёба</option><option>Другое</option></select></label></div>
+        <div class="schedule-toggle"><div><strong>Назначить время вручную</strong><p>Иначе Flowday подберёт слот автоматически.</p></div><input type="checkbox" id="manualScheduleToggle" /></div>
+        <div class="two-fields hidden" id="manualScheduleFields"><label>Дата<input id="taskScheduleDate" type="date" /></label><label>Время<input id="taskScheduleTime" type="time" step="900" /></label></div>
+        <label class="full-field">Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Опционально"></textarea></label>
+        <div class="sheet-actions"><button type="button" class="secondary-button" id="deleteTaskBtn" hidden>Удалить</button><span></span><button type="button" class="secondary-button" id="cancelTask">Отмена</button><button class="primary-button" type="submit" id="saveTaskBtn">Добавить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="sheet-backdrop" id="settingsSheetBackdrop" aria-hidden="true">
+    <section class="sheet compact" role="dialog" aria-modal="true" aria-labelledby="quickSettingsTitle">
+      <div class="sheet-grabber"></div><div class="sheet-head"><div><div class="section-kicker">БЫСТРЫЕ НАСТРОЙКИ</div><h2 id="quickSettingsTitle">Рабочий день</h2></div><button class="tiny-button" id="closeSettingsSheet">×</button></div>
+      <div class="quick-setting-grid"><button class="quick-choice" data-hours="8">08–17</button><button class="quick-choice" data-hours="9">09–18</button><button class="quick-choice" data-hours="10">10–19</button></div>
+      <button class="ios-action" id="openFullSettings">Открыть все настройки <span>›</span></button>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
