@@ -1,1 +1,1 @@
-Offline-first PWA-планировщик для iPhone: автоматически распределяет задачи по свободным часам с учётом приоритета, дедлайна, длительности и рабочего времени.
+Flowday 9 — offline-first personal planner for iPhone that schedules tasks automatically around deadlines, duration, priorities, manual blocks and working hours.

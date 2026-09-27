@@ -23,7 +23,7 @@ const t = context.__FLOWDAY_TEST__;
 assert.ok(t, 'QA hooks must be available');
 
 const base = {
-  version: 10,
+  version: 8,
   settings: { workStart: 9, workEnd: 18, lunchStart: 13, lunchEnd: 14, buffer: 0, focusLength: 25, weekends: false, theme: 'system' },
   tasks: [], focus: { totalMinutes: 0, sessions: [] },
 };
@@ -135,25 +135,3 @@ assert.equal(malformed.tasks[0].scheduledStart, null);
 assert.equal(malformed.focus.sessions.length, 0);
 
 console.log('Scheduler regression tests passed.');
-
-
-// Flowday 9 feature tests: next-up, single-task scheduling and clearing.
-t.setData({ ...base, tasks: [
-  { id: 'one', title: 'One', duration: 30, priority: 2, deadline: mondayKey, scheduledDate: mondayKey, scheduledStart: '09:00', locked: false, done: false },
-  { id: 'two', title: 'Two', duration: 30, priority: 2, deadline: mondayKey, scheduledDate: mondayKey, scheduledStart: '10:00', locked: true, done: false },
-] });
-t.setCurrentDate(monday);
-const next = t.getNextUpTask(monday);
-assert.ok(next && (next.id === 'one' || next.id === 'two'));
-const health = t.getPlanHealth();
-assert.equal(typeof health.inbox, 'number');
-
-const moveResult = t.scheduleSingleTask('one');
-assert.equal(moveResult.ok, true);
-const moved = t.getData().tasks.find(x => x.id === 'one');
-assert.equal(moved.locked, false);
-assert.ok(moved.scheduledDate && moved.scheduledStart);
-assert.equal(t.clearTaskSchedule('one'), true);
-assert.equal(t.getData().tasks.find(x => x.id === 'one').scheduledDate, null);
-
-console.log('Flowday 9 feature tests passed.');

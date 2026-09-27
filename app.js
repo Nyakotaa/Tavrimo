@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '8.0.0-rc.2';
-  const SCHEMA_VERSION = 9;
-  const STORAGE_KEY = 'flowday-planner-v9';
+  const APP_VERSION = '9.0.0';
+  const SCHEMA_VERSION = 10;
+  const STORAGE_KEY = 'flowday-planner-v10';
   const LEGACY_KEYS = [
-    'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
+    'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
     'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'
   ];
   const PLANNING_HORIZON_DAYS = 14;
@@ -613,15 +613,89 @@
     return { tasks, work, reserve, occupied: work + reserve };
   }
 
+  function taskIsOverdue(task) {
+    return !task.done && Boolean(task.deadline) && deadlineTimestamp(task) < Date.now();
+  }
+
+  function buildOccupiedExcept(excludedId = null) {
+    const occupied = {};
+    data.tasks.filter((task) => !task.done && String(task.id) !== String(excludedId) && task.scheduledDate && task.scheduledStart)
+      .forEach((task) => addOccupied(occupied, task));
+    return occupied;
+  }
+
+  function scheduleSingleTask(id) {
+    const task = byId(id);
+    if (!task || task.done) return { ok: false, reason: 'Задачу нельзя поставить в план.' };
+    const occupied = buildOccupiedExcept(id);
+    const slot = findSlot(task, startOfDay(new Date()), occupied);
+    if (!slot) {
+      task.scheduledDate = null;
+      task.scheduledStart = null;
+      task.locked = false;
+      saveData(); renderAll();
+      return { ok: false, reason: task.deadline ? 'До дедлайна свободного окна не нашлось.' : 'Свободного окна в ближайшие 14 дней не нашлось.' };
+    }
+    task.scheduledDate = slot.date;
+    task.scheduledStart = hm(slot.start);
+    task.locked = false;
+    saveData();
+    currentDate = startOfDay(dateFromKey(slot.date));
+    renderAll();
+    return { ok: true, slot };
+  }
+
+  function clearTaskSchedule(id) {
+    const task = byId(id);
+    if (!task) return false;
+    task.scheduledDate = null; task.scheduledStart = null; task.locked = false;
+    saveData(); renderAll();
+    return true;
+  }
+
+  function getNextUpTask(date = currentDate) {
+    const key = dateKey(date);
+    const tasks = getScheduled(key, false);
+    if (!tasks.length) return null;
+    if (key !== todayKey()) return tasks[0];
+    const now = nowMinutes();
+    return tasks.find((task) => {
+      const start = toMinutes(task.scheduledStart); const end = start + task.duration;
+      return now < end;
+    }) || tasks.find((task) => toMinutes(task.scheduledStart) >= now) || null;
+  }
+
+  function getPlanHealth() {
+    const open = data.tasks.filter((task) => !task.done);
+    const overdue = open.filter(taskIsOverdue).length;
+    const inbox = open.filter((task) => !task.scheduledDate).length;
+    const next7 = Array.from({ length: 7 }, (_, index) => addDays(startOfDay(new Date()), index));
+    const overloaded = next7.filter((day) => {
+      if (!isWorkingDay(day)) return false;
+      const load = dayLoad(day);
+      return load.occupied > workingCapacityMinutes();
+    }).length;
+    const due48h = open.filter((task) => task.deadline && deadlineTimestamp(task) >= Date.now() && deadlineTimestamp(task) <= Date.now() + 48 * 3600000).length;
+    return { open: open.length, overdue, inbox, overloaded, due48h };
+  }
+
   function renderToday() {
     const key = dateKey(currentDate); const load = dayLoad(key); const inbox = getOpenInbox();
     const capacity = workingCapacityMinutes(); const pctRaw = capacity ? Math.round((load.occupied / capacity) * 100) : 0; const pct = Math.min(100, Math.max(0, pctRaw));
     const isToday = key === todayKey(); const working = isWorkingDay(currentDate);
     const dueToday = data.tasks.filter((task) => !task.done && task.deadline === key).length;
-    const overdue = isToday ? data.tasks.filter((task) => !task.done && task.deadline && deadlineTimestamp(task) < Date.now()).length : 0;
+    const overdue = isToday ? data.tasks.filter(taskIsOverdue).length : 0;
     $('#todayEyebrow').textContent = isToday ? 'СЕГОДНЯ' : longDate(currentDate).toUpperCase();
     $('#todayTitle').textContent = isToday ? 'Твой день.' : `План на ${shortDate(currentDate)}.`;
-    $('#todaySubtitle').textContent = !working ? 'Выходной. Автопланирование сюда ничего не ставит.' : data.tasks.length ? `${dueToday ? `${dueToday} ${formatCount(dueToday, 'задача', 'задачи', 'задач')} с дедлайном. ` : ''}${overdue ? `${overdue} просрочено. ` : ''}Flowday учитывает занятое время и резерв.` : 'Добавь первую задачу — время подберётся само.';
+    const summaryBits = [];
+    if (!working) summaryBits.push('Выходной. Автопланирование сюда ничего не ставит.');
+    else if (!data.tasks.length) summaryBits.push('Добавь первую задачу — время подберётся само.');
+    else {
+      if (dueToday) summaryBits.push(`${dueToday} ${formatCount(dueToday, 'задача', 'задачи', 'задач')} с дедлайном сегодня.`);
+      if (overdue) summaryBits.push(`${overdue} просрочено.`);
+      if (!summaryBits.length) summaryBits.push('Flowday держит свободные окна и резерв под контролем.');
+    }
+    $('#todaySubtitle').textContent = summaryBits.join(' ');
     $('#todayDateText').textContent = shortDate(currentDate);
     $('#focusValue').textContent = `${pct}%`; $('#focusRingValue').textContent = `${pct}%`;
     $('#focusLabel').textContent = `${formatDuration(load.work)}${load.reserve ? ` + ${formatDuration(load.reserve)} резерв` : ''} из ${formatDuration(capacity)} · ${load.tasks.length} ${formatCount(load.tasks.length, 'задача', 'задачи', 'задач')}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
@@ -629,6 +703,18 @@
     $('#focusProgress').dataset.over = pctRaw > 100 ? 'true' : 'false'; $('#focusRing').dataset.over = pctRaw > 100 ? 'true' : 'false';
     $('#dayStatusText').textContent = !working ? 'ВЫХОДНОЙ' : pctRaw > 100 ? 'ПЕРЕГРУЗ' : load.tasks.length ? 'ПЛАН ДНЯ' : 'СВОБОДНЫЙ ДЕНЬ';
     $('#statusDot').dataset.state = !working ? 'off' : pctRaw > 100 ? 'over' : load.tasks.length ? 'on' : 'idle';
+    const next = getNextUpTask(currentDate);
+    if (next) {
+      $('#nextUpCard').classList.remove('hidden');
+      const now = nowMinutes(); const start = toMinutes(next.scheduledStart); const end = start + next.duration;
+      const live = key === todayKey() && now >= start && now < end;
+      $('#nextUpTitle').textContent = live ? `Сейчас · ${next.title}` : next.title;
+      $('#nextUpMeta').textContent = `${next.scheduledStart}–${scheduleEnd(next)} · ${formatDuration(next.duration)} · ${next.locked ? 'вручную' : 'авто'}`;
+      $('#nextUpAction').textContent = live ? 'Открыть' : 'Открыть';
+      $('#nextUpAction').dataset.taskId = next.id;
+    } else {
+      $('#nextUpCard').classList.add('hidden'); $('#nextUpAction').dataset.taskId = '';
+    }
     $('#todayAgenda').innerHTML = load.tasks.length ? load.tasks.slice(0, 12).map(renderAgendaCard).join('') : emptyState('Здесь появится расписание.', inbox.length ? 'Flowday поставит открытые задачи по свободным окнам.' : 'Добавь первую задачу через + внизу.');
     $('#inboxCount').textContent = String(inbox.length);
     $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Все открытые задачи уже имеют время.');
@@ -640,7 +726,7 @@
     return `<button class="agenda-card ${type}" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="agenda-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="agenda-main"><strong class="agenda-title">${escapeHtml(task.title)}</strong><small class="agenda-meta">${formatDuration(task.duration)} · ${escapeHtml(task.category)} · ${task.locked ? 'вручную' : 'авто'} · ${escapeHtml(deadlineLabel(task))}</small></span><span class="chevron">›</span></button>`;
   }
   function renderInboxRow(task) {
-    return `<div class="inbox-row"><button class="task-check" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="Отметить выполненной">✓</button><button class="row-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="inbox-title">${escapeHtml(task.title)}</strong><small class="inbox-meta">${deadlineLabel(task)} · ${formatDuration(task.duration)} · ${priorityLabel(task.priority)}</small></button></div>`;
+    return `<div class="inbox-row"><button class="task-check" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="Отметить выполненной">✓</button><button class="row-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="inbox-title">${escapeHtml(task.title)}</strong><small class="inbox-meta">${deadlineLabel(task)} · ${formatDuration(task.duration)} · ${priorityLabel(task.priority)}${taskIsOverdue(task) ? ' · нужен перенос' : ''}</small></button></div>`;
   }
   function emptyState(title, subtitle) { return `<div class="empty-card"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(subtitle)}</span></div>`; }
 
@@ -649,20 +735,21 @@
     $('#weekRange').textContent = `${shortDate(monday)} — ${shortDate(addDays(monday, 6))}`;
     $('#weekStrip').innerHTML = Array.from({ length: 7 }, (_, index) => {
       const day = addDays(monday, index); const key = dateKey(day); const count = getScheduled(key, false).length;
-      return `<button class="week-day ${key === dateKey(currentDate) ? 'active' : ''} ${key === todayKey() ? 'today' : ''} ${count ? 'has-task' : ''}" data-day="${key}" type="button"><span class="dow">${escapeHtml(weekdayShort(day))}</span><span class="num">${day.getDate()}</span><span class="dot"></span></button>`;
+      const load = dayLoad(day); const cap = workingCapacityMinutes(); const pct = cap ? Math.min(100, Math.round(load.occupied / cap * 100)) : 0;
+      return `<button class="week-day ${key === dateKey(currentDate) ? 'active' : ''} ${key === todayKey() ? 'today' : ''} ${count ? 'has-task' : ''}" data-day="${key}" type="button"><span class="dow">${escapeHtml(weekdayShort(day))}</span><span class="num">${day.getDate()}</span><span class="load-mini"><span style="width:${pct}%"></span></span></button>`;
     }).join('');
     const load = dayLoad(currentDate); const pctRaw = workingCapacityMinutes() ? Math.round((load.occupied / workingCapacityMinutes()) * 100) : 0;
     $('#calendarDateLabel').textContent = dateKey(currentDate) === todayKey() ? 'Сегодня' : longDate(currentDate);
     $('#calendarLoadLabel').textContent = `${formatDuration(load.work)}${load.reserve ? ` + ${formatDuration(load.reserve)} резерв` : ''} · ${load.tasks.length} ${formatCount(load.tasks.length, 'задача', 'задачи', 'задач')}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
     $('#calendarLoadValue').textContent = `${Math.min(100, Math.max(0, pctRaw))}%`;
     const dayTasks = getScheduled(currentDate);
-    $('#calendarAgenda').innerHTML = dayTasks.length ? dayTasks.map((task) => `<button class="calendar-block" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="calendar-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="calendar-slot ${task.locked ? 'manual' : 'auto'} ${task.done ? 'done' : ''}"><strong>${escapeHtml(task.title)}</strong><small>${formatDuration(task.duration)} · ${task.locked ? 'вручную' : 'авто'} · ${escapeHtml(deadlineLabel(task))}${task.category ? ` · ${escapeHtml(task.category)}` : ''}</small></span></button>`).join('') : emptyState('На этот день пусто.', 'Выбери другой день или добавь задачу через +.');
+    $('#calendarAgenda').innerHTML = dayTasks.length ? dayTasks.map((task) => `<button class="calendar-block" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="calendar-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="calendar-slot ${task.locked ? 'manual' : 'auto'} ${task.done ? 'done' : ''} ${taskIsOverdue(task) ? 'overdue' : ''}"><strong>${escapeHtml(task.title)}</strong><small>${formatDuration(task.duration)} · ${task.locked ? 'вручную' : 'авто'} · ${escapeHtml(deadlineLabel(task))}${task.category ? ` · ${escapeHtml(task.category)}` : ''}</small></span></button>`).join('') : emptyState('На этот день пусто.', 'Выбери другой день или добавь задачу через +.');
   }
 
   function renderTasks() {
     const search = ($('#taskSearch')?.value || '').trim().toLowerCase();
     const tasks = data.tasks.filter((task) => {
-      const matchesFilter = activeFilter === 'all' || (activeFilter === 'open' && !task.done) || (activeFilter === 'planned' && !task.done && !!task.scheduledDate) || (activeFilter === 'done' && task.done);
+      const matchesFilter = activeFilter === 'all' || (activeFilter === 'open' && !task.done) || (activeFilter === 'planned' && !task.done && !!task.scheduledDate) || (activeFilter === 'due' && !task.done && !!task.deadline) || (activeFilter === 'inbox' && !task.done && !task.scheduledDate) || (activeFilter === 'overdue' && taskIsOverdue(task)) || (activeFilter === 'done' && task.done);
       const haystack = `${task.title} ${task.note} ${task.category}`.toLowerCase();
       return matchesFilter && (!search || haystack.includes(search));
     }).sort((a, b) => { if (a.done !== b.done) return a.done ? 1 : -1; return planningScore(a) - planningScore(b) || b.priority - a.priority; });
@@ -672,10 +759,11 @@
     $$('#filterPopover button').forEach((button) => button.classList.toggle('active', button.dataset.filter === activeFilter));
     $('#allTaskList').innerHTML = tasks.length ? tasks.map(renderTaskRow).join('') : emptyState(search ? 'Ничего не найдено.' : 'Задач пока нет.', search ? 'Попробуй другой запрос.' : 'Добавь первую задачу через +.');
   }
-  function filterLabel(filter) { return ({ open: 'открытые', planned: 'в плане', done: 'готово' }[filter] || 'все'); }
+  function filterLabel(filter) { return ({ open: 'открытые', planned: 'в плане', due: 'с дедлайном', inbox: 'без времени', overdue: 'просроченные', done: 'готово' }[filter] || 'все'); }
   function renderTaskRow(task) {
     const priority = priorityLabel(task.priority); const deadline = deadlineLabel(task); const schedule = scheduleLabel(task);
-    return `<div class="task-row ${task.done ? 'done' : ''}"><button class="task-check ${task.done ? 'done' : ''}" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="${task.done ? 'Вернуть в работу' : 'Выполнить'}">${task.done ? '✓' : ''}</button><button class="task-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="task-title">${escapeHtml(task.title)}</strong><span class="task-badges"><span class="badge ${priorityClass(task.priority)}">${escapeHtml(priority)}</span><span class="badge">${escapeHtml(formatDuration(task.duration))}</span><span class="badge">${escapeHtml(deadline)}</span><span class="badge">${escapeHtml(schedule)}</span></span></button></div>`;
+    const status = task.done ? 'Готово' : taskIsOverdue(task) ? 'Нужен перенос' : (!task.scheduledDate ? 'Без времени' : task.locked ? 'Вручную' : 'Авто');
+    return `<div class="task-row ${task.done ? 'done' : ''}"><button class="task-check ${task.done ? 'done' : ''}" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="${task.done ? 'Вернуть в работу' : 'Выполнить'}">${task.done ? '✓' : ''}</button><button class="task-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="task-title">${escapeHtml(task.title)}</strong><span class="task-badges"><span class="badge ${priorityClass(task.priority)}">${escapeHtml(priority)}</span><span class="badge">${escapeHtml(formatDuration(task.duration))}</span><span class="badge">${escapeHtml(deadline)}</span><span class="badge">${escapeHtml(status)}</span></span></button></div>`;
   }
 
   function renderSettings() {
@@ -717,7 +805,10 @@
     $('#taskForm').reset();
     $('#taskSheetKicker').textContent = task ? 'РЕДАКТИРОВАНИЕ' : 'НОВАЯ ЗАДАЧА';
     $('#taskSheetTitle').textContent = task ? 'Измени задачу' : 'Что нужно сделать?';
-    $('#saveTaskBtn').textContent = task ? 'Сохранить' : 'Добавить'; $('#deleteTaskBtn').hidden = !task;
+    $('#saveTaskBtn').textContent = task ? 'Сохранить' : 'Добавить'; $('#deleteTaskBtn').hidden = !task; $('#taskSmartActions').classList.toggle('hidden', !task || task.done);
+    $('#moveTaskBtn').disabled = !task || task.done;
+    $('#clearTaskScheduleBtn').disabled = !task || task.done || (!task.scheduledDate && !task.scheduledStart);
+    $('#moveTaskBtn').textContent = task?.scheduledDate ? 'Ближайшее окно' : 'Найти время';
     const defaultDeadline = dateKey(currentDate < startOfDay(new Date()) ? new Date() : currentDate);
     $('#taskTitle').value = task?.title || ''; $('#taskDuration').value = String(task?.duration || 60); $('#taskPriority').value = String(task?.priority || 2);
     $('#taskDeadline').value = task ? (task.deadline || '') : ''; $('#taskDeadlineTime').value = task?.deadlineTime || '';
@@ -812,6 +903,24 @@
     focusRemaining = 0; saveData(); renderAll();
     showToast(task ? `Фокус завершён · ${task.title}` : 'Фокус-сессия завершена.');
     focusRemaining = focusBaseSeconds(); focusSessionDate = null; updateFocusUI();
+  }
+
+  function renderPlanHealth() {
+    const health = getPlanHealth();
+    const statusClass = health.overloaded || health.overdue ? 'warning' : '';
+    $('#healthGrid').innerHTML = `
+      <div class="health-card"><strong>${health.open}</strong><small>открытых задач</small></div>
+      <div class="health-card ${health.inbox ? 'warning' : ''}"><strong>${health.inbox}</strong><small>без времени</small></div>
+      <div class="health-card ${health.overdue ? 'danger' : ''}"><strong>${health.overdue}</strong><small>просрочено</small></div>
+    `;
+    const items = [];
+    if (health.overdue) items.push(`<div class="health-item"><span class="health-icon">!</span><div><strong>${health.overdue} просрочено</strong><small>Открой задачу и поставь новый дедлайн или ближайшее свободное окно.</small></div></div>`);
+    if (health.inbox) items.push(`<div class="health-item"><span class="health-icon">⌁</span><div><strong>${health.inbox} без времени</strong><small>Flowday не нашёл им слот или они ещё не были спланированы.</small></div></div>`);
+    if (health.due48h) items.push(`<div class="health-item"><span class="health-icon">◷</span><div><strong>${health.due48h} с дедлайном в ближайшие 48 часов</strong><small>Проверь, хватает ли свободного времени до срока.</small></div></div>`);
+    if (health.overloaded) items.push(`<div class="health-item"><span class="health-icon">↑</span><div><strong>${health.overloaded} перегруженных дня</strong><small>Перестрой план или перенеси часть задач на свободные дни.</small></div></div>`);
+    if (!items.length) items.push(`<div class="health-item"><span class="health-icon">✓</span><div><strong>План в порядке</strong><small>Критичных конфликтов, просрочек и перегруженных дней не найдено.</small></div></div>`);
+    $('#healthList').innerHTML = items.join('');
+    openModal('healthSheetBackdrop');
   }
 
   function renderInsights() {
@@ -916,6 +1025,9 @@
     $('#dateTodayBtn').addEventListener('click', () => { currentDate = startOfDay(new Date()); $('#datePickerInput').value = dateKey(currentDate); renderAll(); closeModal('dateSheetBackdrop'); });
 
     $('#planBtn').addEventListener('click', () => openModal('planningSheetBackdrop'));
+    $('#nextUpAction').addEventListener('click', () => { const id = $('#nextUpAction').dataset.taskId; if (id) openTaskSheet(id); });
+    $('#moveTaskBtn').onclick = () => { if (!editingId) return; const result = scheduleSingleTask(editingId); if (result.ok) { closeModal('taskSheetBackdrop'); showToast(`Поставлено на ${shortDate(dateFromKey(result.slot.date))} · ${hm(result.slot.start)}.`); } else showToast(result.reason); };
+    $('#clearTaskScheduleBtn').onclick = () => { if (!editingId) return; clearTaskSchedule(editingId); closeModal('taskSheetBackdrop'); showToast('Время снято. Задача снова во входящих.'); };
     $('#calendarToday').addEventListener('click', () => { currentDate = startOfDay(new Date()); renderAll(); });
     $('#calendarPrevWeek').addEventListener('click', () => { currentDate = addDays(currentDate, -7); renderAll(); });
     $('#calendarNextWeek').addEventListener('click', () => { currentDate = addDays(currentDate, 7); renderAll(); });
@@ -992,10 +1104,10 @@
     $('#focusSheetBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal('focusSheetBackdrop'); });
     $('#timerStart').onclick = toggleFocusTimer; $('#timerReset').onclick = () => { if (focusRunning) { showToast('Сначала поставь фокус на паузу.'); return; } resetFocusTimer(); };
     $('#focusTaskSelect').addEventListener('change', () => { if (focusRunning) return; focusTaskId = $('#focusTaskSelect').value || null; resetFocusTimer(); updateFocusTip(); });
-    $('#moreFocus').onclick = openFocusSheet; $('#moreInsights').onclick = renderInsights; $('#moreSettings').onclick = () => { renderSettings(); openModal('settingsSheetBackdrop'); };
+    $('#moreFocus').onclick = openFocusSheet; $('#moreInsights').onclick = renderInsights; $('#moreHealth').onclick = renderPlanHealth; $('#moreSettings').onclick = () => { renderSettings(); openModal('settingsSheetBackdrop'); };
 
-    ['planningSheetBackdrop', 'insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
-    $('#closePlanningSheet').onclick = () => closeModal('planningSheetBackdrop'); $('#closeInsightsSheet').onclick = () => closeModal('insightsSheetBackdrop'); $('#closeSettingsSheet').onclick = () => closeModal('settingsSheetBackdrop');
+    ['planningSheetBackdrop', 'insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop', 'healthSheetBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
+    $('#closePlanningSheet').onclick = () => closeModal('planningSheetBackdrop'); $('#closeInsightsSheet').onclick = () => closeModal('insightsSheetBackdrop'); $('#closeSettingsSheet').onclick = () => closeModal('settingsSheetBackdrop'); $('#closeHealthSheet').onclick = () => closeModal('healthSheetBackdrop');
     $('#replanFromSheet').onclick = () => { closeModal('planningSheetBackdrop'); autoPlanAll(); }; $('#clearAutoFromSheet').onclick = clearAutoSlots;
 
     $('#settingsForm').addEventListener('submit', (event) => {
@@ -1061,6 +1173,10 @@
     canFitRemaining,
     repairData,
     planningScore,
+    scheduleSingleTask,
+    clearTaskSchedule,
+    getNextUpTask,
+    getPlanHealth,
     deadlineLabel,
     deadlineTimestamp,
     workingCapacityMinutes,

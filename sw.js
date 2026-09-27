@@ -1,8 +1,8 @@
-const VERSION = 'flowday-v8.0.0-rc.2';
+const VERSION = 'flowday-v9.0.0';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './manifest.webmanifest',
-  './assets/icons/apple-touch-icon-v9.png', './assets/icons/icon-180.png',
-  './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/favicon-32.png'
+  './assets/icons/apple-touch-icon-v10.png', './assets/icons/icon-180.png',
+  './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/favicon-32.png', './assets/icons/source-icon-1024.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -19,6 +19,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'CLEAR_CACHES') event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith('flowday-') && key !== VERSION).map((key) => caches.delete(key)))));
 });
 
 self.addEventListener('fetch', (event) => {
@@ -48,7 +49,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(VERSION).then((cache) => cache.put(request, copy));
         }
         return response;
-      });
+      }).catch(() => cached);
       return cached || network;
     })
   );

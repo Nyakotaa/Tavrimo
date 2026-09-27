@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Flowday" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v9.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v10.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="stylesheet" href="style.css" />
   <title>Flowday</title>
@@ -52,6 +52,11 @@
           <div class="hero-side">
             <div class="mini-ring" id="focusRing"><div><b id="focusRingValue">0%</b><span>занято</span></div></div>
           </div>
+        </section>
+
+        <section class="next-up-card hidden" id="nextUpCard" aria-live="polite">
+          <div class="next-up-copy"><span class="section-kicker">ДАЛЬШЕ</span><strong id="nextUpTitle">—</strong><small id="nextUpMeta">—</small></div>
+          <button class="next-up-action" id="nextUpAction" type="button">Открыть</button>
         </section>
 
         <section class="section" id="nextSection">
@@ -96,6 +101,9 @@
           <button data-filter="all" class="active" type="button">Все</button>
           <button data-filter="open" type="button">Открытые</button>
           <button data-filter="planned" type="button">В плане</button>
+          <button data-filter="due" type="button">С дедлайном</button>
+          <button data-filter="inbox" type="button">Без времени</button>
+          <button data-filter="overdue" type="button">Просроченные</button>
           <button data-filter="done" type="button">Готово</button>
         </div>
         <div id="allTaskList" class="task-library"></div>
@@ -112,11 +120,14 @@
           <button class="feature-card" id="moreInsights" type="button">
             <span class="feature-icon blue">▥</span><span><strong>Статистика</strong><small>Нагрузка и фокус за неделю</small></span><span class="chevron">›</span>
           </button>
+          <button class="feature-card" id="moreHealth" type="button">
+            <span class="feature-icon green">⌁</span><span><strong>Состояние плана</strong><small>Дедлайны, перегруз и задачи без слота</small></span><span class="chevron">›</span>
+          </button>
           <button class="feature-card" id="moreSettings" type="button">
             <span class="feature-icon gray">⚙</span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Flowday <span id="appVersionLabel">v8.0.0 RC2</span></div>
+        <div class="app-version">Flowday <span id="appVersionLabel">v9.0.0</span></div>
       </section>
     </main>
 
@@ -144,6 +155,10 @@
         <div class="switch-row"><div><strong>Поставить вручную</strong><small>Иначе Flowday выберет время сам.</small></div><input type="checkbox" id="manualScheduleToggle" /></div>
         <div class="two-col hidden" id="manualScheduleFields"><label>Дата<input id="taskScheduleDate" type="date" /></label><label>Время<input id="taskScheduleTime" type="time" step="900" /></label></div><p class="manual-hint hidden" id="manualScheduleHint"></p><p class="logic-hint" id="taskLogicHint"></p>
         <label>Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Опционально"></textarea></label>
+        <div class="task-smart-actions hidden" id="taskSmartActions">
+          <button class="secondary-button" type="button" id="moveTaskBtn">Ближайшее окно</button>
+          <button class="secondary-button" type="button" id="clearTaskScheduleBtn">Без времени</button>
+        </div>
         <div class="form-actions"><button class="danger-button" type="button" id="deleteTaskBtn" hidden>Удалить</button><span></span><button class="secondary-button" type="button" id="cancelTask">Отмена</button><button class="primary-button" type="submit" id="saveTaskBtn">Добавить</button></div>
       </form>
     </section>
@@ -180,6 +195,15 @@
       <div class="grabber"></div><header class="sheet-header"><div><p class="eyebrow">ПЛАН</p><h2 id="planningTitleSheet">Управление планом</h2></div><button class="icon-btn ghost" id="closePlanningSheet" type="button" aria-label="Закрыть">×</button></header>
       <p class="sheet-note" id="planMeta">Перестраивается весь автоматический план от сегодняшнего дня. Ручные блоки Flowday не тронет.</p>
       <div class="stack-buttons"><button class="primary-button wide" id="replanFromSheet" type="button">✦ Перестроить план</button><button class="secondary-button wide" id="clearAutoFromSheet" type="button">Снять автоматические слоты</button></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="healthSheetBackdrop" hidden>
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="healthTitleSheet">
+      <div class="grabber"></div>
+      <header class="sheet-header"><div><p class="eyebrow">КОНТРОЛЬ</p><h2 id="healthTitleSheet">Состояние плана</h2></div><button class="icon-btn ghost" id="closeHealthSheet" type="button" aria-label="Закрыть">×</button></header>
+      <div class="health-grid" id="healthGrid"></div>
+      <div class="health-list" id="healthList"></div>
     </section>
   </div>
 
