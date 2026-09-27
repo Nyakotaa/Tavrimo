@@ -1,10 +1,10 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '6.0.0';
-  const SCHEMA_VERSION = 6;
-  const STORAGE_KEY = 'flowday-planner-v6';
-  const LEGACY_KEYS = ['flowday-planner-v5', 'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'];
+  const APP_VERSION = '7.0.0';
+  const SCHEMA_VERSION = 7;
+  const STORAGE_KEY = 'flowday-planner-v7';
+  const LEGACY_KEYS = ['flowday-planner-v6', 'flowday-planner-v5', 'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'];
   const DEMO_TITLES = new Set([
     'Собрать структуру презентации',
     'Ответить на важные письма',
@@ -35,10 +35,7 @@
   const byId = (id) => data.tasks.find((task) => String(task.id) === String(id));
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
-  function uid() {
-    if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
-    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
+  function uid() { return globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
   function startOfDay(value) { const d = new Date(value); d.setHours(0, 0, 0, 0); return d; }
   function dateKey(value) { const d = startOfDay(value); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function dateFromKey(key) { const [y, m, d] = String(key).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1, 12); }
@@ -59,15 +56,22 @@
     if (hours && mins) return `${hours}ч ${mins}м`; if (hours) return `${hours}ч`; return `${mins}м`;
   }
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
+  function todayKey() { return dateKey(new Date()); }
+  function nowMinutes() { const now = new Date(); return now.getHours() * 60 + now.getMinutes(); }
+  function maxDateKey(a, b) { return a > b ? a : b; }
 
   function normalizeTask(task, index) {
-    const deadline = /^\d{4}-\d{2}-\d{2}$/.test(String(task?.deadline || '')) ? String(task.deadline) : dateKey(new Date());
+    const today = todayKey();
+    const deadline = /^\d{4}-\d{2}-\d{2}$/.test(String(task?.deadline || '')) ? String(task.deadline) : today;
+    const rawDeadlineTime = String(task?.deadlineTime || '');
+    const deadlineTime = /^\d{2}:\d{2}$/.test(rawDeadlineTime) ? rawDeadlineTime : null;
     return {
       id: task?.id != null ? String(task.id) : `${Date.now()}-${index}`,
       title: String(task?.title || '').trim().slice(0, 120),
-      duration: Math.min(480, Math.max(15, Math.round(Number(task?.duration) || 30))),
-      priority: Math.min(3, Math.max(1, Number(task?.priority) || 2)),
+      duration: [15, 30, 45, 60, 90, 120, 180, 240].includes(Number(task?.duration)) ? Number(task.duration) : 30,
+      priority: [1, 2, 3].includes(Number(task?.priority)) ? Number(task.priority) : 2,
       deadline,
+      deadlineTime,
       category: String(task?.category || 'Учёба'),
       note: String(task?.note || '').slice(0, 300),
       scheduledDate: /^\d{4}-\d{2}-\d{2}$/.test(String(task?.scheduledDate || '')) ? String(task.scheduledDate) : null,
@@ -120,21 +124,45 @@
     catch { showToast('Не удалось сохранить данные на устройстве.'); return false; }
   }
 
-  function isWorkingDay(value) { const day = startOfDay(value).getDay(); return data.settings.weekends || (day !== 0 && day !== 6); }
-  function workingCapacityMinutes() { return Math.max(0, (data.settings.workEnd - data.settings.workStart) * 60 - Math.max(0, (data.settings.lunchEnd - data.settings.lunchStart) * 60)); }
+  function isWorkingDay(value) {
+    const day = startOfDay(value).getDay();
+    return data.settings.weekends || (day !== 0 && day !== 6);
+  }
+  function workingCapacityMinutes() {
+    const work = Math.max(0, (data.settings.workEnd - data.settings.workStart) * 60);
+    const lunch = Math.max(0, (data.settings.lunchEnd - data.settings.lunchStart) * 60);
+    return Math.max(0, work - lunch);
+  }
   function priorityLabel(priority) { return priority === 3 ? 'Высокий' : priority === 1 ? 'Низкий' : 'Средний'; }
   function priorityClass(priority) { return priority === 3 ? 'priority-high' : priority === 1 ? 'priority-low' : 'priority-mid'; }
-  function deadlineLabel(task) { const diff = daysBetween(new Date(), dateFromKey(task.deadline)); if (diff < 0) return `Просрочено · ${Math.abs(diff)}д`; if (diff === 0) return 'Сегодня'; if (diff === 1) return 'Завтра'; return `До ${shortDate(dateFromKey(task.deadline))}`; }
+  function deadlineMinutes(task) { return task.deadlineTime ? toMinutes(task.deadlineTime) : (24 * 60 - 1); }
+  function deadlineTimestamp(task) { return startOfDay(dateFromKey(task.deadline)).getTime() + deadlineMinutes(task) * 60000; }
+  function deadlineLabel(task) {
+    const diff = daysBetween(new Date(), dateFromKey(task.deadline));
+    const now = Date.now(); const deadlineAt = deadlineTimestamp(task);
+    const time = task.deadlineTime ? ` до ${task.deadlineTime}` : '';
+    if (deadlineAt < now) return diff === 0 ? `Просрочено${task.deadlineTime ? ` · ${task.deadlineTime}` : ''}` : `Просрочено · ${Math.abs(diff)}д`;
+    if (diff === 0) return `Сегодня${time}`;
+    if (diff === 1) return `Завтра${time}`;
+    return `До ${shortDate(dateFromKey(task.deadline))}${time}`;
+  }
   function scheduleLabel(task) { return task.scheduledDate && task.scheduledStart ? `${shortDate(dateFromKey(task.scheduledDate))}, ${task.scheduledStart}` : 'Без времени'; }
-  function getScheduled(date) { const key = typeof date === 'string' ? date : dateKey(date); return data.tasks.filter((task) => task.scheduledDate === key && task.scheduledStart).sort((a, b) => toMinutes(a.scheduledStart) - toMinutes(b.scheduledStart)); }
-  function getOpenInbox() { return data.tasks.filter((task) => !task.done && !task.scheduledDate).sort((a, b) => (a.deadline + a.title).localeCompare(b.deadline + b.title, 'ru')); }
+  function getScheduled(date) {
+    const key = typeof date === 'string' ? date : dateKey(date);
+    return data.tasks.filter((task) => task.scheduledDate === key && task.scheduledStart).sort((a, b) => toMinutes(a.scheduledStart) - toMinutes(b.scheduledStart));
+  }
+  function getOpenInbox() { return data.tasks.filter((task) => !task.done && !task.scheduledDate).sort((a, b) => deadlineTimestamp(a) - deadlineTimestamp(b) || b.priority - a.priority || a.createdAt.localeCompare(b.createdAt)); }
   function getWeekStart(date) { const d = startOfDay(date); const day = d.getDay(); d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d; }
-  function taskScore(task, fromDate) { const days = daysBetween(startOfDay(fromDate), dateFromKey(task.deadline)); const urgency = days < 0 ? 180 : Math.max(0, 100 - days * 14); const priority = task.priority * 42; const duration = Math.max(0, 20 - Math.round(task.duration / 15)); return priority + urgency + duration; }
+  function formatCount(count, one, few, many) { const n = Math.abs(count) % 100; const n10 = n % 10; if (n >= 11 && n <= 19) return many; if (n10 === 1) return one; if (n10 >= 2 && n10 <= 4) return few; return many; }
 
   function mergeIntervals(intervals) {
     const list = intervals.filter((item) => Number.isFinite(item.s) && Number.isFinite(item.e) && item.e > item.s).sort((a, b) => a.s - b.s);
     const merged = [];
-    for (const interval of list) { const last = merged[merged.length - 1]; if (last && interval.s <= last.e) last.e = Math.max(last.e, interval.e); else merged.push({ ...interval }); }
+    for (const interval of list) {
+      const last = merged[merged.length - 1];
+      if (last && interval.s <= last.e) last.e = Math.max(last.e, interval.e);
+      else merged.push({ ...interval });
+    }
     return merged;
   }
 
@@ -142,65 +170,111 @@
     const start = data.settings.workStart * 60; const end = data.settings.workEnd * 60;
     const lunchStart = data.settings.lunchStart * 60; const lunchEnd = data.settings.lunchEnd * 60;
     const intervals = [...(occupied || []), { s: lunchStart, e: lunchEnd }]
-      .map((i) => ({ s: Math.max(start, i.s), e: Math.min(end, i.e) })).filter((i) => i.e > i.s);
+      .map((i) => ({ s: Math.max(start, i.s), e: Math.min(end, i.e) }))
+      .filter((i) => i.e > i.s);
     const merged = mergeIntervals(intervals); const result = []; let cursor = start;
-    for (const interval of merged) { if (interval.s > cursor) result.push([cursor, interval.s]); cursor = Math.max(cursor, interval.e); }
-    if (cursor < end) result.push([cursor, end]); return result;
+    for (const interval of merged) {
+      if (interval.s > cursor) result.push([cursor, interval.s]);
+      cursor = Math.max(cursor, interval.e);
+    }
+    if (cursor < end) result.push([cursor, end]);
+    return result;
   }
 
   function addOccupied(occupied, task) {
     if (!task.scheduledDate || !task.scheduledStart || task.done) return;
     const start = toMinutes(task.scheduledStart); const end = start + task.duration + Number(data.settings.buffer || 0);
+    if (!Number.isFinite(start) || end <= start) return;
     (occupied[task.scheduledDate] ||= []).push({ s: start, e: end });
   }
 
+  function latestAllowedEnd(task, dateKeyValue) {
+    const workEnd = data.settings.workEnd * 60;
+    if (dateKeyValue !== task.deadline) return workEnd;
+    return Math.min(workEnd, deadlineMinutes(task));
+  }
+
   function findSlot(task, fromDate, occupied) {
-    const startFrom = startOfDay(fromDate); const deadline = dateFromKey(task.deadline); const todayKey = dateKey(new Date());
-    for (let cursor = startFrom; cursor <= deadline; cursor = addDays(cursor, 1)) {
+    const startDate = startOfDay(fromDate); const deadlineDate = dateFromKey(task.deadline); const today = todayKey();
+    for (let cursor = startDate; cursor <= deadlineDate; cursor = addDays(cursor, 1)) {
       if (!isWorkingDay(cursor)) continue;
       const key = dateKey(cursor); const windows = getFreeWindows(occupied[key] || []);
       for (const [windowStart, windowEnd] of windows) {
         let start = Math.ceil(windowStart / 15) * 15;
-        if (key === todayKey) start = Math.max(start, Math.ceil((new Date().getHours() * 60 + new Date().getMinutes()) / 15) * 15);
-        if (start + task.duration <= windowEnd) return { date: key, start };
+        if (key === today) start = Math.max(start, Math.ceil(nowMinutes() / 15) * 15);
+        const latestEnd = latestAllowedEnd(task, key);
+        if (start + task.duration <= Math.min(windowEnd, latestEnd)) return { date: key, start };
       }
     }
     return null;
   }
 
+  function sortForPlanning(tasks) {
+    return [...tasks].sort((a, b) => {
+      const deadlineDiff = deadlineTimestamp(a) - deadlineTimestamp(b);
+      if (deadlineDiff !== 0) return deadlineDiff;
+      if (b.priority !== a.priority) return b.priority - a.priority;
+      if (b.duration !== a.duration) return b.duration - a.duration;
+      return String(a.createdAt).localeCompare(String(b.createdAt));
+    });
+  }
+
   function autoPlanAll(showResult = true) {
-    const today = startOfDay(new Date()); const planningStart = currentDate < today ? today : currentDate;
-    data.tasks.forEach((task) => { if (!task.done && !task.locked) { task.scheduledDate = null; task.scheduledStart = null; } });
+    const today = startOfDay(new Date());
+    const planningStart = currentDate < today ? today : currentDate;
+    data.tasks.forEach((task) => {
+      if (!task.done && !task.locked) { task.scheduledDate = null; task.scheduledStart = null; }
+    });
     const occupied = {};
     data.tasks.filter((task) => !task.done && task.locked).forEach((task) => addOccupied(occupied, task));
-    const pending = data.tasks.filter((task) => !task.done && !task.locked && dateFromKey(task.deadline) >= startOfDay(planningStart)).sort((a, b) => taskScore(b, planningStart) - taskScore(a, planningStart));
+    const pending = sortForPlanning(data.tasks.filter((task) => !task.done && !task.locked && dateFromKey(task.deadline) >= startOfDay(planningStart)));
     let placed = 0;
-    for (const task of pending) { const slot = findSlot(task, planningStart, occupied); if (!slot) continue; task.scheduledDate = slot.date; task.scheduledStart = hm(slot.start); task.locked = false; addOccupied(occupied, task); placed += 1; }
+    let overdue = 0;
+    for (const task of pending) {
+      const slot = findSlot(task, planningStart, occupied);
+      if (!slot) { overdue += 1; continue; }
+      task.scheduledDate = slot.date; task.scheduledStart = hm(slot.start); task.locked = false;
+      addOccupied(occupied, task); placed += 1;
+    }
     saveData(); renderAll();
-    if (showResult) showToast(placed ? `План готов · ${placed} ${placed === 1 ? 'задача' : placed < 5 ? 'задачи' : 'задач'}` : 'Свободных окон до дедлайнов не хватило.');
+    if (showResult) {
+      if (placed && !overdue) showToast(`План готов · ${placed} ${formatCount(placed, 'задача', 'задачи', 'задач')}`);
+      else if (placed && overdue) showToast(`План готов · ${placed} поставлено, ${overdue} не поместилось до дедлайна.`);
+      else if (overdue) showToast(`Не удалось разместить ${overdue} ${formatCount(overdue, 'задачу', 'задачи', 'задач')} до дедлайна.`);
+      else showToast('Пока нечего планировать.');
+    }
+    return { placed, overdue };
   }
 
   function scheduleSingle(taskId) {
-    const task = byId(taskId); if (!task || task.done || task.locked) return;
+    const task = byId(taskId); if (!task || task.done || task.locked) return false;
     const today = startOfDay(new Date()); const from = currentDate < today ? today : currentDate; const occupied = {};
     data.tasks.filter((other) => String(other.id) !== String(taskId) && !other.done && other.scheduledDate && other.scheduledStart).forEach((other) => addOccupied(occupied, other));
     const slot = findSlot(task, from, occupied);
-    if (!slot) { task.scheduledDate = null; task.scheduledStart = null; saveData(); renderAll(); showToast('Пока не нашлось свободного окна до дедлайна.'); return; }
-    task.scheduledDate = slot.date; task.scheduledStart = hm(slot.start); task.locked = false; saveData(); renderAll(); showToast('Задача добавлена в план.');
+    if (!slot) {
+      task.scheduledDate = null; task.scheduledStart = null; task.locked = false;
+      saveData(); renderAll(); showToast(`Не нашлось окна до дедлайна ${deadlineLabel(task).toLowerCase()}.`);
+      return false;
+    }
+    task.scheduledDate = slot.date; task.scheduledStart = hm(slot.start); task.locked = false;
+    addOccupied(occupied, task); saveData(); renderAll(); showToast(`Поставлено · ${task.scheduledStart} ${shortDate(dateFromKey(task.scheduledDate))}`); return true;
   }
 
   function validateManualSlot(task, scheduledDate, scheduledStart, duration) {
     if (!scheduledDate || !scheduledStart) return 'Укажи дату и время.';
-    if (!isWorkingDay(dateFromKey(scheduledDate))) return 'Этот день не входит в рабочие дни.';
-    if (dateFromKey(scheduledDate) > dateFromKey(task.deadline)) return 'Слот позже дедлайна.';
-    if (dateFromKey(scheduledDate) < startOfDay(new Date())) return 'Нельзя поставить задачу в прошлое.';
+    const date = dateFromKey(scheduledDate); const today = startOfDay(new Date());
+    if (!isWorkingDay(date)) return 'Этот день не входит в рабочие дни.';
+    if (date < today) return 'Нельзя поставить задачу в прошлое.';
+    if (date > dateFromKey(task.deadline)) return 'Слот позже дедлайна.';
     const start = toMinutes(scheduledStart); const end = start + duration;
     const workStart = data.settings.workStart * 60; const workEnd = data.settings.workEnd * 60;
     const lunchStart = data.settings.lunchStart * 60; const lunchEnd = data.settings.lunchEnd * 60;
     if (!Number.isFinite(start)) return 'Неверное время.';
     if (start % 15 !== 0) return 'Время должно быть кратно 15 минутам.';
+    if (dateKey(date) === todayKey() && start < nowMinutes()) return 'Это время уже прошло.';
     if (start < workStart || end > workEnd) return 'Слот выходит за пределы рабочего дня.';
     if (start < lunchEnd && end > lunchStart) return 'Слот пересекается с перерывом.';
+    if (dateKey(date) === task.deadline && end > deadlineMinutes(task)) return task.deadlineTime ? `Слот заканчивается позже ${task.deadlineTime}.` : 'Слот заканчивается после дедлайна.';
     const newStart = start; const newEnd = end + Number(data.settings.buffer || 0);
     const conflict = data.tasks.some((other) => {
       if (String(other.id) === String(task.id) || other.done || other.scheduledDate !== scheduledDate || !other.scheduledStart) return false;
@@ -210,15 +284,31 @@
     return conflict ? 'На это время уже стоит другая задача.' : '';
   }
 
-  function completeTask(id) {
-    const task = byId(id); if (!task) return;
-    task.done = !task.done; if (task.done) task.locked = false; saveData(); renderAll(); showToast(task.done ? 'Задача выполнена.' : 'Задача возвращена в работу.');
+  function slotValidationText(task) {
+    if (!$('#manualScheduleToggle')?.checked) return '';
+    const date = $('#taskScheduleDate')?.value; const time = $('#taskScheduleTime')?.value; const duration = Number($('#taskDuration')?.value || 0);
+    if (!date || !time) return 'Выбери дату и время.';
+    const error = validateManualSlot(task || { id: editingId || '__new__', deadline: $('#taskDeadline').value, deadlineTime: $('#taskDeadlineTime')?.value || null }, date, time, duration);
+    if (error) return error;
+    return `Свободно · ${time}–${hm(toMinutes(time) + duration)} · займёт ${formatDuration(duration)}`;
   }
 
-  function deleteTask(id) { data.tasks = data.tasks.filter((task) => String(task.id) !== String(id)); saveData(); closeAllModals(); renderAll(); showToast('Задача удалена.'); }
+  function completeTask(id) {
+    const task = byId(id); if (!task) return;
+    task.done = !task.done; if (task.done) task.locked = false;
+    saveData(); renderAll(); showToast(task.done ? 'Задача выполнена.' : 'Задача возвращена в работу.');
+  }
+
+  function deleteTask(id) {
+    data.tasks = data.tasks.filter((task) => String(task.id) !== String(id));
+    saveData(); closeAllModals(); renderAll(); showToast('Задача удалена.');
+  }
 
   function clearAutoSlots() {
-    let changed = 0; data.tasks.forEach((task) => { if (!task.done && !task.locked && (task.scheduledDate || task.scheduledStart)) { task.scheduledDate = null; task.scheduledStart = null; changed += 1; } });
+    let changed = 0;
+    data.tasks.forEach((task) => {
+      if (!task.done && !task.locked && (task.scheduledDate || task.scheduledStart)) { task.scheduledDate = null; task.scheduledStart = null; changed += 1; }
+    });
     saveData(); closeModal('planningSheetBackdrop'); renderAll(); showToast(changed ? `Снято автоматических слотов: ${changed}.` : 'Автоматических слотов нет.');
   }
 
@@ -231,7 +321,7 @@
     document.documentElement.dataset.theme = actual;
   }
 
-  function renderAll() { applyTheme(); renderChrome(); renderToday(); renderCalendar(); renderTasks(); renderSettings(); populateFocusTasks(); updatePlanControls(); updateAppVersion(); }
+  function renderAll() { applyTheme(); renderChrome(); renderToday(); renderCalendar(); renderTasks(); renderSettings(); populateFocusTasks(); updatePlanControls(); updateAppVersion(); updateManualHint(); }
 
   function renderChrome() {
     $('#headerContext').textContent = currentView === 'today' ? shortDate(currentDate) : ({ calendar: 'Неделя', tasks: 'Задачи', more: 'Ещё' }[currentView] || 'Flowday');
@@ -243,33 +333,35 @@
     const unplanned = getOpenInbox().length; const autoPlanned = data.tasks.some((task) => !task.done && !task.locked && task.scheduledDate);
     const shouldShow = unplanned || autoPlanned;
     $('#planBtn').classList.toggle('hidden', !shouldShow);
-    $('#planBtnText').textContent = autoPlanned ? 'Настроить план' : 'Собрать план';
+    $('#planBtnText').textContent = autoPlanned ? 'План' : 'Запланировать';
     const sheetMeta = $('#planMeta');
-    if (sheetMeta) sheetMeta.textContent = unplanned ? `${unplanned} ${unplanned === 1 ? 'задача' : 'задач'} без времени.` : autoPlanned ? 'Автоматические блоки можно пересобрать или снять.' : 'Сейчас планировать нечего.';
+    if (sheetMeta) sheetMeta.textContent = unplanned ? `${unplanned} ${formatCount(unplanned, 'задача', 'задачи', 'задач')} без времени.` : autoPlanned ? 'Автоматические блоки можно пересобрать или снять.' : 'Сейчас планировать нечего.';
   }
 
   function renderToday() {
     const key = dateKey(currentDate); const scheduled = getScheduled(key).filter((task) => !task.done); const inbox = getOpenInbox();
-    const plannedMinutes = scheduled.reduce((sum, task) => sum + task.duration, 0); const capacity = workingCapacityMinutes(); const pct = Math.min(100, Math.round((plannedMinutes / Math.max(1, capacity)) * 100));
-    const isToday = key === dateKey(new Date()); const working = isWorkingDay(currentDate);
+    const plannedMinutes = scheduled.reduce((sum, task) => sum + task.duration, 0); const capacity = workingCapacityMinutes(); const pctRaw = capacity ? Math.round((plannedMinutes / capacity) * 100) : 0; const pct = Math.min(100, Math.max(0, pctRaw));
+    const isToday = key === todayKey(); const working = isWorkingDay(currentDate);
+    const dueToday = data.tasks.filter((task) => !task.done && task.deadline === key).length;
     $('#todayEyebrow').textContent = isToday ? 'СЕГОДНЯ' : longDate(currentDate).toUpperCase();
     $('#todayTitle').textContent = isToday ? 'Твой день.' : `План на ${shortDate(currentDate)}.`;
-    $('#todaySubtitle').textContent = !working ? 'Выходной. Ничего не меняется, пока ты сам не добавишь задачу.' : data.tasks.length ? 'Задачи, дедлайны и свободные окна — в одном месте.' : 'Начни с одной задачи — остальное можно доверить планировщику.';
+    $('#todaySubtitle').textContent = !working ? 'Выходной. Автопланирование сюда ничего не ставит.' : data.tasks.length ? `${dueToday ? `${dueToday} ${formatCount(dueToday, 'задача', 'задачи', 'задач')} с дедлайном сегодня. ` : ''}Свободные окна Flowday учитывает автоматически.` : 'Добавь первую задачу — время подберётся само.';
     $('#todayDateText').textContent = shortDate(currentDate);
     $('#focusValue').textContent = `${pct}%`; $('#focusRingValue').textContent = `${pct}%`;
-    $('#focusLabel').textContent = plannedMinutes ? `${formatDuration(plannedMinutes)} запланировано` : 'ничего не запланировано';
-    $('#focusProgress').style.width = `${pct}%`;
-    $('#focusRing').style.setProperty('--ring-pct', `${pct * 3.6}deg`);
-    $('#dayStatusText').textContent = !working ? 'ВЫХОДНОЙ' : scheduled.length ? 'ПЛАН ДНЯ' : 'СВОБОДНЫЙ ДЕНЬ';
-    $('#statusDot').dataset.state = !working ? 'off' : scheduled.length ? 'on' : 'idle';
-
-    $('#todayAgenda').innerHTML = scheduled.length ? scheduled.slice(0, 12).map(renderAgendaCard).join('') : emptyState('Здесь появится расписание.', inbox.length ? 'Собери план — Flowday распределит задачи по свободным окнам.' : 'Добавь первую задачу через + внизу.');
+    $('#focusLabel').textContent = `${formatDuration(plannedMinutes)} из ${formatDuration(capacity)} · ${scheduled.length} ${formatCount(scheduled.length, 'задача', 'задачи', 'задач')}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
+    $('#focusProgress').style.width = `${pct}%`; $('#focusRing').style.setProperty('--ring-pct', `${pct * 3.6}deg`);
+    $('#focusProgress').dataset.over = pctRaw > 100 ? 'true' : 'false'; $('#focusRing').dataset.over = pctRaw > 100 ? 'true' : 'false';
+    $('#dayStatusText').textContent = !working ? 'ВЫХОДНОЙ' : pctRaw > 100 ? 'ПЕРЕГРУЗ' : scheduled.length ? 'ПЛАН ДНЯ' : 'СВОБОДНЫЙ ДЕНЬ';
+    $('#statusDot').dataset.state = !working ? 'off' : pctRaw > 100 ? 'over' : scheduled.length ? 'on' : 'idle';
+    $('#todayAgenda').innerHTML = scheduled.length ? scheduled.slice(0, 12).map(renderAgendaCard).join('') : emptyState('Здесь появится расписание.', inbox.length ? 'Нажми «Запланировать» — Flowday распределит задачи до их дедлайнов.' : 'Добавь первую задачу через + внизу.');
     $('#inboxCount').textContent = String(inbox.length);
-    $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Новые задачи появятся здесь до назначения времени.');
+    $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Все открытые задачи уже имеют время.');
   }
 
+  function scheduleEnd(task) { return hm(toMinutes(task.scheduledStart) + task.duration); }
+
   function renderAgendaCard(task) {
-    return `<button class="agenda-card ${task.locked ? 'manual' : 'auto'}" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="agenda-time">${escapeHtml(task.scheduledStart)}</span><span class="agenda-main"><strong class="agenda-title">${escapeHtml(task.title)}</strong><small class="agenda-meta">${formatDuration(task.duration)} · ${escapeHtml(task.category)} · ${task.locked ? 'вручную' : 'авто'}</small></span><span class="chevron">›</span></button>`;
+    return `<button class="agenda-card ${task.locked ? 'manual' : 'auto'}" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="agenda-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="agenda-main"><strong class="agenda-title">${escapeHtml(task.title)}</strong><small class="agenda-meta">${formatDuration(task.duration)} · ${escapeHtml(task.category)} · ${task.locked ? 'вручную' : 'авто'} · ${escapeHtml(deadlineLabel(task))}</small></span><span class="chevron">›</span></button>`;
   }
 
   function renderInboxRow(task) {
@@ -280,20 +372,32 @@
 
   function renderCalendar() {
     const monday = getWeekStart(currentDate); $('#weekRange').textContent = `${shortDate(monday)} — ${shortDate(addDays(monday, 6))}`;
-    $('#weekStrip').innerHTML = Array.from({ length: 7 }, (_, index) => { const day = addDays(monday, index); const key = dateKey(day); const count = getScheduled(key).filter((task) => !task.done).length; return `<button class="week-day ${key === dateKey(currentDate) ? 'active' : ''} ${key === dateKey(new Date()) ? 'today' : ''} ${count ? 'has-task' : ''}" data-day="${key}" type="button"><span class="dow">${escapeHtml(weekdayShort(day))}</span><span class="num">${day.getDate()}</span><span class="dot"></span></button>`; }).join('');
-    const dayTasks = getScheduled(currentDate); const openCount = dayTasks.filter((task) => !task.done).length; const plannedMinutes = dayTasks.filter((task) => !task.done).reduce((sum, task) => sum + task.duration, 0); const pct = Math.min(100, Math.round((plannedMinutes / Math.max(1, workingCapacityMinutes())) * 100));
-    $('#calendarDateLabel').textContent = dateKey(currentDate) === dateKey(new Date()) ? 'Сегодня' : longDate(currentDate); $('#calendarLoadLabel').textContent = `${formatDuration(plannedMinutes)} запланировано · ${openCount} ${openCount === 1 ? 'задача' : 'задач'}`; $('#calendarLoadValue').textContent = `${pct}%`;
-    $('#calendarAgenda').innerHTML = dayTasks.length ? dayTasks.map((task) => `<button class="calendar-block" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="calendar-time">${escapeHtml(task.scheduledStart)}</span><span class="calendar-slot ${task.locked ? 'manual' : 'auto'} ${task.done ? 'done' : ''}"><strong>${escapeHtml(task.title)}</strong><small>${formatDuration(task.duration)} · ${task.locked ? 'вручную' : 'авто'}${task.category ? ` · ${escapeHtml(task.category)}` : ''}</small></span></button>`).join('') : emptyState('На этот день пусто.', 'Выбери другой день или добавь задачу через +.');
+    $('#weekStrip').innerHTML = Array.from({ length: 7 }, (_, index) => {
+      const day = addDays(monday, index); const key = dateKey(day); const count = getScheduled(key).filter((task) => !task.done).length;
+      return `<button class="week-day ${key === dateKey(currentDate) ? 'active' : ''} ${key === todayKey() ? 'today' : ''} ${count ? 'has-task' : ''}" data-day="${key}" type="button"><span class="dow">${escapeHtml(weekdayShort(day))}</span><span class="num">${day.getDate()}</span><span class="dot"></span></button>`;
+    }).join('');
+    const dayTasks = getScheduled(currentDate); const openCount = dayTasks.filter((task) => !task.done).length; const plannedMinutes = dayTasks.filter((task) => !task.done).reduce((sum, task) => sum + task.duration, 0); const pctRaw = workingCapacityMinutes() ? Math.round((plannedMinutes / workingCapacityMinutes()) * 100) : 0;
+    $('#calendarDateLabel').textContent = dateKey(currentDate) === todayKey() ? 'Сегодня' : longDate(currentDate); $('#calendarLoadLabel').textContent = `${formatDuration(plannedMinutes)} занято · ${openCount} ${formatCount(openCount, 'задача', 'задачи', 'задач')}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`; $('#calendarLoadValue').textContent = `${Math.min(100, Math.max(0, pctRaw))}%`;
+    $('#calendarAgenda').innerHTML = dayTasks.length ? dayTasks.map((task) => `<button class="calendar-block" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="calendar-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="calendar-slot ${task.locked ? 'manual' : 'auto'} ${task.done ? 'done' : ''}"><strong>${escapeHtml(task.title)}</strong><small>${formatDuration(task.duration)} · ${task.locked ? 'вручную' : 'авто'} · ${escapeHtml(deadlineLabel(task))}${task.category ? ` · ${escapeHtml(task.category)}` : ''}</small></span></button>`).join('') : emptyState('На этот день пусто.', 'Выбери другой день или добавь задачу через +.');
   }
 
   function renderTasks() {
     const search = ($('#taskSearch')?.value || '').trim().toLowerCase();
-    const tasks = data.tasks.filter((task) => { const matchesFilter = activeFilter === 'all' || (activeFilter === 'open' && !task.done) || (activeFilter === 'planned' && !task.done && !!task.scheduledDate) || (activeFilter === 'done' && task.done); const haystack = `${task.title} ${task.note} ${task.category}`.toLowerCase(); return matchesFilter && (!search || haystack.includes(search)); }).sort((a, b) => { if (a.done !== b.done) return a.done ? 1 : -1; if (a.deadline !== b.deadline) return a.deadline.localeCompare(b.deadline); return b.priority - a.priority; });
-    const open = data.tasks.filter((task) => !task.done).length; $('#taskSummary').textContent = `${open} ${open === 1 ? 'открытая задача' : 'открытых задач'}`; $('#filterCount').textContent = activeFilter === 'all' ? '' : `· ${filterLabel(activeFilter)}`; $$('#filterPopover button').forEach((button) => button.classList.toggle('active', button.dataset.filter === activeFilter)); $('#allTaskList').innerHTML = tasks.length ? tasks.map(renderTaskRow).join('') : emptyState(search ? 'Ничего не найдено.' : 'Задач пока нет.', search ? 'Попробуй другой запрос.' : 'Добавь первую задачу через +.');
+    const tasks = data.tasks.filter((task) => {
+      const matchesFilter = activeFilter === 'all' || (activeFilter === 'open' && !task.done) || (activeFilter === 'planned' && !task.done && !!task.scheduledDate) || (activeFilter === 'done' && task.done);
+      const haystack = `${task.title} ${task.note} ${task.category}`.toLowerCase(); return matchesFilter && (!search || haystack.includes(search));
+    }).sort((a, b) => { if (a.done !== b.done) return a.done ? 1 : -1; return deadlineTimestamp(a) - deadlineTimestamp(b) || b.priority - a.priority; });
+    const open = data.tasks.filter((task) => !task.done).length;
+    $('#taskSummary').textContent = `${open} ${formatCount(open, 'открытая задача', 'открытые задачи', 'открытых задач')}`;
+    $('#filterCount').textContent = activeFilter === 'all' ? '' : `· ${filterLabel(activeFilter)}`; $$('#filterPopover button').forEach((button) => button.classList.toggle('active', button.dataset.filter === activeFilter));
+    $('#allTaskList').innerHTML = tasks.length ? tasks.map(renderTaskRow).join('') : emptyState(search ? 'Ничего не найдено.' : 'Задач пока нет.', search ? 'Попробуй другой запрос.' : 'Добавь первую задачу через +.');
   }
 
   function filterLabel(filter) { return ({ open: 'открытые', planned: 'в плане', done: 'готово' }[filter] || 'все'); }
-  function renderTaskRow(task) { return `<div class="task-row ${task.done ? 'done' : ''}"><button class="task-check ${task.done ? 'done' : ''}" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="${task.done ? 'Вернуть в работу' : 'Выполнить'}">${task.done ? '✓' : ''}</button><button class="task-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="task-title">${escapeHtml(task.title)}</strong><span class="task-badges"><span class="badge ${priorityClass(task.priority)}">${escapeHtml(priorityLabel(task.priority))}</span><span class="badge">${escapeHtml(deadlineLabel(task))}</span><span class="badge">${escapeHtml(scheduleLabel(task))}</span></span></button></div>`; }
+  function renderTaskRow(task) {
+    const priority = priorityLabel(task.priority); const deadline = deadlineLabel(task); const schedule = scheduleLabel(task);
+    return `<div class="task-row ${task.done ? 'done' : ''}"><button class="task-check ${task.done ? 'done' : ''}" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="${task.done ? 'Вернуть в работу' : 'Выполнить'}">${task.done ? '✓' : ''}</button><button class="task-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="task-title">${escapeHtml(task.title)}</strong><span class="task-badges"><span class="badge ${priorityClass(task.priority)}">${escapeHtml(priority)}</span><span class="badge">${escapeHtml(formatDuration(task.duration))}</span><span class="badge">${escapeHtml(deadline)}</span><span class="badge">${escapeHtml(schedule)}</span></span></button></div>`;
+  }
 
   function renderSettings() {
     $('#workStartInput').value = hm(data.settings.workStart * 60); $('#workEndInput').value = hm(data.settings.workEnd * 60); $('#lunchStartInput').value = hm(data.settings.lunchStart * 60); $('#lunchEndInput').value = hm(data.settings.lunchEnd * 60); $('#bufferInput').value = String(data.settings.buffer); $('#blockInput').value = String(data.settings.focusLength); $('#weekendsInput').checked = data.settings.weekends; $('#appearanceInput').value = data.settings.theme;
@@ -308,9 +412,26 @@
   function openTaskSheet(id = null) {
     editingId = id ? String(id) : null; const task = id ? byId(id) : null; $('#taskForm').reset();
     $('#taskSheetKicker').textContent = task ? 'РЕДАКТИРОВАНИЕ' : 'НОВАЯ ЗАДАЧА'; $('#taskSheetTitle').textContent = task ? 'Измени задачу' : 'Что нужно сделать?'; $('#saveTaskBtn').textContent = task ? 'Сохранить' : 'Добавить'; $('#deleteTaskBtn').hidden = !task;
-    $('#taskTitle').value = task?.title || ''; $('#taskDuration').value = String(task?.duration || 60); $('#taskPriority').value = String(task?.priority || 2); $('#taskDeadline').value = task?.deadline || dateKey(currentDate); $('#taskCategory').value = task?.category || 'Учёба'; $('#taskNote').value = task?.note || '';
+    $('#taskTitle').value = task?.title || ''; $('#taskDuration').value = String(task?.duration || 60); $('#taskPriority').value = String(task?.priority || 2); $('#taskDeadline').value = task?.deadline || dateKey(currentDate); $('#taskDeadlineTime').value = task?.deadlineTime || ''; $('#taskCategory').value = task?.category || 'Учёба'; $('#taskNote').value = task?.note || '';
     const isManual = Boolean(task?.locked); $('#manualScheduleToggle').checked = isManual; $('#manualScheduleFields').classList.toggle('hidden', !isManual); $('#taskScheduleDate').value = task?.scheduledDate || dateKey(currentDate); $('#taskScheduleTime').value = task?.scheduledStart || '';
-    openModal('taskSheetBackdrop'); setTimeout(() => $('#taskTitle').focus(), 100);
+    const today = todayKey(); $('#taskDeadline').min = today; $('#taskScheduleDate').min = today;
+    updateTaskLogicHint(); updateManualHint(); openModal('taskSheetBackdrop'); setTimeout(() => $('#taskTitle').focus(), 100);
+  }
+
+  function updateTaskLogicHint() {
+    const duration = Number($('#taskDuration')?.value || 60); const priority = Number($('#taskPriority')?.value || 2); const deadline = $('#taskDeadline')?.value; const deadlineTime = $('#taskDeadlineTime')?.value;
+    const bits = [`${formatDuration(duration)} — реальная длина слота`, `${priorityLabel(priority)} — порядок при автопланировании`];
+    if (deadline) bits.push(`дедлайн — крайний срок${deadlineTime ? ` ${deadlineTime}` : ''}`);
+    $('#taskLogicHint').textContent = bits.join(' · ');
+  }
+
+  function updateManualHint() {
+    const hint = $('#manualScheduleHint'); if (!hint) return;
+    const isManual = Boolean($('#manualScheduleToggle')?.checked); hint.className = `manual-hint ${isManual ? '' : 'hidden'}`;
+    if (!isManual) return;
+    const existing = editingId ? byId(editingId) : null;
+    const taskLike = { ...(existing || {}), id: existing?.id || '__new__', deadline: $('#taskDeadline')?.value || todayKey(), deadlineTime: $('#taskDeadlineTime')?.value || null };
+    const text = slotValidationText(taskLike); hint.textContent = text; hint.dataset.state = text.startsWith('Свободно') ? 'ok' : 'error';
   }
 
   function populateFocusTasks() {
@@ -347,11 +468,10 @@
     const reader = new FileReader(); reader.onload = () => { try { const parsed = normalizeData(JSON.parse(reader.result)); if (!Array.isArray(parsed.tasks)) throw new Error('tasks'); data = parsed; saveData(); closeModal('settingsSheetBackdrop'); renderAll(); showToast('Данные импортированы.'); } catch { showToast('Не удалось прочитать эту резервную копию.'); } }; reader.readAsText(file);
   }
 
-  function showToast(message) { clearTimeout(toastTimer); const toast = $('#toast'); toast.textContent = message; toast.classList.add('show'); toastTimer = setTimeout(() => toast.classList.remove('show'), 2800); }
+  function showToast(message) { clearTimeout(toastTimer); const toast = $('#toast'); toast.textContent = message; toast.classList.add('show'); toastTimer = setTimeout(() => toast.classList.remove('show'), 3000); }
 
   function switchView(view) {
-    if (!['today', 'calendar', 'tasks', 'more'].includes(view)) return; const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; currentView = view;
-    const update = () => renderAll(); if (!reduce && document.startViewTransition) document.startViewTransition(update); else update(); window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    if (!['today', 'calendar', 'tasks', 'more'].includes(view)) return; const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; currentView = view; const update = () => renderAll(); if (!reduce && document.startViewTransition) document.startViewTransition(update); else update(); window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
   }
 
   function updateDateFromInput(value) { if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return; currentDate = startOfDay(dateFromKey(value)); renderAll(); }
@@ -374,23 +494,52 @@
     $('#filterPopover').addEventListener('click', (event) => { const button = event.target.closest('[data-filter]'); if (!button) return; activeFilter = button.dataset.filter; $('#filterPopover').hidden = true; renderTasks(); });
 
     $('#closeTaskSheet').onclick = () => closeModal('taskSheetBackdrop'); $('#cancelTask').onclick = () => closeModal('taskSheetBackdrop'); $('#taskSheetBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal('taskSheetBackdrop'); });
-    $('#manualScheduleToggle').addEventListener('change', (event) => $('#manualScheduleFields').classList.toggle('hidden', !event.target.checked));
+    $('#manualScheduleToggle').addEventListener('change', (event) => { $('#manualScheduleFields').classList.toggle('hidden', !event.target.checked); if (event.target.checked && !$('#taskScheduleTime').value) { const base = Math.max(data.settings.workStart * 60, Math.ceil(nowMinutes() / 15) * 15); $('#taskScheduleTime').value = hm(Math.min(base, data.settings.workEnd * 60 - Number($('#taskDuration').value))); } updateTaskLogicHint(); updateManualHint(); });
+    ['taskDuration', 'taskPriority', 'taskDeadline', 'taskDeadlineTime', 'taskScheduleDate', 'taskScheduleTime'].forEach((id) => { $(`#${id}`)?.addEventListener('input', () => { updateTaskLogicHint(); updateManualHint(); }); $(`#${id}`)?.addEventListener('change', () => { updateTaskLogicHint(); updateManualHint(); }); });
     $('#deleteTaskBtn').onclick = () => { if (editingId && confirm('Удалить эту задачу?')) deleteTask(editingId); };
 
     $('#taskForm').addEventListener('submit', (event) => {
-      event.preventDefault(); const existing = editingId ? byId(editingId) : null; const title = $('#taskTitle').value.trim(); const duration = Number($('#taskDuration').value); const priority = Number($('#taskPriority').value); const deadline = $('#taskDeadline').value || dateKey(currentDate); const category = $('#taskCategory').value; const note = $('#taskNote').value.trim(); const manual = $('#manualScheduleToggle').checked;
-      if (!title) { showToast('Введите название задачи.'); return; } if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) { showToast('Проверь дедлайн.'); return; }
-      const task = existing ? { ...existing } : { id: uid(), title: '', duration: 60, priority: 2, deadline, category: 'Учёба', note: '', scheduledDate: null, scheduledStart: null, locked: false, done: false, createdAt: new Date().toISOString() };
-      const wasManual = Boolean(existing?.locked); let needsAutoPlan = !existing && !manual; Object.assign(task, { title, duration, priority, deadline, category, note });
+      event.preventDefault();
+      const existing = editingId ? byId(editingId) : null;
+      const title = $('#taskTitle').value.trim(); const duration = Number($('#taskDuration').value); const priority = Number($('#taskPriority').value); const deadline = $('#taskDeadline').value || dateKey(currentDate); const deadlineTime = $('#taskDeadlineTime').value || null; const category = $('#taskCategory').value; const note = $('#taskNote').value.trim(); const manual = $('#manualScheduleToggle').checked;
+      const today = todayKey();
+      if (!title) { showToast('Введите название задачи.'); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline) || dateFromKey(deadline) < startOfDay(new Date())) { showToast('Дедлайн не может быть в прошлом.'); return; }
+      if (deadlineTime && !/^\d{2}:\d{2}$/.test(deadlineTime)) { showToast('Проверь время дедлайна.'); return; }
+      if (!Number.isFinite(duration) || duration <= 0) { showToast('Проверь длительность.'); return; }
+
+      const task = existing ? { ...existing } : { id: uid(), title: '', duration: 60, priority: 2, deadline, deadlineTime: null, category: 'Учёба', note: '', scheduledDate: null, scheduledStart: null, locked: false, done: false, createdAt: new Date().toISOString() };
+      const wasManual = Boolean(existing?.locked); const oldDuration = Number(existing?.duration || 0); const oldPriority = Number(existing?.priority || 0); const oldDeadline = existing?.deadline || ''; const oldDeadlineTime = existing?.deadlineTime || null;
+      Object.assign(task, { title, duration, priority, deadline, deadlineTime, category, note });
+
+      let needsAutoPlan = false;
       if (manual) {
-        const error = validateManualSlot(task, $('#taskScheduleDate').value, $('#taskScheduleTime').value, duration); if (error) { showToast(error); return; }
-        task.scheduledDate = $('#taskScheduleDate').value; task.scheduledStart = $('#taskScheduleTime').value; task.locked = true;
-      } else if (existing?.scheduledDate && existing?.scheduledStart && !existing.locked) {
-        const s = toMinutes(existing.scheduledStart); const e = s + duration + Number(data.settings.buffer || 0); const overlaps = data.tasks.some((other) => String(other.id) !== String(existing.id) && !other.done && other.scheduledDate === existing.scheduledDate && other.scheduledStart && s < toMinutes(other.scheduledStart) + other.duration + Number(data.settings.buffer || 0) && e > toMinutes(other.scheduledStart)); const outsideDeadline = dateFromKey(existing.scheduledDate) > dateFromKey(deadline); const outsideHours = s < data.settings.workStart * 60 || s + duration > data.settings.workEnd * 60 || (s < data.settings.lunchEnd * 60 && s + duration > data.settings.lunchStart * 60);
-        if (overlaps || outsideDeadline || outsideHours) { task.scheduledDate = null; task.scheduledStart = null; needsAutoPlan = true; } else { task.scheduledDate = existing.scheduledDate; task.scheduledStart = existing.scheduledStart; task.locked = false; }
-      } else { task.scheduledDate = null; task.scheduledStart = null; task.locked = false; if (existing && wasManual) needsAutoPlan = true; }
+        const manualDate = $('#taskScheduleDate').value; const manualTime = $('#taskScheduleTime').value;
+        const error = validateManualSlot(task, manualDate, manualTime, duration); if (error) { updateManualHint(); showToast(error); return; }
+        task.scheduledDate = manualDate; task.scheduledStart = manualTime; task.locked = true;
+      } else {
+        task.locked = false;
+        const relevantChange = !existing || duration !== oldDuration || priority !== oldPriority || deadline !== oldDeadline || deadlineTime !== oldDeadlineTime;
+        if (existing?.scheduledDate && existing?.scheduledStart && !wasManual && !relevantChange) {
+          task.scheduledDate = existing.scheduledDate; task.scheduledStart = existing.scheduledStart;
+        } else {
+          task.scheduledDate = null; task.scheduledStart = null; needsAutoPlan = true;
+        }
+      }
+
       if (existing) data.tasks = data.tasks.map((item) => String(item.id) === String(existing.id) ? task : item); else data.tasks.push(task);
-      saveData(); closeModal('taskSheetBackdrop'); renderAll(); if (needsAutoPlan) scheduleSingle(task.id); else showToast(existing ? 'Изменения сохранены.' : 'Задача добавлена.');
+      saveData(); closeModal('taskSheetBackdrop');
+      let planResult = null;
+      if (needsAutoPlan) {
+        planResult = autoPlanAll(false);
+      } else {
+        renderAll();
+      }
+      if (!existing && manual) showToast('Задача добавлена вручную.');
+      else if (!existing && !manual) showToast(planResult?.placed ? `Добавлено и запланировано · ${task.scheduledStart ? `${task.scheduledStart} ${shortDate(dateFromKey(task.scheduledDate))}` : 'см. план'}` : 'Задача добавлена, но свободного окна до дедлайна не нашлось.');
+      else if (existing && wasManual && !manual) showToast(task.scheduledDate ? 'Задача возвращена в автоплан.' : 'Задача вернулась во входящие.');
+      else if (existing && manual) showToast('Ручной слот сохранён.');
+      else showToast('Изменения сохранены.');
     });
 
     $('#closeFocusSheet').onclick = () => { resetFocusTimer(); closeModal('focusSheetBackdrop'); }; $('#focusSheetBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) { resetFocusTimer(); closeModal('focusSheetBackdrop'); } }); $('#timerStart').onclick = toggleFocusTimer; $('#timerReset').onclick = resetFocusTimer; $('#focusTaskSelect').addEventListener('change', () => { if (!focusRunning) resetFocusTimer(); updateFocusTip(); });
@@ -404,7 +553,9 @@
       event.preventDefault(); const workStart = toMinutes($('#workStartInput').value); const workEnd = toMinutes($('#workEndInput').value); const lunchStart = toMinutes($('#lunchStartInput').value); const lunchEnd = toMinutes($('#lunchEndInput').value);
       if (!(workEnd > workStart)) { showToast('Проверь рабочие часы.'); return; } if (!(lunchEnd > lunchStart) || lunchStart < workStart || lunchEnd > workEnd) { showToast('Проверь время обеда.'); return; }
       data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: $('#appearanceInput').value };
-      saveData(); resetFocusTimer(); closeModal('settingsSheetBackdrop'); if (data.tasks.some((task) => !task.done && !task.locked)) autoPlanAll(false); else renderAll(); showToast('Настройки сохранены.');
+      saveData(); resetFocusTimer(); closeModal('settingsSheetBackdrop');
+      if (data.tasks.some((task) => !task.done && !task.locked && dateFromKey(task.deadline) >= startOfDay(new Date()))) autoPlanAll(false); else renderAll();
+      showToast('Настройки сохранены, план пересобран.');
     });
 
     $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importData(file); event.target.value = ''; }); $('#resetBtn').onclick = () => { if (confirm('Удалить все задачи, расписание и статистику?')) resetAllData(); };
@@ -434,7 +585,6 @@
   }
 
   function showUpdateBanner(worker) { $('#updateBanner').hidden = false; $('#updateBtn').onclick = () => worker?.postMessage({ type: 'SKIP_WAITING' }); }
-
   function boot() { $('#appVersionLabel').textContent = `v${APP_VERSION}`; bindEvents(); renderAll(); updateFocusUI(); registerServiceWorker(); }
   boot();
 })();

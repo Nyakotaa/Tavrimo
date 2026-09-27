@@ -13,7 +13,7 @@ if image.size != (1024, 1024):
     raise SystemExit(f'Ожидался исходник 1024x1024, получено: {image.size}')
 
 sizes = {
-    'apple-touch-icon-v5.png': 180,
+    'apple-touch-icon-v7.png': 180,
     'icon-180.png': 180,
     'icon-192.png': 192,
     'icon-512.png': 512,
@@ -22,5 +22,5 @@ sizes = {
 
 for filename, size in sizes.items():
     target = ICONS / filename
-    image.resize((size, size), Image.Resampling.LANCZOS).save(target)
+    image.resize((size, size), Image.Resampling.LANCZOS).save(target, optimize=True)
     print(f'Создан: {target.relative_to(ROOT)}')

@@ -11,8 +11,8 @@
   <meta name="apple-mobile-web-app-title" content="Flowday" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v6.png" />
-  <link rel="icon" href="assets/icons/icon-192.png" type="image/png" sizes="192x192" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v7.png" />
+  <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="stylesheet" href="style.css" />
   <title>Flowday</title>
 </head>
@@ -139,9 +139,10 @@
       <form id="taskForm" class="form-grid">
         <label>Название<input id="taskTitle" required maxlength="120" placeholder="Например, подготовить презентацию" /></label>
         <div class="two-col"><label>Длительность<select id="taskDuration"><option value="15">15 мин</option><option value="30">30 мин</option><option value="45">45 мин</option><option value="60" selected>1 час</option><option value="90">1 ч 30</option><option value="120">2 часа</option><option value="180">3 часа</option><option value="240">4 часа</option></select></label><label>Приоритет<select id="taskPriority"><option value="3">Высокий</option><option value="2" selected>Средний</option><option value="1">Низкий</option></select></div>
-        <div class="two-col"><label>Дедлайн<input id="taskDeadline" type="date" /></label><label>Категория<select id="taskCategory"><option>Учёба</option><option>Работа</option><option>Личное</option><option>Дом</option><option>Другое</option></select></label></div>
+        <div class="two-col"><label>Дедлайн<input id="taskDeadline" type="date" /></label><label>Время<input id="taskDeadlineTime" type="time" step="900" /></label></div>
+        <label>Категория<select id="taskCategory"><option>Учёба</option><option>Работа</option><option>Личное</option><option>Дом</option><option>Другое</option></select></label>
         <div class="switch-row"><div><strong>Поставить вручную</strong><small>Иначе Flowday выберет время сам.</small></div><input type="checkbox" id="manualScheduleToggle" /></div>
-        <div class="two-col hidden" id="manualScheduleFields"><label>Дата<input id="taskScheduleDate" type="date" /></label><label>Время<input id="taskScheduleTime" type="time" step="900" /></label></div>
+        <div class="two-col hidden" id="manualScheduleFields"><label>Дата<input id="taskScheduleDate" type="date" /></label><label>Время<input id="taskScheduleTime" type="time" step="900" /></label></div><p class="manual-hint hidden" id="manualScheduleHint"></p><p class="logic-hint" id="taskLogicHint"></p>
         <label>Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Опционально"></textarea></label>
         <div class="form-actions"><button class="danger-button" type="button" id="deleteTaskBtn" hidden>Удалить</button><span></span><button class="secondary-button" type="button" id="cancelTask">Отмена</button><button class="primary-button" type="submit" id="saveTaskBtn">Добавить</button></div>
       </form>

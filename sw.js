@@ -1,7 +1,7 @@
-const VERSION = 'flowday-v6.0.0';
+const VERSION = 'flowday-v7.0.0';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './manifest.webmanifest',
-  './assets/icons/apple-touch-icon-v6.png', './assets/icons/icon-180.png',
+  './assets/icons/apple-touch-icon-v7.png', './assets/icons/icon-180.png',
   './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/favicon-32.png'
 ];
 
@@ -30,11 +30,7 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request, { cache: 'no-store' })
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(VERSION).then((cache) => cache.put('./index.html', copy));
-          return response;
-        })
+        .then((response) => { const copy = response.clone(); caches.open(VERSION).then((cache) => cache.put('./index.html', copy)); return response; })
         .catch(() => caches.match('./index.html'))
     );
     return;
@@ -43,10 +39,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request, { cache: 'no-store' }).then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          caches.open(VERSION).then((cache) => cache.put(request, copy));
-        }
+        if (response.ok) { const copy = response.clone(); caches.open(VERSION).then((cache) => cache.put(request, copy)); }
         return response;
       });
       return cached || network;
