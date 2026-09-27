@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f5f5f7" />
+  <meta name="theme-color" content="#f7f8fb" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Flowday" />
@@ -17,12 +17,12 @@
 <body>
   <div class="app" id="app">
     <header class="topbar">
-      <button class="icon-button ghost" id="headerAction" aria-label="Сегодня"><span class="icon">⌂</span></button>
+      <div class="topbar-side"></div>
       <div class="topbar-center">
-        <div class="brand"><span class="brand-mark">◒</span><span>Flowday</span></div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true">◒</span><span>Flowday</span></div>
         <div class="topbar-date" id="headerDate"></div>
       </div>
-      <button class="icon-button accent" id="headerAdd" aria-label="Добавить задачу"><span class="icon">＋</span></button>
+      <div class="topbar-side"></div>
     </header>
 
     <main class="screen" id="screen" tabindex="-1">
@@ -30,51 +30,47 @@
         <div class="today-intro">
           <div>
             <div class="eyebrow" id="todayEyebrow">СЕГОДНЯ</div>
-            <h1 id="todayTitle">Твой день уже собран.</h1>
+            <h1 id="todayTitle">Твой день.</h1>
           </div>
-          <button class="date-pill" id="todayDatePill"><span id="todayDateText">27 сен</span><span class="chevron">⌄</span></button>
         </div>
 
-        <section class="focus-card">
+        <section class="focus-card" id="todayPlanCard">
           <div class="focus-card-main">
             <div class="focus-kicker"><span class="live-dot"></span><span id="dayStatusText">ПЛАН ДНЯ</span></div>
             <div class="focus-value" id="focusValue">0%</div>
-            <div class="focus-label" id="focusLabel">дня запланировано</div>
+            <div class="focus-label" id="focusLabel">дня занято</div>
             <div class="progress-track"><span id="focusProgress"></span></div>
           </div>
-          <div class="focus-ring" id="focusRing"><div><strong id="focusRingValue">0%</strong><small>загрузка</small></div></div>
+          <div class="focus-card-side">
+            <div class="focus-ring" id="focusRing"><div><strong id="focusRingValue">0%</strong><small>загрузка</small></div></div>
+            <button class="plan-inline" id="planBtn"><span>✦</span> Собрать план</button>
+          </div>
         </section>
-
-        <div class="quick-actions">
-          <button class="quick-action primary" id="planBtn"><span>✦</span><div><strong>Собрать план</strong><small>автоматически</small></div></button>
-          <button class="quick-action" id="focusBtn"><span>◷</span><div><strong>Фокус</strong><small>25 минут</small></div></button>
-        </div>
 
         <section class="section-block">
           <div class="section-head compact">
-            <div><div class="section-kicker">СЕЙЧАС И ДАЛЬШЕ</div><h2>Твой маршрут</h2></div>
-            <button class="text-button" id="openCalendarFromToday">Все&nbsp;слоты</button>
+            <div><div class="section-kicker">СЕЙЧАС И ДАЛЬШЕ</div><h2>Сегодня</h2></div>
           </div>
           <div id="todayAgenda" class="agenda-list"></div>
         </section>
 
         <section class="section-block" id="todayInboxBlock">
           <div class="section-head compact">
-            <div><div class="section-kicker">ВХОДЯЩИЕ</div><h2>Осталось распределить</h2></div>
+            <div><div class="section-kicker">ВХОДЯЩИЕ</div><h2>Без времени</h2></div>
             <span class="count-badge" id="inboxCount">0</span>
           </div>
           <div id="todayInbox" class="inbox-list"></div>
         </section>
 
-        <section class="mini-insight">
+        <section class="mini-insight" id="todayInsight">
           <div class="mini-insight-icon">✦</div>
-          <div><strong id="insightTitle">Flowday держит ритм</strong><p id="insightText">Добавь несколько задач — остальное приложение разложит само.</p></div>
+          <div><strong id="insightTitle">Всё спокойно</strong><p id="insightText">Добавь задачу, и Flowday найдёт для неё подходящее окно.</p></div>
         </section>
       </section>
 
       <section class="view" data-view="calendar" id="calendarView">
         <div class="screen-head">
-          <div><div class="eyebrow">КАЛЕНДАРЬ</div><h1>Неделя</h1><p id="weekRange">27 сен — 3 окт</p></div>
+          <div><div class="eyebrow">КАЛЕНДАРЬ</div><h1>Неделя</h1><p id="weekRange">—</p></div>
           <button class="icon-button soft" id="calendarToday" aria-label="Сегодня">⌂</button>
         </div>
         <div class="week-strip" id="weekStrip"></div>
@@ -85,10 +81,9 @@
       <section class="view" data-view="tasks" id="tasksView">
         <div class="screen-head">
           <div><div class="eyebrow">БИБЛИОТЕКА</div><h1>Задачи</h1><p id="taskSummary">0 открытых</p></div>
-          <button class="icon-button accent" id="tasksAddBtn" aria-label="Новая задача"><span class="icon">＋</span></button>
         </div>
         <div class="task-tools card-lite">
-          <div class="search-field"><span class="search-icon">⌕</span><input id="taskSearch" placeholder="Поиск по задачам" autocomplete="off" /></div>
+          <div class="search-field"><span class="search-icon" aria-hidden="true">⌕</span><input id="taskSearch" placeholder="Поиск задач" autocomplete="off" /></div>
           <div class="segmented" id="filterRow">
             <button class="active" data-filter="all">Все</button>
             <button data-filter="open">Открытые</button>
@@ -101,15 +96,15 @@
 
       <section class="view" data-view="more" id="moreView">
         <div class="screen-head">
-          <div><div class="eyebrow">FLOWDAY</div><h1>Ещё</h1><p>Инструменты, фокус и настройки.</p></div>
+          <div><div class="eyebrow">FLOWDAY</div><h1>Ещё</h1><p>Инструменты и настройки.</p></div>
         </div>
-        <div class="more-grid">
-          <button class="feature-card" id="moreFocus"><span class="feature-icon purple">◷</span><div><strong>Режим фокуса</strong><small>Таймер, паузы и сессии</small></div><span class="arrow">›</span></button>
-          <button class="feature-card" id="moreInsights"><span class="feature-icon blue">✦</span><div><strong>Статистика</strong><small>Как проходит твоя неделя</small></div><span class="arrow">›</span></button>
-          <button class="feature-card" id="morePlanning"><span class="feature-icon orange">⌁</span><div><strong>Как Flowday планирует</strong><small>Приоритеты, дедлайны, окна</small></div><span class="arrow">›</span></button>
-          <button class="feature-card" id="moreSettings"><span class="feature-icon gray">⚙</span><div><strong>Настройки</strong><small>Рабочий день и данные</small></div><span class="arrow">›</span></button>
+        <div class="more-list">
+          <button class="feature-card" id="moreFocus"><span class="feature-icon purple">◷</span><div><strong>Фокус</strong><small>Таймер на одну задачу</small></div><span class="arrow">›</span></button>
+          <button class="feature-card" id="moreInsights"><span class="feature-icon blue">✦</span><div><strong>Статистика</strong><small>Ритм недели и фокус-сессии</small></div><span class="arrow">›</span></button>
+          <button class="feature-card" id="morePlanning"><span class="feature-icon orange">⌁</span><div><strong>Автоплан</strong><small>Как Flowday распределяет время</small></div><span class="arrow">›</span></button>
+          <button class="feature-card" id="moreSettings"><span class="feature-icon gray">⚙</span><div><strong>Настройки</strong><small>Рабочий день, тема и данные</small></div><span class="arrow">›</span></button>
         </div>
-        <div class="offline-card"><div class="offline-icon">⌁</div><div><strong id="offlineTitle">Готово к офлайну</strong><p id="offlineText">Все данные сохраняются прямо на этом iPhone.</p></div><span class="offline-dot" id="offlineDot"></span></div>
+        <div class="offline-card compact-status"><div class="offline-icon">⌁</div><div><strong id="offlineTitle">Офлайн готов</strong><p id="offlineText">Данные хранятся на устройстве.</p></div><span class="offline-dot" id="offlineDot"></span></div>
       </section>
     </main>
 
@@ -138,31 +133,19 @@
           <label>Дедлайн<input id="taskDeadline" type="date" /></label>
           <label>Категория<select id="taskCategory"><option>Учёба</option><option>Работа</option><option>Личное</option><option>Дом</option><option>Другое</option></select></label>
         </div>
-        <div class="switch-row"><div><strong>Назначить вручную</strong><small>Иначе Flowday найдёт окно сам.</small></div><input type="checkbox" id="manualScheduleToggle" /></div>
+        <div class="switch-row"><div><strong>Назначить вручную</strong><small>Отключи, чтобы Flowday нашёл окно сам.</small></div><input type="checkbox" id="manualScheduleToggle" /></div>
         <div class="field-grid two hidden" id="manualScheduleFields"><label>Дата<input id="taskScheduleDate" type="date" /></label><label>Время<input id="taskScheduleTime" type="time" step="900" /></label></div>
-        <label>Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Контекст, ссылка или маленькая подсказка"></textarea></label>
+        <label>Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Контекст или маленькая подсказка"></textarea></label>
         <div class="sheet-actions"><button type="button" class="danger-button" id="deleteTaskBtn" hidden>Удалить</button><span></span><button type="button" class="secondary-button" id="cancelTask">Отмена</button><button class="primary-button" type="submit" id="saveTaskBtn">Добавить</button></div>
       </form>
-    </section>
-  </div>
-
-  <div class="sheet-backdrop" id="quickSheetBackdrop" aria-hidden="true">
-    <section class="sheet compact" role="dialog" aria-modal="true" aria-labelledby="quickSheetTitle">
-      <div class="sheet-grabber"></div>
-      <div class="sheet-head"><div><div class="section-kicker">БЫСТРО</div><h2 id="quickSheetTitle">Что сделать сейчас?</h2></div><button class="icon-button soft" id="closeQuickSheet" aria-label="Закрыть">×</button></div>
-      <div class="quick-sheet-actions">
-        <button class="big-action" id="quickPlan"><span>✦</span><div><strong>Собрать план</strong><small>Распределить все открытые задачи</small></div></button>
-        <button class="big-action" id="quickFocus"><span>◷</span><div><strong>Начать фокус</strong><small>25 минут на одну задачу</small></div></button>
-        <button class="big-action" id="quickNew"><span>＋</span><div><strong>Добавить задачу</strong><small>Быстро записать мысль</small></div></button>
-      </div>
     </section>
   </div>
 
   <div class="sheet-backdrop" id="focusSheetBackdrop" aria-hidden="true">
     <section class="sheet focus-sheet" role="dialog" aria-modal="true" aria-labelledby="focusTitleSheet">
       <div class="sheet-grabber"></div>
-      <div class="sheet-head"><div><div class="section-kicker">РЕЖИМ ФОКУСА</div><h2 id="focusTitleSheet">Один экран. Одна задача.</h2></div><button class="icon-button soft" id="closeFocusSheet" aria-label="Закрыть">×</button></div>
-      <div class="focus-task-picker"><label>Задача для фокуса<select id="focusTaskSelect"></select></label></div>
+      <div class="sheet-head"><div><div class="section-kicker">РЕЖИМ ФОКУСА</div><h2 id="focusTitleSheet">Одна задача. Один фокус.</h2></div><button class="icon-button soft" id="closeFocusSheet" aria-label="Закрыть">×</button></div>
+      <div class="focus-task-picker"><label>Задача<select id="focusTaskSelect"></select></label></div>
       <div class="timer-card"><div class="timer-ring" id="timerRing"><div><strong id="timerText">25:00</strong><small id="timerMode">ФОКУС</small></div></div><div class="timer-controls"><button class="secondary-button" id="timerReset">Сбросить</button><button class="primary-button" id="timerStart">Старт</button></div></div>
       <div class="focus-tip"><span>✦</span><p id="focusTip">Убери уведомления и занимайся только этой задачей.</p></div>
     </section>
@@ -184,9 +167,9 @@
       <div class="sheet-head"><div><div class="section-kicker">АВТОПЛАН</div><h2 id="planningTitleSheet">Как Flowday решает?</h2></div><button class="icon-button soft" id="closePlanningSheet" aria-label="Закрыть">×</button></div>
       <div class="planning-steps">
         <div><b>1</b><span><strong>Собирает ограничения</strong><small>Рабочие часы, обед и уже занятые слоты.</small></span></div>
-        <div><b>2</b><span><strong>Сортирует задачи</strong><small>Учитывает приоритет, дедлайн и длительность.</small></span></div>
-        <div><b>3</b><span><strong>Заполняет окна</strong><small>Сначала важные задачи, не двигая ручные блоки.</small></span></div>
-        <div><b>4</b><span><strong>Оставляет запас</strong><small>Буфер между задачами снижает ощущение гонки.</small></span></div>
+        <div><b>2</b><span><strong>Сортирует задачи</strong><small>Приоритет, дедлайн и длительность.</small></span></div>
+        <div><b>3</b><span><strong>Заполняет окна</strong><small>Ручные блоки не двигает.</small></span></div>
+        <div><b>4</b><span><strong>Оставляет запас</strong><small>Буфер между задачами снижает гонку.</small></span></div>
       </div>
       <div class="planning-actions"><button class="secondary-button wide" id="replanFromSheet">✦ Перестроить план</button><button class="danger-button wide" id="clearAutoFromSheet">Снять автоматические слоты</button></div>
     </section>
@@ -201,7 +184,7 @@
         <section class="settings-group"><h3>Перерыв</h3><div class="ios-row"><span>Обед с</span><input type="time" id="lunchStartInput" step="900" /></div><div class="ios-row"><span>Обед до</span><input type="time" id="lunchEndInput" step="900" /></div></section>
         <section class="settings-group"><h3>Планирование</h3><div class="ios-row"><span>Буфер</span><select id="bufferInput"><option value="0">Без</option><option value="5">5 мин</option><option value="10">10 мин</option><option value="15">15 мин</option></select></div><div class="ios-row"><span>Фокус по умолчанию</span><select id="blockInput"><option value="25">25 мин</option><option value="50">50 мин</option><option value="90">1 ч 30</option><option value="120">2 ч</option></select></div></section>
         <section class="settings-group"><h3>Внешний вид</h3><div class="ios-row"><span>Тема</span><select id="appearanceInput"><option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></div></section>
-        <section class="settings-group"><h3>Данные</h3><button type="button" class="ios-action" id="exportBtn"><span>Экспортировать резервную копию</span><span>›</span></button><label class="ios-action file-action"><span>Импортировать резервную копию</span><span>›</span><input type="file" id="importInput" accept="application/json,.json" /></label><button type="button" class="ios-action danger" id="resetBtn"><span>Вернуть демо-данные</span><span>›</span></button></section>
+        <section class="settings-group"><h3>Данные</h3><button type="button" class="ios-action" id="exportBtn"><span>Экспортировать</span><span>›</span></button><label class="ios-action file-action"><span>Импортировать</span><span>›</span><input type="file" id="importInput" accept="application/json,.json" /></label><button type="button" class="ios-action danger" id="resetBtn"><span>Стереть все данные</span><span>›</span></button></section>
         <button class="primary-button wide" type="submit">Сохранить</button>
       </form>
     </section>
