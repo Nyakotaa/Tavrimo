@@ -1,9 +1,14 @@
 # Flowday
 
-**Flowday 9.0.0** — offline-first personal planner for iPhone. It automatically places tasks into available work windows using duration, deadline, priority, manual blocks and buffer.
+**Flowday 9.1.0 Final** — offline-first personal planner for iPhone with manual time placement. You choose the date and start time; Flowday validates working hours, lunch, duration, deadlines, conflicts and reserve after each task.
 
-## 9.0.0
-This release adds a next-up task card, plan health dashboard, advanced task filters, weekly load indicators and one-task rescheduling actions while keeping the interface intentionally compact.
+## 9.1.0
+- Manual-only scheduling: the app never chooses a task time for the user.
+- New tasks can be saved without a slot and scheduled later.
+- Manual slots validate working hours, lunch, deadlines, duration and conflicts.
+- Existing schedules from previous versions are treated as manual slots.
+- Priority, duration and deadline remain meaningful for ordering, load and validation.
+- Preserves offline-first PWA behavior, Focus, statistics, import/export and local storage.
 
 ## Install
 Open the GitHub Pages URL in Safari and choose **Share → Add to Home Screen**. After the first successful load, the app can continue working offline.
@@ -15,8 +20,8 @@ Replace the published project files with the contents of `personal-planner`, ope
 Tasks, schedules, settings and focus sessions are stored locally on the device. Export a JSON backup before resetting or moving data to another device.
 
 ## Development
-- `app.js` — application and scheduler logic
+- `app.js` — application logic and manual scheduling validation
 - `style.css` — iOS-first UI
 - `sw.js` — offline cache and updates
 - `manifest.webmanifest` — PWA metadata
-- `tools/test_scheduler.mjs` — regression tests
+- `tools/test_manual_scheduling.mjs` — regression tests

@@ -8,7 +8,7 @@
   "orientation": "portrait",
   "background_color": "#f4f5f7",
   "theme_color": "#f4f5f7",
-  "description": "Flowday — офлайн-планировщик, который автоматически распределяет задачи по свободному времени.",
+  "description": "Flowday — офлайн-планировщик для ручной расстановки задач по времени.",
   "id": "./",
   "categories": ["productivity", "utilities"],
   "icons": [

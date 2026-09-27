@@ -1,14 +1,13 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '9.0.0';
-  const SCHEMA_VERSION = 10;
-  const STORAGE_KEY = 'flowday-planner-v10';
+  const APP_VERSION = '9.1.0';
+  const SCHEMA_VERSION = 11;
+  const STORAGE_KEY = 'flowday-planner-v11';
   const LEGACY_KEYS = [
-    'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
+    'flowday-planner-v10', 'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
     'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'
   ];
-  const PLANNING_HORIZON_DAYS = 14;
   const DEMO_TITLES = new Set([
     'Собрать структуру презентации', 'Ответить на важные письма',
     'Подготовить идеи для проекта', 'Записаться на стоматолога', 'Изучить 2 главы курса'
@@ -139,7 +138,7 @@
       note: String(task?.note || '').slice(0, 300),
       scheduledDate,
       scheduledStart,
-      locked: Boolean(task?.locked) && Boolean(scheduledDate && scheduledStart),
+      locked: Boolean(scheduledDate && scheduledStart),
       done: Boolean(task?.done),
       createdAt,
       completedAt
@@ -210,9 +209,12 @@
     });
 
     for (const task of sorted) {
-      if (task.done) continue;
+      if (task.done) {
+        if (!task.completedAt) { task.completedAt = safeIso(task.createdAt, new Date().toISOString()); changed = true; }
+        continue;
+      }
       if (task.scheduledDate && task.scheduledStart) {
-        const validSlot = validatePersistedSlot(task, settings);
+        const validSlot = validatePersistedSlot(task, settings, { allowPast: true });
         if (!validSlot.ok) {
           task.scheduledDate = null; task.scheduledStart = null; task.locked = false; changed = true;
           continue;
@@ -229,10 +231,6 @@
         list.push({ s: start, e: end, locked: Boolean(task.locked) });
       } else if (task.scheduledDate || task.scheduledStart || task.locked) {
         task.scheduledDate = null; task.scheduledStart = null; task.locked = false; changed = true;
-      }
-      if (task.done && !task.completedAt) {
-        task.completedAt = safeIso(task.createdAt, new Date().toISOString());
-        changed = true;
       }
     }
 
@@ -322,7 +320,7 @@
   }
   function getOpenInbox() {
     return data.tasks.filter((task) => !task.done && !task.scheduledDate)
-      .sort((a, b) => planningScore(a) - planningScore(b) || String(a.createdAt).localeCompare(String(b.createdAt)));
+      .sort((a, b) => taskUrgencyScore(a) - taskUrgencyScore(b) || b.priority - a.priority || String(a.createdAt).localeCompare(String(b.createdAt)));
   }
   function getWeekStart(date) {
     const d = startOfDay(date); const day = d.getDay();
@@ -330,172 +328,35 @@
     return d;
   }
 
-  function mergeIntervals(intervals) {
-    const list = intervals.filter((item) => Number.isFinite(item.s) && Number.isFinite(item.e) && item.e > item.s)
-      .sort((a, b) => a.s - b.s);
-    const merged = [];
-    for (const interval of list) {
-      const last = merged[merged.length - 1];
-      if (last && interval.s <= last.e) last.e = Math.max(last.e, interval.e);
-      else merged.push({ ...interval });
-    }
-    return merged;
-  }
-
-  function getFreeWindows(occupied) {
-    const s = settingsMinutes();
-    const intervals = [...(occupied || []), { s: s.lunchStart, e: s.lunchEnd }]
-      .map((i) => ({ s: Math.max(s.workStart, i.s), e: Math.min(s.workEnd, i.e) }))
-      .filter((i) => i.e > i.s);
-    const merged = mergeIntervals(intervals); const result = []; let cursor = s.workStart;
-    for (const interval of merged) {
-      if (interval.s > cursor) result.push([cursor, interval.s]);
-      cursor = Math.max(cursor, interval.e);
-    }
-    if (cursor < s.workEnd) result.push([cursor, s.workEnd]);
-    return result;
-  }
-
-  function addOccupied(occupied, task) {
-    if (!task.scheduledDate || !task.scheduledStart || task.done) return;
-    const start = toMinutes(task.scheduledStart);
-    const end = start + task.duration + Number(data.settings.buffer || 0);
-    if (!Number.isFinite(start) || end <= start) return;
-    (occupied[task.scheduledDate] ||= []).push({ s: start, e: end });
-  }
-
-  function validatePersistedSlot(task, settingsOverride = data?.settings || DEFAULTS.settings) {
+  function validatePersistedSlot(task, settingsOverride = data?.settings || DEFAULTS.settings, options = {}) {
     if (!isValidDateKey(task.scheduledDate) || !normalizeTime(task.scheduledStart)) return { ok: false, reason: 'Неполный слот.' };
     const day = dateFromKey(task.scheduledDate);
     const dayOfWeek = day.getDay();
     if (Boolean(settingsOverride.weekends) === false && (dayOfWeek === 0 || dayOfWeek === 6)) return { ok: false, reason: 'Выходной.' };
-    if (dateFromKey(task.scheduledDate) < startOfDay(new Date()) && !task.done) return { ok: false, reason: 'Дата в прошлом.' };
-    const start = toMinutes(task.scheduledStart); const s = {
+    if (!options.allowPast && dateFromKey(task.scheduledDate) < startOfDay(new Date()) && !task.done) return { ok: false, reason: 'Дата в прошлом.' };
+    const start = toMinutes(task.scheduledStart);
+    const s = {
       workStart: Math.round(Number(settingsOverride.workStart) * 60),
       workEnd: Math.round(Number(settingsOverride.workEnd) * 60),
       lunchStart: Math.round(Number(settingsOverride.lunchStart) * 60),
       lunchEnd: Math.round(Number(settingsOverride.lunchEnd) * 60)
     };
     const end = start + task.duration; const buffer = Number(settingsOverride.buffer ?? data.settings.buffer ?? 0); const reservedEnd = end + buffer;
-    if (!task.done && dateKey(day) === todayKey() && start < nowMinutes()) return { ok: false, reason: 'Время уже прошло.' };
+    if (!options.allowPast && !task.done && dateKey(day) === todayKey() && start < nowMinutes()) return { ok: false, reason: 'Время уже прошло.' };
     if (start % 15 !== 0) return { ok: false, reason: 'Некратное время.' };
     if (start < s.workStart || end > s.workEnd || reservedEnd > s.workEnd) return { ok: false, reason: 'За пределами рабочего дня.' };
     if (start < s.lunchEnd && end > s.lunchStart) return { ok: false, reason: 'Перерыв.' };
     if (start < s.lunchEnd && reservedEnd > s.lunchStart) return { ok: false, reason: 'Резерв пересекает перерыв.' };
     if (task.deadline && day > dateFromKey(task.deadline)) return { ok: false, reason: 'Дата позже дедлайна.' };
-    if (task.deadline && dateKey(dateFromKey(task.scheduledDate)) === task.deadline && end > deadlineMinutes(task)) return { ok: false, reason: 'После дедлайна.' };
+    if (task.deadline && dateKey(day) === task.deadline && end > deadlineMinutes(task)) return { ok: false, reason: 'После дедлайна.' };
     return { ok: true };
   }
 
-  function latestAllowedEnd(task, key) {
-    const s = settingsMinutes();
-    return task.deadline && key === task.deadline ? Math.min(s.workEnd, deadlineMinutes(task)) : s.workEnd;
-  }
-
-  function planningEndDate(task, fromDate) {
-    return task.deadline ? dateFromKey(task.deadline) : addDays(startOfDay(fromDate), PLANNING_HORIZON_DAYS);
-  }
-
-  function findSlot(task, fromDate, occupied) {
-    const startDate = startOfDay(fromDate);
-    const deadlineDate = planningEndDate(task, startDate);
-    const today = todayKey();
-    for (let cursor = startDate; cursor <= deadlineDate; cursor = addDays(cursor, 1)) {
-      if (!isWorkingDay(cursor)) continue;
-      const key = dateKey(cursor);
-      const windows = getFreeWindows(occupied[key] || []);
-      for (const [windowStart, windowEnd] of windows) {
-        let start = Math.ceil(windowStart / 15) * 15;
-        if (key === today) start = Math.max(start, Math.ceil(nowMinutes() / 15) * 15);
-        const latestEnd = latestAllowedEnd(task, key);
-        const taskEnd = start + task.duration;
-        const reservedEnd = taskEnd + Number(data.settings.buffer || 0);
-        if (taskEnd <= Math.min(windowEnd, latestEnd) && reservedEnd <= windowEnd) return { date: key, start };
-      }
-    }
-    return null;
-  }
-
-  function cloneOccupied(occupied) {
-    return Object.fromEntries(Object.entries(occupied).map(([key, list]) => [key, list.map((item) => ({ ...item }))]));
-  }
-
-  function canFitRemaining(tasks, fromDate, occupied) {
-    const simulation = cloneOccupied(occupied);
-    const ordered = [...tasks].sort((a, b) => deadlineTimestamp(a) - deadlineTimestamp(b) || b.priority - a.priority || b.duration - a.duration);
-    for (const task of ordered) {
-      const slot = findSlot(task, fromDate, simulation);
-      if (!slot) return false;
-      addOccupied(simulation, { ...task, scheduledDate: slot.date, scheduledStart: hm(slot.start), done: false });
-    }
-    return true;
-  }
-
-  function planningScore(task) {
-    const priorityLeadMinutes = task.priority === 3 ? 120 : task.priority === 2 ? 45 : 0;
-    if (!task.deadline) return 10 ** 18 - priorityLeadMinutes * 60000 - task.duration * 1000;
-    return deadlineTimestamp(task) - (task.duration + Number(data.settings.buffer || 0) + priorityLeadMinutes) * 60000;
-  }
-
-  function sortForPlanning(tasks) {
-    return [...tasks].sort((a, b) => planningScore(a) - planningScore(b) || deadlineTimestamp(a) - deadlineTimestamp(b) || b.priority - a.priority || b.duration - a.duration || String(a.createdAt).localeCompare(String(b.createdAt)));
-  }
-
-  function autoPlanAll(showResult = true) {
-    const today = startOfDay(new Date());
-    data.tasks.forEach((task) => {
-      if (!task.done && !task.locked) { task.scheduledDate = null; task.scheduledStart = null; }
-    });
-
-    const occupied = {};
-    data.tasks.filter((task) => !task.done && task.locked).forEach((task) => addOccupied(occupied, task));
-    let remaining = data.tasks.filter((task) => !task.done && !task.locked && (task.deadline == null || deadlineTimestamp(task) >= Date.now()));
-    const overdue = data.tasks.filter((task) => !task.done && task.deadline && deadlineTimestamp(task) < Date.now()).length;
-    let placed = 0;
-    let missed = 0;
-
-    while (remaining.length) {
-      const ordered = sortForPlanning(remaining);
-      let chosen = null;
-      for (const candidate of ordered) {
-        const candidateSlot = findSlot(candidate, today, occupied);
-        if (!candidateSlot) continue;
-        const simulated = cloneOccupied(occupied);
-        addOccupied(simulated, { ...candidate, scheduledDate: candidateSlot.date, scheduledStart: hm(candidateSlot.start), done: false });
-        const rest = remaining.filter((item) => String(item.id) !== String(candidate.id));
-        if (!rest.length || canFitRemaining(rest, today, simulated)) {
-          chosen = { candidate, slot: candidateSlot };
-          break;
-        }
-      }
-      if (!chosen) {
-        const fallbackCandidates = remaining
-          .map((candidate) => ({ candidate, slot: findSlot(candidate, today, occupied) }))
-          .filter((entry) => entry.slot)
-          .sort((a, b) => deadlineTimestamp(a.candidate) - deadlineTimestamp(b.candidate) || b.candidate.priority - a.candidate.priority || b.candidate.duration - a.candidate.duration);
-        if (!fallbackCandidates.length) {
-          missed += remaining.length;
-          break;
-        }
-        chosen = fallbackCandidates[0];
-      }
-      const { candidate, slot } = chosen;
-      candidate.scheduledDate = slot.date; candidate.scheduledStart = hm(slot.start); candidate.locked = false;
-      addOccupied(occupied, candidate);
-      remaining = remaining.filter((item) => String(item.id) !== String(candidate.id));
-      placed += 1;
-    }
-
-    saveData(); renderAll();
-    if (showResult) {
-      if (placed && !missed) showToast(`План готов · ${placed} ${formatCount(placed, 'задача', 'задачи', 'задач')}`);
-      else if (placed && missed) showToast(`План готов · ${placed} поставлено, ${missed} не поместилось до дедлайна.`);
-      else if (missed && overdue) showToast(`План готов · ${missed} не поместилось, ${overdue} просрочено.`);
-      else if (missed) showToast(`Не удалось разместить ${missed} ${formatCount(missed, 'задачу', 'задачи', 'задач')}.`);
-      else if (overdue) showToast(`Просрочено: ${overdue} ${formatCount(overdue, 'задачу', 'задачи', 'задач')}.`);
-      else showToast('Пока нечего планировать.');
-    }
-    return { placed, missed, overdue };
+  function taskUrgencyScore(task) {
+    const deadline = task.deadline ? deadlineTimestamp(task) : Infinity;
+    const overdueLead = taskIsOverdue(task) ? -(10 ** 14) : 0;
+    const priorityLead = task.priority === 3 ? -2_000_000 : task.priority === 2 ? -1_000_000 : 0;
+    return deadline + priorityLead + overdueLead + Number(task.duration || 0) * 10;
   }
 
   function validateManualSlot(task, scheduledDate, scheduledStart, duration) {
@@ -526,10 +387,10 @@
   }
 
   function slotValidationText(task) {
-    if (!$('#manualScheduleToggle')?.checked) return '';
-    const date = $('#taskScheduleDate')?.value; const time = $('#taskScheduleTime')?.value; const duration = Number($('#taskDuration')?.value || 0);
-    if (!date || !time) return 'Выбери дату и время.';
-    const taskLike = task || { id: editingId || '__new__', deadline: $('#taskDeadline').value || null, deadlineTime: $('#taskDeadlineTime')?.value || null };
+    const date = $('#taskScheduleDate')?.value || ''; const time = $('#taskScheduleTime')?.value || ''; const duration = Number($('#taskDuration')?.value || 0);
+    if (!date && !time) return 'Без времени — задача останется во входящих.';
+    if (!date || !time) return 'Укажи и дату, и время или очисти оба поля.';
+    const taskLike = task || { id: editingId || '__new__', deadline: $('#taskDeadline')?.value || null, deadlineTime: $('#taskDeadlineTime')?.value || null };
     const error = validateManualSlot(taskLike, date, time, duration);
     return error || `Свободно · ${time}–${hm(toMinutes(time) + duration)} · резерв ${Number(data.settings.buffer || 0)}м`;
   }
@@ -559,16 +420,6 @@
     saveData(); closeAllModals(); renderAll(); showToast('Задача удалена.');
   }
 
-  function clearAutoSlots() {
-    let changed = 0;
-    data.tasks.forEach((task) => {
-      if (!task.done && !task.locked && (task.scheduledDate || task.scheduledStart)) {
-        task.scheduledDate = null; task.scheduledStart = null; changed += 1;
-      }
-    });
-    saveData(); closeModal('planningSheetBackdrop'); renderAll();
-    showToast(changed ? `Снято автоматических слотов: ${changed}.` : 'Автоматических слотов нет.');
-  }
 
   function resetAllData() {
     data = clone(DEFAULTS);
@@ -585,7 +436,7 @@
 
   function renderAll() {
     applyTheme(); renderChrome(); renderToday(); renderCalendar(); renderTasks(); renderSettings();
-    populateFocusTasks(); updatePlanControls(); updateAppVersion(); updateManualHint(); updateFocusUI();
+    populateFocusTasks(); updateAppVersion(); updateManualHint(); updateFocusUI();
   }
 
   function renderChrome() {
@@ -594,16 +445,6 @@
     $$('.view').forEach((view) => view.classList.toggle('active', view.dataset.view === currentView));
   }
 
-  function updatePlanControls() {
-    const unplanned = getOpenInbox().length;
-    const autoPlanned = data.tasks.some((task) => !task.done && !task.locked && task.scheduledDate && task.scheduledStart);
-    const shouldShow = unplanned || autoPlanned;
-    $('#planBtn').classList.toggle('hidden', !shouldShow);
-    $('#planBtnText').textContent = autoPlanned ? 'Перестроить план' : 'Составить план';
-    $('#planBtn').setAttribute('aria-label', autoPlanned ? 'Перестроить весь автоматический план' : 'Составить план для открытых задач');
-    const sheetMeta = $('#planMeta');
-    if (sheetMeta) sheetMeta.textContent = autoPlanned ? 'Перестраивается весь автоматический план от сегодняшнего дня. Ручные блоки Flowday не тронет.' : `${unplanned} ${formatCount(unplanned, 'задача', 'задачи', 'задач')} без времени. Планировщик начнёт с сегодняшнего дня.`;
-  }
 
   function dayLoad(date) {
     const tasks = getScheduled(date, false);
@@ -617,33 +458,6 @@
     return !task.done && Boolean(task.deadline) && deadlineTimestamp(task) < Date.now();
   }
 
-  function buildOccupiedExcept(excludedId = null) {
-    const occupied = {};
-    data.tasks.filter((task) => !task.done && String(task.id) !== String(excludedId) && task.scheduledDate && task.scheduledStart)
-      .forEach((task) => addOccupied(occupied, task));
-    return occupied;
-  }
-
-  function scheduleSingleTask(id) {
-    const task = byId(id);
-    if (!task || task.done) return { ok: false, reason: 'Задачу нельзя поставить в план.' };
-    const occupied = buildOccupiedExcept(id);
-    const slot = findSlot(task, startOfDay(new Date()), occupied);
-    if (!slot) {
-      task.scheduledDate = null;
-      task.scheduledStart = null;
-      task.locked = false;
-      saveData(); renderAll();
-      return { ok: false, reason: task.deadline ? 'До дедлайна свободного окна не нашлось.' : 'Свободного окна в ближайшие 14 дней не нашлось.' };
-    }
-    task.scheduledDate = slot.date;
-    task.scheduledStart = hm(slot.start);
-    task.locked = false;
-    saveData();
-    currentDate = startOfDay(dateFromKey(slot.date));
-    renderAll();
-    return { ok: true, slot };
-  }
 
   function clearTaskSchedule(id) {
     const task = byId(id);
@@ -688,12 +502,12 @@
     $('#todayEyebrow').textContent = isToday ? 'СЕГОДНЯ' : longDate(currentDate).toUpperCase();
     $('#todayTitle').textContent = isToday ? 'Твой день.' : `План на ${shortDate(currentDate)}.`;
     const summaryBits = [];
-    if (!working) summaryBits.push('Выходной. Автопланирование сюда ничего не ставит.');
-    else if (!data.tasks.length) summaryBits.push('Добавь первую задачу — время подберётся само.');
+    if (!working) summaryBits.push('Выходной. Можно включить выходные в настройках или выбрать рабочий день.');
+    else if (!data.tasks.length) summaryBits.push('Добавь первую задачу — время можно назначить сразу или позже.');
     else {
       if (dueToday) summaryBits.push(`${dueToday} ${formatCount(dueToday, 'задача', 'задачи', 'задач')} с дедлайном сегодня.`);
       if (overdue) summaryBits.push(`${overdue} просрочено.`);
-      if (!summaryBits.length) summaryBits.push('Flowday держит свободные окна и резерв под контролем.');
+      if (!summaryBits.length) summaryBits.push('Свободные окна и резерв показываются прямо в расписании.');
     }
     $('#todaySubtitle').textContent = summaryBits.join(' ');
     $('#todayDateText').textContent = shortDate(currentDate);
@@ -709,7 +523,7 @@
       const now = nowMinutes(); const start = toMinutes(next.scheduledStart); const end = start + next.duration;
       const live = key === todayKey() && now >= start && now < end;
       $('#nextUpTitle').textContent = live ? `Сейчас · ${next.title}` : next.title;
-      $('#nextUpMeta').textContent = `${next.scheduledStart}–${scheduleEnd(next)} · ${formatDuration(next.duration)} · ${next.locked ? 'вручную' : 'авто'}`;
+      $('#nextUpMeta').textContent = `${next.scheduledStart}–${scheduleEnd(next)} · ${formatDuration(next.duration)} · вручную`;
       $('#nextUpAction').textContent = live ? 'Открыть' : 'Открыть';
       $('#nextUpAction').dataset.taskId = next.id;
     } else {
@@ -722,8 +536,7 @@
 
   function scheduleEnd(task) { return hm(toMinutes(task.scheduledStart) + task.duration); }
   function renderAgendaCard(task) {
-    const type = task.locked ? 'manual' : 'auto';
-    return `<button class="agenda-card ${type}" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="agenda-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="agenda-main"><strong class="agenda-title">${escapeHtml(task.title)}</strong><small class="agenda-meta">${formatDuration(task.duration)} · ${escapeHtml(task.category)} · ${task.locked ? 'вручную' : 'авто'} · ${escapeHtml(deadlineLabel(task))}</small></span><span class="chevron">›</span></button>`;
+    return `<button class="agenda-card manual" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="agenda-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="agenda-main"><strong class="agenda-title">${escapeHtml(task.title)}</strong><small class="agenda-meta">${formatDuration(task.duration)} · ${escapeHtml(task.category)} · вручную · ${escapeHtml(deadlineLabel(task))}</small></span><span class="chevron">›</span></button>`;
   }
   function renderInboxRow(task) {
     return `<div class="inbox-row"><button class="task-check" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="Отметить выполненной">✓</button><button class="row-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="inbox-title">${escapeHtml(task.title)}</strong><small class="inbox-meta">${deadlineLabel(task)} · ${formatDuration(task.duration)} · ${priorityLabel(task.priority)}${taskIsOverdue(task) ? ' · нужен перенос' : ''}</small></button></div>`;
@@ -743,7 +556,7 @@
     $('#calendarLoadLabel').textContent = `${formatDuration(load.work)}${load.reserve ? ` + ${formatDuration(load.reserve)} резерв` : ''} · ${load.tasks.length} ${formatCount(load.tasks.length, 'задача', 'задачи', 'задач')}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
     $('#calendarLoadValue').textContent = `${Math.min(100, Math.max(0, pctRaw))}%`;
     const dayTasks = getScheduled(currentDate);
-    $('#calendarAgenda').innerHTML = dayTasks.length ? dayTasks.map((task) => `<button class="calendar-block" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="calendar-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="calendar-slot ${task.locked ? 'manual' : 'auto'} ${task.done ? 'done' : ''} ${taskIsOverdue(task) ? 'overdue' : ''}"><strong>${escapeHtml(task.title)}</strong><small>${formatDuration(task.duration)} · ${task.locked ? 'вручную' : 'авто'} · ${escapeHtml(deadlineLabel(task))}${task.category ? ` · ${escapeHtml(task.category)}` : ''}</small></span></button>`).join('') : emptyState('На этот день пусто.', 'Выбери другой день или добавь задачу через +.');
+    $('#calendarAgenda').innerHTML = dayTasks.length ? dayTasks.map((task) => `<button class="calendar-block" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="calendar-time">${escapeHtml(task.scheduledStart)}<small>${escapeHtml(scheduleEnd(task))}</small></span><span class="calendar-slot manual ${task.done ? 'done' : ''} ${taskIsOverdue(task) ? 'overdue' : ''}"><strong>${escapeHtml(task.title)}</strong><small>${formatDuration(task.duration)} · вручную · ${escapeHtml(deadlineLabel(task))}${task.category ? ` · ${escapeHtml(task.category)}` : ''}</small></span></button>`).join('') : emptyState('На этот день пусто.', 'Выбери другой день или добавь задачу через +.');
   }
 
   function renderTasks() {
@@ -752,7 +565,7 @@
       const matchesFilter = activeFilter === 'all' || (activeFilter === 'open' && !task.done) || (activeFilter === 'planned' && !task.done && !!task.scheduledDate) || (activeFilter === 'due' && !task.done && !!task.deadline) || (activeFilter === 'inbox' && !task.done && !task.scheduledDate) || (activeFilter === 'overdue' && taskIsOverdue(task)) || (activeFilter === 'done' && task.done);
       const haystack = `${task.title} ${task.note} ${task.category}`.toLowerCase();
       return matchesFilter && (!search || haystack.includes(search));
-    }).sort((a, b) => { if (a.done !== b.done) return a.done ? 1 : -1; return planningScore(a) - planningScore(b) || b.priority - a.priority; });
+    }).sort((a, b) => { if (a.done !== b.done) return a.done ? 1 : -1; return taskUrgencyScore(a) - taskUrgencyScore(b) || b.priority - a.priority; });
     const open = data.tasks.filter((task) => !task.done).length;
     $('#taskSummary').textContent = `${open} ${formatCount(open, 'открытая задача', 'открытые задачи', 'открытых задач')}`;
     $('#filterCount').textContent = activeFilter === 'all' ? '' : `· ${filterLabel(activeFilter)}`;
@@ -762,7 +575,7 @@
   function filterLabel(filter) { return ({ open: 'открытые', planned: 'в плане', due: 'с дедлайном', inbox: 'без времени', overdue: 'просроченные', done: 'готово' }[filter] || 'все'); }
   function renderTaskRow(task) {
     const priority = priorityLabel(task.priority); const deadline = deadlineLabel(task); const schedule = scheduleLabel(task);
-    const status = task.done ? 'Готово' : taskIsOverdue(task) ? 'Нужен перенос' : (!task.scheduledDate ? 'Без времени' : task.locked ? 'Вручную' : 'Авто');
+    const status = task.done ? 'Готово' : taskIsOverdue(task) ? 'Нужен перенос' : (!task.scheduledDate ? 'Без времени' : 'Вручную');
     return `<div class="task-row ${task.done ? 'done' : ''}"><button class="task-check ${task.done ? 'done' : ''}" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="${task.done ? 'Вернуть в работу' : 'Выполнить'}">${task.done ? '✓' : ''}</button><button class="task-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="task-title">${escapeHtml(task.title)}</strong><span class="task-badges"><span class="badge ${priorityClass(task.priority)}">${escapeHtml(priority)}</span><span class="badge">${escapeHtml(formatDuration(task.duration))}</span><span class="badge">${escapeHtml(deadline)}</span><span class="badge">${escapeHtml(status)}</span></span></button></div>`;
   }
 
@@ -805,36 +618,29 @@
     $('#taskForm').reset();
     $('#taskSheetKicker').textContent = task ? 'РЕДАКТИРОВАНИЕ' : 'НОВАЯ ЗАДАЧА';
     $('#taskSheetTitle').textContent = task ? 'Измени задачу' : 'Что нужно сделать?';
-    $('#saveTaskBtn').textContent = task ? 'Сохранить' : 'Добавить'; $('#deleteTaskBtn').hidden = !task; $('#taskSmartActions').classList.toggle('hidden', !task || task.done);
-    $('#moveTaskBtn').disabled = !task || task.done;
+    $('#saveTaskBtn').textContent = task ? 'Сохранить' : 'Добавить'; $('#deleteTaskBtn').hidden = !task; $('#taskSmartActions').classList.toggle('hidden', !task || task.done || !task.scheduledDate);
     $('#clearTaskScheduleBtn').disabled = !task || task.done || (!task.scheduledDate && !task.scheduledStart);
-    $('#moveTaskBtn').textContent = task?.scheduledDate ? 'Ближайшее окно' : 'Найти время';
-    const defaultDeadline = dateKey(currentDate < startOfDay(new Date()) ? new Date() : currentDate);
     $('#taskTitle').value = task?.title || ''; $('#taskDuration').value = String(task?.duration || 60); $('#taskPriority').value = String(task?.priority || 2);
     $('#taskDeadline').value = task ? (task.deadline || '') : ''; $('#taskDeadlineTime').value = task?.deadlineTime || '';
     $('#taskCategory').value = task?.category || 'Учёба'; $('#taskNote').value = task?.note || '';
-    const isManual = Boolean(task?.locked); $('#manualScheduleToggle').checked = isManual; $('#manualScheduleFields').classList.toggle('hidden', !isManual);
-    $('#taskScheduleDate').value = task?.scheduledDate || defaultDeadline; $('#taskScheduleTime').value = task?.scheduledStart || '';
+    $('#taskScheduleDate').value = task?.scheduledDate || ''; $('#taskScheduleTime').value = task?.scheduledStart || '';
     const today = todayKey(); $('#taskDeadline').min = today; $('#taskScheduleDate').min = today;
     updateTaskLogicHint(); updateManualHint(); openModal('taskSheetBackdrop'); setTimeout(() => $('#taskTitle').focus(), 100);
   }
 
   function updateTaskLogicHint() {
     const duration = Number($('#taskDuration')?.value || 60); const priority = Number($('#taskPriority')?.value || 2); const deadline = $('#taskDeadline')?.value; const deadlineTime = $('#taskDeadlineTime')?.value;
-    const bits = [`${formatDuration(duration)} — реальная длина`, `${priorityLabel(priority)} — влияет на порядок при авторазмещении`];
+    const bits = [`${formatDuration(duration)} — реальная длина слота`, `${priorityLabel(priority)} — влияет на порядок задач и визуальный акцент`];
     if (deadline) bits.push(`дедлайн — ${deadlineTime ? `до ${deadlineTime}` : 'до конца дня'}`);
-    else bits.push('без дедлайна — Flowday найдёт окно в ближайшие 14 дней');
+    else bits.push('без дедлайна — срок не ограничивает задачу');
     $('#taskLogicHint').textContent = bits.join(' · ');
   }
 
   function updateManualHint() {
     const hint = $('#manualScheduleHint'); if (!hint) return;
-    const isManual = Boolean($('#manualScheduleToggle')?.checked);
-    hint.className = `manual-hint ${isManual ? '' : 'hidden'}`;
-    if (!isManual) return;
     const existing = editingId ? byId(editingId) : null;
     const taskLike = { ...(existing || {}), id: existing?.id || '__new__', duration: Number($('#taskDuration')?.value || 0), deadline: $('#taskDeadline')?.value || null, deadlineTime: $('#taskDeadlineTime')?.value || null };
-    const text = slotValidationText(taskLike); hint.textContent = text; hint.dataset.state = text.startsWith('Свободно') ? 'ok' : 'error';
+    const text = slotValidationText(taskLike); hint.textContent = text; hint.dataset.state = text.startsWith('Свободно') || text.startsWith('Без времени') ? 'ok' : 'error';
   }
 
   function populateFocusTasks() {
@@ -915,9 +721,9 @@
     `;
     const items = [];
     if (health.overdue) items.push(`<div class="health-item"><span class="health-icon">!</span><div><strong>${health.overdue} просрочено</strong><small>Открой задачу и поставь новый дедлайн или ближайшее свободное окно.</small></div></div>`);
-    if (health.inbox) items.push(`<div class="health-item"><span class="health-icon">⌁</span><div><strong>${health.inbox} без времени</strong><small>Flowday не нашёл им слот или они ещё не были спланированы.</small></div></div>`);
+    if (health.inbox) items.push(`<div class="health-item"><span class="health-icon">⌁</span><div><strong>${health.inbox} без времени</strong><small>Их можно поставить вручную в карточке задачи.</small></div></div>`);
     if (health.due48h) items.push(`<div class="health-item"><span class="health-icon">◷</span><div><strong>${health.due48h} с дедлайном в ближайшие 48 часов</strong><small>Проверь, хватает ли свободного времени до срока.</small></div></div>`);
-    if (health.overloaded) items.push(`<div class="health-item"><span class="health-icon">↑</span><div><strong>${health.overloaded} перегруженных дня</strong><small>Перестрой план или перенеси часть задач на свободные дни.</small></div></div>`);
+    if (health.overloaded) items.push(`<div class="health-item"><span class="health-icon">↑</span><div><strong>${health.overloaded} перегруженных дня</strong><small>Открой задачи и перенеси часть слотов на свободные дни.</small></div></div>`);
     if (!items.length) items.push(`<div class="health-item"><span class="health-icon">✓</span><div><strong>План в порядке</strong><small>Критичных конфликтов, просрочек и перегруженных дней не найдено.</small></div></div>`);
     $('#healthList').innerHTML = items.join('');
     openModal('healthSheetBackdrop');
@@ -1024,9 +830,7 @@
     $('#dateNext').addEventListener('click', () => { currentDate = addDays(currentDate, 1); $('#datePickerInput').value = dateKey(currentDate); renderAll(); });
     $('#dateTodayBtn').addEventListener('click', () => { currentDate = startOfDay(new Date()); $('#datePickerInput').value = dateKey(currentDate); renderAll(); closeModal('dateSheetBackdrop'); });
 
-    $('#planBtn').addEventListener('click', () => openModal('planningSheetBackdrop'));
     $('#nextUpAction').addEventListener('click', () => { const id = $('#nextUpAction').dataset.taskId; if (id) openTaskSheet(id); });
-    $('#moveTaskBtn').onclick = () => { if (!editingId) return; const result = scheduleSingleTask(editingId); if (result.ok) { closeModal('taskSheetBackdrop'); showToast(`Поставлено на ${shortDate(dateFromKey(result.slot.date))} · ${hm(result.slot.start)}.`); } else showToast(result.reason); };
     $('#clearTaskScheduleBtn').onclick = () => { if (!editingId) return; clearTaskSchedule(editingId); closeModal('taskSheetBackdrop'); showToast('Время снято. Задача снова во входящих.'); };
     $('#calendarToday').addEventListener('click', () => { currentDate = startOfDay(new Date()); renderAll(); });
     $('#calendarPrevWeek').addEventListener('click', () => { currentDate = addDays(currentDate, -7); renderAll(); });
@@ -1040,15 +844,6 @@
 
     $('#closeTaskSheet').onclick = () => closeModal('taskSheetBackdrop'); $('#cancelTask').onclick = () => closeModal('taskSheetBackdrop');
     $('#taskSheetBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal('taskSheetBackdrop'); });
-    $('#manualScheduleToggle').addEventListener('change', (event) => {
-      $('#manualScheduleFields').classList.toggle('hidden', !event.target.checked);
-      if (event.target.checked && !$('#taskScheduleTime').value) {
-        const base = Math.max(data.settings.workStart * 60, Math.ceil(nowMinutes() / 15) * 15);
-        const latest = data.settings.workEnd * 60 - Number($('#taskDuration').value) - Number(data.settings.buffer || 0);
-        $('#taskScheduleTime').value = hm(Math.max(data.settings.workStart * 60, Math.min(base, latest)));
-      }
-      updateTaskLogicHint(); updateManualHint();
-    });
     ['taskDuration', 'taskPriority', 'taskDeadline', 'taskDeadlineTime', 'taskScheduleDate', 'taskScheduleTime'].forEach((id) => {
       $(`#${id}`)?.addEventListener('input', () => { updateTaskLogicHint(); updateManualHint(); });
       $(`#${id}`)?.addEventListener('change', () => { updateTaskLogicHint(); updateManualHint(); });
@@ -1061,42 +856,30 @@
       const title = $('#taskTitle').value.trim(); const duration = Number($('#taskDuration').value); const priority = Number($('#taskPriority').value);
       const deadline = $('#taskDeadline').value || null; const deadlineTime = $('#taskDeadlineTime').value || null;
       const category = ALLOWED_CATEGORIES.includes($('#taskCategory').value) ? $('#taskCategory').value : 'Другое'; const note = $('#taskNote').value.trim();
-      const manual = $('#manualScheduleToggle').checked;
+      const manualDate = $('#taskScheduleDate').value || ''; const manualTime = $('#taskScheduleTime').value || '';
       if (!title) { showToast('Введите название задачи.'); return; }
       if (deadline && (!isValidDateKey(deadline) || dateFromKey(deadline) < startOfDay(new Date()))) { showToast('Дедлайн не может быть в прошлом.'); return; }
       if (deadlineTime && !deadline) { showToast('Укажи дату дедлайна, если задаёшь время.'); return; }
       if (deadlineTime && !Number.isFinite(toMinutes(deadlineTime))) { showToast('Проверь время дедлайна.'); return; }
       if (!ALLOWED_DURATIONS.includes(duration)) { showToast('Проверь длительность.'); return; }
+      if ((manualDate && !manualTime) || (!manualDate && manualTime)) { showToast('Укажи и дату, и время или очисти оба поля.'); return; }
 
       const task = existing ? { ...existing } : { id: uid(), title: '', duration: 60, priority: 2, deadline: null, deadlineTime: null, category: 'Учёба', note: '', scheduledDate: null, scheduledStart: null, locked: false, done: false, createdAt: new Date().toISOString(), completedAt: null };
       Object.assign(task, { title, duration, priority, deadline, deadlineTime, category, note });
 
-      if (manual) {
-        const manualDate = $('#taskScheduleDate').value; const manualTime = $('#taskScheduleTime').value;
+      if (manualDate && manualTime) {
         const error = validateManualSlot(task, manualDate, manualTime, duration);
         if (error) { updateManualHint(); showToast(error); return; }
         task.scheduledDate = manualDate; task.scheduledStart = manualTime; task.locked = true;
       } else {
-        const oldAuto = existing && !existing.locked;
-        const relevantChange = !existing || duration !== existing.duration || priority !== existing.priority || deadline !== existing.deadline || deadlineTime !== existing.deadlineTime;
-        task.locked = false;
-        if (oldAuto && existing.scheduledDate && existing.scheduledStart && !relevantChange && (existing.deadline == null || deadlineTimestamp(existing) >= Date.now()) && validatePersistedSlot(existing).ok) {
-          task.scheduledDate = existing.scheduledDate; task.scheduledStart = existing.scheduledStart;
-        } else {
-          task.scheduledDate = null; task.scheduledStart = null;
-        }
+        task.scheduledDate = null; task.scheduledStart = null; task.locked = false;
       }
 
       if (existing) data.tasks = data.tasks.map((item) => String(item.id) === String(existing.id) ? task : item); else data.tasks.push(task);
-      saveData(); closeModal('taskSheetBackdrop');
-      const shouldAutoPlan = !manual;
-      let planResult = null;
-      if (shouldAutoPlan) planResult = autoPlanAll(false); else renderAll();
-      const saved = byId(task.id);
-      if (!existing && manual) showToast('Задача добавлена вручную.');
-      else if (!existing && !manual) showToast(planResult?.placed ? `Добавлено и запланировано · ${saved?.scheduledStart || 'см. план'}` : 'Задача добавлена, но свободного окна до дедлайна не нашлось.');
-      else if (existing && !manual && existing.locked) showToast(saved?.scheduledDate ? 'Ручная задача передана Flowday.' : 'Задача возвращена во входящие.');
-      else if (existing && manual) showToast('Ручной слот сохранён.');
+      repairAndPersist(); saveData(); closeModal('taskSheetBackdrop'); renderAll();
+      if (!existing && task.scheduledDate) showToast('Задача добавлена вручную.');
+      else if (!existing) showToast('Задача добавлена без времени.');
+      else if (task.scheduledDate) showToast('Ручной слот сохранён.');
       else showToast('Изменения сохранены.');
     });
 
@@ -1106,18 +889,16 @@
     $('#focusTaskSelect').addEventListener('change', () => { if (focusRunning) return; focusTaskId = $('#focusTaskSelect').value || null; resetFocusTimer(); updateFocusTip(); });
     $('#moreFocus').onclick = openFocusSheet; $('#moreInsights').onclick = renderInsights; $('#moreHealth').onclick = renderPlanHealth; $('#moreSettings').onclick = () => { renderSettings(); openModal('settingsSheetBackdrop'); };
 
-    ['planningSheetBackdrop', 'insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop', 'healthSheetBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
-    $('#closePlanningSheet').onclick = () => closeModal('planningSheetBackdrop'); $('#closeInsightsSheet').onclick = () => closeModal('insightsSheetBackdrop'); $('#closeSettingsSheet').onclick = () => closeModal('settingsSheetBackdrop'); $('#closeHealthSheet').onclick = () => closeModal('healthSheetBackdrop');
-    $('#replanFromSheet').onclick = () => { closeModal('planningSheetBackdrop'); autoPlanAll(); }; $('#clearAutoFromSheet').onclick = clearAutoSlots;
+    ['insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop', 'healthSheetBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
+    $('#closeInsightsSheet').onclick = () => closeModal('insightsSheetBackdrop'); $('#closeSettingsSheet').onclick = () => closeModal('settingsSheetBackdrop'); $('#closeHealthSheet').onclick = () => closeModal('healthSheetBackdrop');
 
     $('#settingsForm').addEventListener('submit', (event) => {
       event.preventDefault();
       const workStart = toMinutes($('#workStartInput').value); const workEnd = toMinutes($('#workEndInput').value); const lunchStart = toMinutes($('#lunchStartInput').value); const lunchEnd = toMinutes($('#lunchEndInput').value);
       const error = validateSettingsDraft(workStart, workEnd, lunchStart, lunchEnd); if (error) { showToast(error); return; }
       data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: $('#appearanceInput').value };
-      repairAndPersist(); if (!focusRunning) resetFocusTimer(); saveData(); closeModal('settingsSheetBackdrop');
-      if (data.tasks.some((task) => !task.done && !task.locked && (task.deadline == null || deadlineTimestamp(task) >= Date.now()))) autoPlanAll(false); else renderAll();
-      showToast('Настройки сохранены, план пересобран.');
+      repairAndPersist(); if (!focusRunning) resetFocusTimer(); saveData(); closeModal('settingsSheetBackdrop'); renderAll();
+      showToast('Настройки сохранены. Проверь слоты, если изменились рабочие часы.');
     });
 
     $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importData(file); event.target.value = ''; });
@@ -1167,13 +948,8 @@
     normalizeData,
     validateManualSlot,
     validatePersistedSlot,
-    autoPlanAll,
-    findSlot,
-    sortForPlanning,
-    canFitRemaining,
     repairData,
-    planningScore,
-    scheduleSingleTask,
+    taskUrgencyScore,
     clearTaskSchedule,
     getNextUpTask,
     getPlanHealth,
