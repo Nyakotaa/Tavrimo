@@ -53,4 +53,6 @@
 - `tools/` — утилиты и проверки.
 
 ## Релиз
-Текущая версия: **7.0.0**. Подробности — в `RELEASE_NOTES_RU.md` и `CHANGELOG.md`.
+Текущая версия: **8.0.0 RC1**. Подробности — в `RELEASE_NOTES_RU.md`, `CHANGELOG.md` и `docs/QA_RC_RU.md`.
+
+Для RC используется версия Service Worker `flowday-v8.0.0-rc.1`; после публикации один раз открой Flowday с интернетом на iPhone, чтобы обновить кэш.

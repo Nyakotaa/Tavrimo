@@ -1,4 +1,4 @@
-Flowday — offline-first планировщик задач для iPhone, который автоматически распределяет дела по свободному времени с учётом приоритета, дедлайна, рабочего дня и ручных блоков.
+Flowday — offline-first планировщик задач для iPhone, который автоматически распределяет дела по свободному времени с учётом дедлайна, приоритета, длительности, рабочего дня, буфера и ручных блоков.
 
 Suggested topics:
 pwa, ios, iphone, productivity, planner, task-manager, offline-first, github-pages, javascript, html, css, student, schedule

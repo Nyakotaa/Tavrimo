@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Flowday" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v7.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v8.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="stylesheet" href="style.css" />
   <title>Flowday</title>
@@ -74,7 +74,7 @@
       <section class="view" data-view="calendar" id="calendarView">
         <div class="page-intro compact">
           <div><p class="eyebrow">ОБЗОР</p><h1>Неделя</h1><p class="page-subtitle" id="weekRange">—</p></div>
-          <button class="secondary-button compact-action" id="calendarToday" type="button">Сегодня</button>
+          <div class="calendar-actions"><button class="secondary-button compact-action" id="calendarPrevWeek" type="button" aria-label="Предыдущая неделя">‹</button><button class="secondary-button compact-action" id="calendarToday" type="button">Сегодня</button><button class="secondary-button compact-action" id="calendarNextWeek" type="button" aria-label="Следующая неделя">›</button></div>
         </div>
         <div class="week-strip" id="weekStrip"></div>
         <section class="day-overview">
@@ -89,7 +89,7 @@
           <div><p class="eyebrow">БИБЛИОТЕКА</p><h1>Задачи</h1><p class="page-subtitle" id="taskSummary">0 открытых</p></div>
         </div>
         <div class="search-row">
-          <label class="search-field"><span aria-hidden="true">⌕</span><input id="taskSearch" placeholder="Поиск" autocomplete="off" /></label>
+          <label class="search-field"><span aria-hidden="true">⌕</span><input id="taskSearch" aria-label="Поиск задач" placeholder="Поиск" autocomplete="off" /></label>
           <button class="filter-button" id="filterButton" type="button">Фильтр <span id="filterCount"></span></button>
         </div>
         <div class="filter-popover" id="filterPopover" hidden>
@@ -116,7 +116,7 @@
             <span class="feature-icon gray">⚙</span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Flowday <span id="appVersionLabel">v6.0.0</span></div>
+        <div class="app-version">Flowday <span id="appVersionLabel">v8.0.0 RC1</span></div>
       </section>
     </main>
 
@@ -178,7 +178,7 @@
   <div class="modal-backdrop" id="planningSheetBackdrop" hidden>
     <section class="sheet compact" role="dialog" aria-modal="true" aria-labelledby="planningTitleSheet">
       <div class="grabber"></div><header class="sheet-header"><div><p class="eyebrow">ПЛАН</p><h2 id="planningTitleSheet">Управление планом</h2></div><button class="icon-btn ghost" id="closePlanningSheet" type="button" aria-label="Закрыть">×</button></header>
-      <p class="sheet-note" id="planMeta">Ручные блоки Flowday не тронет.</p>
+      <p class="sheet-note" id="planMeta">Перестраивается весь автоматический план от сегодняшнего дня. Ручные блоки Flowday не тронет.</p>
       <div class="stack-buttons"><button class="primary-button wide" id="replanFromSheet" type="button">✦ Перестроить план</button><button class="secondary-button wide" id="clearAutoFromSheet" type="button">Снять автоматические слоты</button></div>
     </section>
   </div>
