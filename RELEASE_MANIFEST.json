@@ -1,0 +1,6 @@
+{
+  "name": "Tavrimo",
+  "version": "10.0.0",
+  "release": "final",
+  "features": ["manual scheduling", "offline-first", "first-run onboarding", "local data", "guided tour"]
+}

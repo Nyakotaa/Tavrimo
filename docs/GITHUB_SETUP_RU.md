@@ -1,4 +1,4 @@
-# Настройка репозитория GitHub под Flowday
+# Настройка репозитория GitHub под Tavrimo
 
 ## Описание репозитория
 
@@ -10,7 +10,7 @@
 
 В поле `Website` укажи опубликованную GitHub Pages ссылку:
 
-`https://USERNAME.github.io/flowday/`
+`https://USERNAME.github.io/tavrimo/`
 
 ## Topics
 

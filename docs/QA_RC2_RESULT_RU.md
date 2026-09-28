@@ -1,4 +1,4 @@
-# Flowday 8.0.0 RC2 — QA result
+# Tavrimo 8.0.0 RC2 — QA result
 
 Дата: 27 сентября 2026
 

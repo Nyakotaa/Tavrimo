@@ -1,4 +1,4 @@
-# QA — Flowday 8.0.0 RC1
+# QA — Tavrimo 8.0.0 RC1
 
 ## Автоматические проверки
 - `node --check app.js`

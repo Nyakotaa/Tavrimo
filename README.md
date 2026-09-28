@@ -1,8 +1,8 @@
-# Flowday
+# Tavrimo
 
-**Flowday 9.1.0 Final** — offline-first personal planner for iPhone with manual time placement. You choose the date and start time; Flowday validates working hours, lunch, duration, deadlines, conflicts and reserve after each task.
+**Tavrimo 9.1.0 Final** — offline-first personal planner for iPhone with manual time placement. You choose the date and start time; Tavrimo validates working hours, lunch, duration, deadlines, conflicts and reserve after each task.
 
-## 9.1.1
+## 10.0.0
 
 Небольшое UI-обновление: понятные эмодзи для основных иконок интерфейса без изменения логики ручного планирования.
 
@@ -18,7 +18,7 @@
 Open the GitHub Pages URL in Safari and choose **Share → Add to Home Screen**. After the first successful load, the app can continue working offline.
 
 ## Update
-Replace the published project files with the contents of `personal-planner`, open Flowday once with internet access and accept the in-app update banner when it appears.
+Replace the published project files with the contents of `personal-planner`, open Tavrimo once with internet access and accept the in-app update banner when it appears.
 
 ## Data
 Tasks, schedules, settings and focus sessions are stored locally on the device. Export a JSON backup before resetting or moving data to another device.

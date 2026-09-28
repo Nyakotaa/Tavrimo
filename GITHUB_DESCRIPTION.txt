@@ -1,1 +1,1 @@
-Flowday 9.1 — offline-first personal planner for iPhone with manual task scheduling, deadlines, priorities, duration, conflict checks and local offline storage.
+Tavrimo 10 — offline-first personal planner for iPhone with manual task scheduling, deadlines, priorities, duration, conflict checks, local storage and guided first-run onboarding.

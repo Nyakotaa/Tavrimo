@@ -1,4 +1,4 @@
-# Flowday 9.0.0 — чек-лист релиза
+# Tavrimo 9.0.0 — чек-лист релиза
 
 - [ ] Загрузить содержимое `personal-planner` в GitHub Pages
 - [ ] Проверить HTTPS и открытие `index.html`

@@ -1,6 +1,6 @@
 {
-  "name": "Flowday — умный планировщик",
-  "short_name": "Flowday",
+  "name": "Tavrimo — умный планировщик",
+  "short_name": "Tavrimo",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
@@ -8,8 +8,8 @@
   "orientation": "portrait",
   "background_color": "#f4f5f7",
   "theme_color": "#f4f5f7",
-  "description": "Flowday — офлайн-планировщик для ручной расстановки задач по времени.",
-  "id": "./",
+  "description": "Tavrimo — офлайн-планировщик для ручной расстановки задач по времени.",
+  "id": "./tavrimo",
   "categories": ["productivity", "utilities"],
   "icons": [
     {

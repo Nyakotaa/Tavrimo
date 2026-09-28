@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '9.1.1';
-  const SCHEMA_VERSION = 11;
-  const STORAGE_KEY = 'flowday-planner-v11';
+  const APP_VERSION = '10.0.0';
+  const SCHEMA_VERSION = 12;
+  const STORAGE_KEY = 'tavrimo-planner-v12';
   const LEGACY_KEYS = [
-    'flowday-planner-v10', 'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
+    'tavrimo-planner-v11', 'flowday-planner-v11', 'flowday-planner-v10', 'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
     'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'
   ];
   const DEMO_TITLES = new Set([
@@ -17,6 +17,21 @@
   const ALLOWED_BUFFERS = [0, 5, 10, 15];
   const ALLOWED_FOCUS = [25, 50, 90, 120];
   const ALLOWED_CATEGORIES = ['Учёба', 'Работа', 'Личное', 'Дом', 'Другое'];
+  const APP_NAME = 'Tavrimo';
+  const ONBOARDING_KEY = 'tavrimo-onboarding-v1';
+  const ONBOARDING_STEPS = [
+    { target: '#todayView .hero-card', view: 'today', icon: '📈', title: 'День перед глазами', text: 'Здесь видно, сколько времени уже занято и сколько свободного пространства осталось в выбранном дне.' },
+    { target: '#todayDateChip', view: 'today', icon: '📅', title: 'Переключай дату', text: 'Нажми на дату, чтобы открыть другой день. На неделю можно смотреть отдельно в разделе «Неделя».' },
+    { target: '#tabAdd', view: 'today', icon: '➕', title: 'Добавляй задачи одной кнопкой', text: 'Это единственная кнопка создания. Задачу можно оставить без времени или сразу назначить дату и время вручную.' },
+    { target: '[data-view="calendar"]', view: 'today', icon: '🗓️', title: 'Неделя', text: 'Открой недельный обзор, чтобы увидеть расписание по дням и загрузку каждого дня.' },
+    { target: '[data-view="tasks"]', view: 'tasks', icon: '✅', title: 'Все задачи', text: 'Здесь можно искать задачи и фильтровать их по состоянию: в плане, без времени, с дедлайном, просроченные и готовые.' },
+    { target: '[data-view="more"]', view: 'more', icon: '🧩', title: 'Дополнительные инструменты', text: 'В «Ещё» находятся Фокус, Статистика, Состояние плана и Настройки — без лишних кнопок на главном экране.' },
+    { target: '#moreSettings', view: 'more', icon: '⚙️', title: 'Настрой под себя', text: 'В настройках задаются рабочие часы, обед, резерв между задачами, выходные и тема интерфейса. Отсюда же можно сделать резервную копию данных.' },
+  ];
+  let onboardingStep = 0;
+  let onboardingTimer = null;
+  let onboardingOpen = false;
+
   const DEFAULTS = {
     version: SCHEMA_VERSION,
     settings: {
@@ -440,7 +455,7 @@
   }
 
   function renderChrome() {
-    $('#headerContext').textContent = currentView === 'today' ? shortDate(currentDate) : ({ calendar: 'Неделя', tasks: 'Задачи', more: 'Ещё' }[currentView] || 'Flowday');
+    $('#headerContext').textContent = currentView === 'today' ? shortDate(currentDate) : ({ calendar: 'Неделя', tasks: 'Задачи', more: 'Ещё' }[currentView] || APP_NAME);
     $$('.tab[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === currentView));
     $$('.view').forEach((view) => view.classList.toggle('active', view.dataset.view === currentView));
   }
@@ -529,7 +544,7 @@
     } else {
       $('#nextUpCard').classList.add('hidden'); $('#nextUpAction').dataset.taskId = '';
     }
-    $('#todayAgenda').innerHTML = load.tasks.length ? load.tasks.slice(0, 12).map(renderAgendaCard).join('') : emptyState('Здесь появится расписание.', inbox.length ? 'Flowday поставит открытые задачи по свободным окнам.' : 'Добавь первую задачу через + внизу.');
+    $('#todayAgenda').innerHTML = load.tasks.length ? load.tasks.slice(0, 12).map(renderAgendaCard).join('') : emptyState('Здесь появится расписание.', inbox.length ? `${APP_NAME} работает только с ручной расстановкой времени.` : 'Добавь первую задачу через + внизу.');
     $('#inboxCount').textContent = String(inbox.length);
     $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Все открытые задачи уже имеют время.');
   }
@@ -755,11 +770,11 @@
 
   function exportData() {
     const json = JSON.stringify({ ...data, exportedAt: new Date().toISOString() }, null, 2);
-    const fileName = `flowday-backup-${todayKey()}.json`;
+    const fileName = `tavrimo-backup-${todayKey()}.json`;
     try {
       const file = new File([json], fileName, { type: 'application/json' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        navigator.share({ title: 'Flowday — резервная копия', files: [file] })
+        navigator.share({ title: `${APP_NAME} — резервная копия`, files: [file] })
           .then(() => showToast('Резервная копия подготовлена.'))
           .catch((error) => {
             if (error?.name === 'AbortError') showToast('Экспорт отменён.');
@@ -794,7 +809,7 @@
     toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
   }
 
-  function switchView(view) {
+  function switchView(view, options = {}) {
     if (!['today', 'calendar', 'tasks', 'more'].includes(view)) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; currentView = view;
     const update = () => renderAll(); if (!reduce && document.startViewTransition) document.startViewTransition(update); else update();
@@ -849,6 +864,19 @@
       $(`#${id}`)?.addEventListener('change', () => { updateTaskLogicHint(); updateManualHint(); });
     });
     $('#deleteTaskBtn').onclick = () => { if (editingId && confirm('Удалить эту задачу?')) deleteTask(editingId); };
+
+    $('#onboarding')?.addEventListener('click', (event) => {
+      if (event.target === event.currentTarget) finishOnboarding();
+      const action = event.target.closest('#onboardingSkip, #onboardingPrev, #onboardingNext');
+      if (!action) return;
+      if (action.id === 'onboardingSkip') finishOnboarding();
+      if (action.id === 'onboardingPrev') prevOnboarding();
+      if (action.id === 'onboardingNext') nextOnboarding();
+    });
+    $('#onboardingHelpBtn')?.addEventListener('click', () => { closeModal('settingsSheetBackdrop'); startOnboarding(true); });
+    window.addEventListener('resize', () => refreshOnboardingTarget(), { passive: true });
+    window.addEventListener('scroll', () => refreshOnboardingTarget(), { passive: true });
+
 
     $('#taskForm').addEventListener('submit', (event) => {
       event.preventDefault();
@@ -918,6 +946,90 @@
     if (target.dataset.editTask) openTaskSheet(target.dataset.editTask);
   }
 
+  function onboardingSeen() {
+    try { return localStorage.getItem(ONBOARDING_KEY) === '1'; } catch { return false; }
+  }
+
+  function finishOnboarding(save = true) {
+    onboardingOpen = false;
+    if (onboardingTimer) { clearTimeout(onboardingTimer); onboardingTimer = null; }
+    const layer = $('#onboarding');
+    if (!layer) return;
+    layer.classList.remove('open');
+    layer.hidden = true;
+    layer.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('onboarding-open');
+    if (save) {
+      try { localStorage.setItem(ONBOARDING_KEY, '1'); } catch { /* ignore storage failures */ }
+    }
+  }
+
+  function currentOnboardingStep() {
+    return ONBOARDING_STEPS[Math.max(0, Math.min(onboardingStep, ONBOARDING_STEPS.length - 1))];
+  }
+
+  function onboardingPositionCard(rect) {
+    const card = $('#onboardingCard'); if (!card) return;
+    const topSafe = 18; const bottomSafe = Math.max(18, (window.innerHeight - 70));
+    const cardWidth = Math.min(330, window.innerWidth - 32);
+    card.style.width = `${cardWidth}px`;
+    let left = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, rect.left + rect.width / 2 - cardWidth / 2));
+    let top = rect.bottom + 14;
+    if (top + card.offsetHeight > bottomSafe) top = Math.max(topSafe, rect.top - card.offsetHeight - 14);
+    if (top + card.offsetHeight > bottomSafe) top = Math.max(topSafe, bottomSafe - card.offsetHeight);
+    card.style.left = `${left}px`; card.style.top = `${top}px`;
+  }
+
+  function refreshOnboardingTarget() {
+    if (!onboardingOpen) return;
+    const step = currentOnboardingStep();
+    const target = step ? $(step.target) : null;
+    const spotlight = $('#onboardingSpotlight');
+    const card = $('#onboardingCard');
+    if (!target || !spotlight || !card) { finishOnboarding(); return; }
+
+    if (step.view && currentView !== step.view) switchView(step.view, { onboarding: true });
+    const position = () => {
+      const rect = target.getBoundingClientRect();
+      const pad = target.id === 'tabAdd' ? 7 : 6;
+      spotlight.style.left = `${Math.max(6, rect.left - pad)}px`;
+      spotlight.style.top = `${Math.max(6, rect.top - pad)}px`;
+      spotlight.style.width = `${Math.min(window.innerWidth - 12, rect.width + pad * 2)}px`;
+      spotlight.style.height = `${Math.min(window.innerHeight - 12, rect.height + pad * 2)}px`;
+      spotlight.dataset.step = String(onboardingStep + 1);
+      card.innerHTML = `
+        <div class="onboarding-head"><span class="onboarding-icon">${step.icon}</span><div><span class="onboarding-step-label">Шаг ${onboardingStep + 1} из ${ONBOARDING_STEPS.length}</span><h3>${escapeHtml(step.title)}</h3></div></div>
+        <p>${escapeHtml(step.text)}</p>
+        <div class="onboarding-progress" aria-hidden="true">${ONBOARDING_STEPS.map((_, i) => `<span class="${i === onboardingStep ? 'active' : i < onboardingStep ? 'done' : ''}"></span>`).join('')}</div>
+        <div class="onboarding-actions"><button type="button" class="secondary-button" id="onboardingSkip">Пропустить</button><div class="onboarding-actions-right">${onboardingStep > 0 ? '<button type="button" class="secondary-button" id="onboardingPrev">Назад</button>' : ''}<button type="button" class="primary-button" id="onboardingNext">${onboardingStep === ONBOARDING_STEPS.length - 1 ? 'Готово' : 'Дальше'}</button></div></div>
+      `;
+      onboardingPositionCard(rect);
+      $('#onboardingNext')?.focus({ preventScroll: true });
+    };
+
+    target.scrollIntoView({ block: target.id === 'tabAdd' ? 'nearest' : 'center', inline: 'nearest', behavior: 'smooth' });
+    onboardingTimer = requestAnimationFrame(() => requestAnimationFrame(position));
+  }
+
+  function startOnboarding(force = false) {
+    if (!force && onboardingSeen()) return;
+    const layer = $('#onboarding'); if (!layer) return;
+    onboardingOpen = true; onboardingStep = 0;
+    layer.hidden = false; layer.setAttribute('aria-hidden', 'false'); layer.classList.add('open');
+    document.body.classList.add('onboarding-open');
+    refreshOnboardingTarget();
+  }
+
+  function nextOnboarding() {
+    if (onboardingStep >= ONBOARDING_STEPS.length - 1) { finishOnboarding(); return; }
+    onboardingStep += 1; refreshOnboardingTarget();
+  }
+
+  function prevOnboarding() {
+    if (onboardingStep <= 0) return;
+    onboardingStep -= 1; refreshOnboardingTarget();
+  }
+
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     window.addEventListener('load', async () => {
@@ -938,10 +1050,11 @@
   function showUpdateBanner(worker) { $('#updateBanner').hidden = false; $('#updateBtn').onclick = () => worker?.postMessage({ type: 'SKIP_WAITING' }); }
   function boot() {
     repairAndPersist(); $('#appVersionLabel').textContent = `v${APP_VERSION}`; bindEvents(); renderAll(); updateFocusUI(); registerServiceWorker();
+    setTimeout(() => startOnboarding(false), 480);
   }
 
   // Lightweight QA hooks used only by automated regression tests.
-  if (globalThis.__FLOWDAY_QA__) globalThis.__FLOWDAY_TEST__ = {
+  if (globalThis.__TAVRIMO_QA__) globalThis.__TAVRIMO_TEST__ = {
     getData: () => clone(data),
     setData: (raw) => { data = normalizeData(raw); },
     setCurrentDate: (value) => { currentDate = startOfDay(value); },

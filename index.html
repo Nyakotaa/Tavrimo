@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)" />
-  <meta name="description" content="Flowday — офлайн-планировщик для ручной расстановки задач по времени, дедлайнам и приоритетам." />
+  <meta name="description" content="Tavrimo — офлайн-планировщик для ручной расстановки задач по времени, дедлайнам и приоритетам." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Flowday" />
+  <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v11.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v12.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="stylesheet" href="style.css" />
-  <title>Flowday</title>
+  <title>Tavrimo</title>
 </head>
 <body>
   <div class="app-shell" id="appShell">
@@ -22,7 +22,7 @@
       <div class="topbar-title">
         <span class="brand-mark" aria-hidden="true">◒</span>
         <div>
-          <strong>Flowday</strong>
+          <strong>Tavrimo</strong>
           <span id="headerContext">Сегодня</span>
         </div>
       </div>
@@ -110,7 +110,7 @@
 
       <section class="view" data-view="more" id="moreView">
         <div class="page-intro compact">
-          <div><p class="eyebrow">FLOWDAY</p><h1>Ещё</h1><p class="page-subtitle">Дополнительные инструменты.</p></div>
+          <div><p class="eyebrow">TAVRIMO</p><h1>Ещё</h1><p class="page-subtitle">Дополнительные инструменты.</p></div>
         </div>
         <div class="more-list">
           <button class="feature-card" id="moreFocus" type="button">
@@ -126,7 +126,7 @@
             <span class="feature-icon gray" aria-hidden="true">⚙️</span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Flowday <span id="appVersionLabel">v9.1.1</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v10.0.0</span></div>
       </section>
     </main>
 
@@ -139,6 +139,12 @@
     </nav>
   </div>
 
+
+  <div class="onboarding" id="onboarding" hidden aria-hidden="true">
+    <div class="onboarding-dim"></div>
+    <div class="onboarding-spotlight" id="onboardingSpotlight" aria-hidden="true"></div>
+    <section class="onboarding-card" id="onboardingCard" role="dialog" aria-modal="true" aria-label="Обучение Tavrimo"></section>
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="update-banner" id="updateBanner" hidden><span>Доступна новая версия.</span><button id="updateBtn" type="button">Обновить</button></div>
 
@@ -205,7 +211,7 @@
         <section class="settings-group"><h3>Рабочее время</h3><label><span>Начало</span><input type="time" id="workStartInput" step="900" /></label><label><span>Конец</span><input type="time" id="workEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Перерыв</h3><label><span>Обед с</span><input type="time" id="lunchStartInput" step="900" /></label><label><span>Обед до</span><input type="time" id="lunchEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Расстановка</h3><label><span>Резерв после задачи</span><select id="bufferInput"><option value="0">Без</option><option value="5">5 мин</option><option value="10">10 мин</option><option value="15">15 мин</option></select></label><label><span>Фокус по умолчанию</span><select id="blockInput"><option value="25">25 мин</option><option value="50">50 мин</option><option value="90">1 ч 30</option><option value="120">2 ч</option></select></label><label><span>Разрешить выходные</span><input type="checkbox" id="weekendsInput" /></label></section>
-        <section class="settings-group"><h3>Внешний вид</h3><label><span>Тема</span><select id="appearanceInput"><option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label></section>
+        <section class="settings-group"><h3>Внешний вид</h3><button class="ios-action" type="button" id="onboardingHelpBtn"><span>Показать обучение</span><span>›</span></button><label><span>Тема</span><select id="appearanceInput"><option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label></section>
         <section class="settings-group"><h3>Данные</h3><button class="ios-action" type="button" id="exportBtn"><span>Экспортировать</span><span>›</span></button><label class="ios-action file-action"><span>Импортировать</span><span>›</span><input type="file" id="importInput" accept="application/json,.json" /></label><button class="ios-action danger-text" type="button" id="resetBtn"><span>Стереть все данные</span><span>›</span></button></section>
         <button class="primary-button wide" type="submit">Готово</button>
       </form>

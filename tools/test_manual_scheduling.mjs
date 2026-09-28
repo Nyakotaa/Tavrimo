@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
-const source = (`globalThis.__FLOWDAY_QA__ = true;\n` + fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8')).replace('  boot();\n})();', '  // boot disabled for tests\n})();');
+const source = (`globalThis.__TAVRIMO_QA__ = true;\n` + fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8')).replace('  boot();\n})();', '  // boot disabled for tests\n})();');
 const storage = Object.create(null);
 const dummyClassList = { add() {}, remove() {}, toggle() {}, contains() { return false; } };
 const dummyStyle = { setProperty() {} };
@@ -18,11 +18,11 @@ const context = {
 };
 context.globalThis = context;
 vm.runInNewContext(source, context, { filename: 'app.js' });
-const t = context.__FLOWDAY_TEST__;
+const t = context.__TAVRIMO_TEST__;
 assert.ok(t, 'QA hooks must be available');
 
-const monday = new Date(2026, 8, 28, 12);
-const mondayKey = '2026-09-28';
+const monday = new Date(2026, 8, 30, 12);
+const mondayKey = '2026-09-30';
 const base = {
   version: 11,
   settings: { workStart: 9, workEnd: 18, lunchStart: 13, lunchEnd: 14, buffer: 10, focusLength: 25, weekends: false, theme: 'system' },
