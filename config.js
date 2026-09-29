@@ -6,5 +6,5 @@
 window.TAVRIMO_CONFIG = Object.assign({
   syncEndpoint: '/api/rea/schedule',
   syncIntervalMinutes: 15,
-  requestTimeoutMs: 25000
+  requestTimeoutMs: 60000
 }, window.TAVRIMO_CONFIG || {});

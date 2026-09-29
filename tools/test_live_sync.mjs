@@ -20,4 +20,9 @@ assert.match(server, /If-None-Match/, 'Gateway must support conditional requests
 assert.match(server, /app\.use\(\(req, res\) =>/, 'Gateway SPA fallback must be Express-5 compatible');
 assert.doesNotMatch(server, /app\.get\('\*'/, 'Gateway must not use Express-4 wildcard syntax');
 assert.match(server, /rasp\.rea\.ru/, 'Gateway must use official REA portal as upstream');
+assert.match(server, /--no-sandbox/, 'Gateway should be Render-friendly');
+assert.match(server, /page\.waitForEvent\('download'/, 'Gateway should support browser-download export');
+assert.match(server, /text\/calendar/, 'Gateway should intercept direct calendar responses');
+assert.match(server, /getByText\(group, \{ exact: true \}\)/, 'Gateway should select the exact group suggestion when available');
+assert.match(server, /REA_SYNC_502/, 'Gateway should log actionable 502 diagnostics');
 console.log('Live sync static tests passed.');

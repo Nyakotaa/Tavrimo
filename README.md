@@ -1,4 +1,4 @@
-# Tavrimo 12.0.0 — расписание РЭУ + планировщик
+# Tavrimo 12.0.1 — расписание РЭУ + планировщик
 
 Tavrimo — iPhone-first offline-first PWA для студентов РЭУ им. Г.В. Плеханова. Главный экран — расписание группы. Задачи, дедлайны, Focus и статистика остаются частью того же личного дня и учитывают занятое учебное время.
 
@@ -40,4 +40,4 @@ Tavrimo — iPhone-first offline-first PWA для студентов РЭУ им
 - `docs/UPDATE_RU.md` — обновление.
 - `docs/SYNC_GATEWAY_RU.md` — автоматическая синхронизация с РЭУ.
 - `docs/UNIVERSITY_REA_RU.md` — модель данных расписания.
-- `docs/RELEASE_CHECKLIST_12.0.0_RU.md` — релизный чек-лист.
+- `docs/RELEASE_CHECKLIST_12.0.1_RU.md` — релизный чек-лист.

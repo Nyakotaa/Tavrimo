@@ -1,9 +1,11 @@
 {
   "name": "tavrimo-rea-sync-gateway",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server.mjs",
     "check": "node --check server.mjs"
