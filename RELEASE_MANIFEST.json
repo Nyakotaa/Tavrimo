@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo",
-  "version": "12.0.0",
-  "release": "timetable-first-rea-live-sync",
+  "version": "12.0.3",
+  "release": "rea-live-sync-resilient-parser",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -14,8 +14,13 @@
     "local data",
     "ETag conditional sync",
     "CORS-enabled standalone gateway",
-    "safe empty-remote handling"
+    "safe empty-remote handling",
+    "client-generated ICS capture",
+    "rendered timetable DOM fallback parser",
+    "calendar blob/data download capture",
+    "export endpoint discovery",
+    "actionable sync diagnostics"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "The official REA portal supports group search and calendar export. Tavrimo uses a separate sync gateway to automate the official user flow; GitHub Pages alone cannot execute the required browser automation. Sync is best-effort: on launch/resume and every 15 minutes while the app is open and online."
+  "notes": "12.0.3 adds multiple fallback paths for the public rasp.rea.ru timetable export: client-generated Blob/data downloads, discovered calendar endpoints, and a rendered timetable parser. The existing cached schedule is preserved on upstream failures."
 }

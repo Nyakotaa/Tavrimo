@@ -41,3 +41,9 @@ Tavrimo — iPhone-first offline-first PWA для студентов РЭУ им
 - `docs/SYNC_GATEWAY_RU.md` — автоматическая синхронизация с РЭУ.
 - `docs/UNIVERSITY_REA_RU.md` — модель данных расписания.
 - `docs/RELEASE_CHECKLIST_12.0.2_RU.md` — релизный чек-лист.
+
+## 12.0.3: REA Sync Resilience
+
+Если Render возвращал `502`, хотя расписание группы уже отображалось на rasp.rea.ru, обновите контейнер до 12.0.3. Gateway теперь не зависит от одного способа экспорта iCalendar: он также умеет забрать клиентский Blob/data download, обнаружить export-ресурс и разобрать уже отрисованную таблицу расписания в iCalendar.
+
+Официальный источник расписания: https://rasp.rea.ru/.

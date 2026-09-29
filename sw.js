@@ -1,4 +1,4 @@
-const VERSION = 'tavrimo-v12.0.0-rea-live-sync-2';
+const VERSION = 'tavrimo-v12.0.3-rea-live-sync-3';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './404.html',
   './assets/icons/apple-touch-icon-v13.png', './assets/icons/icon-180.png',
