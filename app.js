@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '11.0.0';
-  const SCHEMA_VERSION = 14;
-  const STORAGE_KEY = 'tavrimo-planner-v14';
+  const APP_VERSION = '12.0.0';
+  const SCHEMA_VERSION = 16;
+  const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [
-    'tavrimo-planner-v13', 'tavrimo-planner-v12', 'tavrimo-planner-v11', 'flowday-planner-v12', 'flowday-planner-v11', 'flowday-planner-v10', 'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
+    'tavrimo-planner-v15', 'tavrimo-planner-v14', 'tavrimo-planner-v13', 'tavrimo-planner-v12', 'tavrimo-planner-v11', 'flowday-planner-v12', 'flowday-planner-v11', 'flowday-planner-v10', 'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
     'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'
   ];
   const DEMO_TITLES = new Set([
@@ -20,14 +20,14 @@
   const APP_NAME = 'Tavrimo';
   const ONBOARDING_KEY = 'tavrimo-onboarding-v1';
   const ONBOARDING_STEPS = [
-    { target: '#todayView .hero-card', view: 'today', icon: '📈', title: 'День перед глазами', text: 'Здесь видно, сколько времени уже занято и сколько свободного пространства осталось в выбранном дне.' },
-    { target: '#todayDateChip', view: 'today', icon: '📅', title: 'Переключай дату', text: 'Нажми на дату, чтобы открыть другой день. На неделю можно смотреть отдельно в разделе «Неделя».' },
-    { target: '#tabAdd', view: 'today', icon: '➕', title: 'Добавляй задачи одной кнопкой', text: 'Это единственная кнопка создания. Задачу можно оставить без времени или сразу назначить дату и время вручную.' },
-    { target: '[data-view="calendar"]', view: 'today', icon: '🎓', title: 'Пары и план в одном месте', text: 'В «Неделе» переключайся между своим планом и расписанием РЭУ. Пары блокируют это время, участвуют в загрузке дня и могут иметь привязанные задачи.' },
-    { target: '[data-view="tasks"]', view: 'tasks', icon: '✅', title: 'Все задачи', text: 'Здесь можно искать задачи и фильтровать их по состоянию: в плане, без времени, с дедлайном, просроченные и готовые.' },
-    { target: '[data-view="more"]', view: 'more', icon: '🧩', title: 'Дополнительные инструменты', text: 'В «Ещё» находятся расписание РЭУ, Фокус, Статистика, Состояние плана и Настройки — без лишних кнопок на главном экране.' },
-    { target: '#moreUniversity', view: 'more', icon: '🎓', title: 'Подключи группу РЭУ', text: 'Открой «Моя группа», укажи номер группы и импортируй официальный календарь .ics с rasp.rea.ru. После этого пары появятся в неделе и начнут блокировать задачи.' },
-    { target: '#moreSettings', view: 'more', icon: '⚙️', title: 'Настрой под себя', text: 'В настройках задаются рабочие часы, обед, резерв между задачами, выходные и тема интерфейса. Отсюда же можно сделать резервную копию данных.' },
+    { target: '#homeScheduleSourceCard', view: 'today', icon: '🎓', title: 'Расписание — главный экран', text: 'Здесь каждый день начинается с твоих пар РЭУ. Время, преподаватель и аудитория всегда рядом с задачами.' },
+    { target: '#todayDateChip', view: 'today', icon: '📅', title: 'Переключай день', text: 'Нажми на дату, чтобы открыть любой день. Недельный обзор с парами доступен во вкладке «Неделя».' },
+    { target: '#homeSyncBtn', view: 'today', icon: '🔄', title: 'Актуализируй расписание', text: 'Tavrimo проверяет официальный портал РЭУ онлайн. Если университет изменит пару, обновлённое расписание попадёт в приложение.' },
+    { target: '#tabAdd', view: 'today', icon: '➕', title: 'Планируй задачи вокруг пар', text: 'Задачи по-прежнему добавляются одной кнопкой и назначаются только вручную. Время пар автоматически считается занятым.' },
+    { target: '[data-view="calendar"]', view: 'calendar', icon: '🗓️', title: 'Смотри всю неделю', text: 'Во вкладке «Неделя» можно посмотреть учебную неделю целиком и перейти на конкретный день.' },
+    { target: '[data-view="tasks"]', view: 'tasks', icon: '✅', title: 'Управляй задачами', text: 'Поиск и фильтры помогают быстро найти нужную задачу, а привязка к паре сохраняет учебный контекст.' },
+    { target: '[data-view="more"]', view: 'more', icon: '🧩', title: 'Инструменты', text: 'Фокус, статистика, состояние плана и настройки собраны в одном месте, чтобы не перегружать главный экран.' },
+    { target: '#moreSettings', view: 'more', icon: '⚙️', title: 'Настрой расписание и данные', text: 'Группа РЭУ, рабочие часы, тема и резервные копии находятся здесь. Расписание обновляется в фоне, пока есть интернет.' },
   ];
   let onboardingStep = 0;
   let onboardingTimer = null;
@@ -41,13 +41,13 @@
     },
     tasks: [],
     focus: { totalMinutes: 0, sessions: [] },
-    university: { groupCode: '', groupName: '', importedAt: null, source: 'rasp.rea.ru', events: [] }
+    university: { groupCode: '', groupName: '', importedAt: null, source: 'rasp.rea.ru', events: [], syncHash: '', lastSyncAt: null, syncError: '', syncMode: 'auto' }
   };
 
   let data = loadData();
   let currentDate = startOfDay(new Date());
   let currentView = 'today';
-  let calendarMode = 'plan';
+  let calendarMode = data.university.groupCode ? 'university' : 'plan';
   let selectedUniversityEventId = null;
   let activeFilter = 'all';
   let editingId = null;
@@ -62,6 +62,10 @@
   let focusSessionDate = null;
   let draftLinkedUniversityEventId = null;
   let swRegistration = null;
+  let universitySyncInFlight = null;
+  let universitySyncTimer = null;
+  let universitySyncMessage = '';
+  let universitySyncChangeCount = 0;
 
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -215,6 +219,10 @@
       groupCode: String(raw.groupCode || raw.groupName || '').trim().slice(0, 80),
       groupName: String(raw.groupName || raw.groupCode || '').trim().slice(0, 120),
       importedAt: safeIso(raw.importedAt, null),
+      lastSyncAt: safeIso(raw.lastSyncAt, null),
+      syncHash: String(raw.syncHash || '').trim().slice(0, 128),
+      syncError: String(raw.syncError || '').trim().slice(0, 240),
+      syncMode: ['auto', 'manual'].includes(raw.syncMode) ? raw.syncMode : 'auto',
       source: 'rasp.rea.ru',
       events
     };
@@ -738,7 +746,7 @@
     const group = data.university.groupCode || '';
     $('#universityGroupLabel').textContent = group || 'Группа не выбрана';
     $('#universityManageBtn').textContent = group ? 'Настроить' : 'Подключить';
-    $('#universitySyncLabel').textContent = data.university.events.length ? `${formatImportedAt(data.university.importedAt)} · ${data.university.events.length} занятий` : 'Подключи расписание РЭУ, чтобы видеть пары здесь.';
+    $('#universitySyncLabel').textContent = data.university.events.length ? `${formatImportedAt(data.university.lastSyncAt || data.university.importedAt)} · ${data.university.events.length} занятий${data.university.syncError ? ' · не удалось обновить' : ''}` : (data.university.syncError ? `Ошибка синхронизации · ${data.university.syncError}` : 'Группа подключена — расписание загрузится автоматически.');
     const monday = getWeekStart(currentDate);
     const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
     const total = days.reduce((sum, day) => sum + universityEventsForDate(day).length, 0);
@@ -763,16 +771,41 @@
     if (uni) renderUniversityWeek();
   }
 
-  function openUniversitySetup() {
-    $('#universityGroupInput').value = data.university.groupCode || '';
-    $('#universityImportStatus').textContent = data.university.events.length ? `${data.university.events.length} занятий загружено. ${formatImportedAt(data.university.importedAt)}.` : 'После импорта пары появятся во вкладке «РЭУ».';
-    openModal('universitySetupBackdrop');
-    setTimeout(() => $('#universityGroupInput').focus(), 100);
+  function syncEndpoint() {
+    const configured = String(globalThis.TAVRIMO_CONFIG?.syncEndpoint || '/api/rea/schedule').trim();
+    return configured.replace(/\/$/, '');
   }
 
-  function openOfficialReaSchedule() {
-    const popup = window.open('https://rasp.rea.ru/', '_blank', 'noopener,noreferrer');
-    if (!popup) showToast('Safari заблокировал новое окно. Открой rasp.rea.ru вручную.');
+  function syncConfigNumber(key, fallback, min = 0) {
+    const parsed = Number(globalThis.TAVRIMO_CONFIG?.[key]);
+    return Number.isFinite(parsed) ? Math.max(min, parsed) : fallback;
+  }
+
+  function syncEndpointAvailable() {
+    return Boolean(syncEndpoint());
+  }
+
+  function setUniversitySyncState(state, detail = '') {
+    universitySyncMessage = detail;
+    const stateEl = $('#universitySyncState'); const detailEl = $('#universitySyncDetail'); const dot = $('#universitySyncDot'); const card = $('#universitySyncStateCard');
+    if (stateEl) stateEl.textContent = state;
+    if (detailEl) detailEl.textContent = detail;
+    if (dot) dot.dataset.state = state.includes('Ошибка') ? 'over' : state.includes('обнов') || state.includes('готов') ? 'on' : 'idle';
+    card?.classList.toggle('is-error', state.includes('Ошибка'));
+    card?.classList.toggle('is-loading', state.includes('Обновляю'));
+  }
+
+  function updateHomeSyncUI() {
+    const group = data.university.groupCode || '';
+    const label = $('#homeGroupLabel'); const detail = $('#homeSyncLabel'); const button = $('#homeSyncBtn');
+    if (!label || !detail) return;
+    label.textContent = group || 'Группа не выбрана';
+    if (!group) detail.textContent = 'Укажи группу — расписание загрузится автоматически.';
+    else if (data.university.syncError) detail.textContent = `Не удалось обновить · ${data.university.syncError}`;
+    else if (data.university.lastSyncAt) detail.textContent = `Синхронизировано ${formatImportedAt(data.university.lastSyncAt).replace(/^Обновлено\s*/i,'')}`;
+    else if (data.university.events.length) detail.textContent = `${data.university.events.length} занятий · синхронизация включена`;
+    else detail.textContent = 'Синхронизация включена · проверяем расписание онлайн';
+    if (button) button.disabled = !group || Boolean(universitySyncInFlight);
   }
 
   function extractGroupCode(value) {
@@ -781,15 +814,164 @@
     return (labeled || text).slice(0, 80);
   }
 
-  function saveUniversityGroup() {
+  function mergeUniversityEvents(previousEvents, nextEvents) {
+    const previous = Array.isArray(previousEvents) ? previousEvents : [];
+    const next = Array.isArray(nextEvents) ? nextEvents : [];
+    const byUid = new Map(previous.filter((event) => event.uid).map((event) => [String(event.uid), event]));
+    const leftovers = previous.slice();
+    const merged = [];
+    let added = 0; let changed = 0; let removed = 0;
+    const takeOld = (candidate) => { const index = leftovers.findIndex((item) => String(item.id) === String(candidate.id)); if (index >= 0) leftovers.splice(index, 1); };
+    for (const event of next) {
+      let old = event.uid ? byUid.get(String(event.uid)) : null;
+      if (!old) {
+        const signature = `${event.subject}|${event.teacher}|${event.room}`.toLowerCase();
+        const candidates = leftovers.filter((item) => `${item.subject}|${item.teacher}|${item.room}`.toLowerCase() === signature);
+        candidates.sort((a, b) => Math.abs(daysBetween(dateFromKey(a.date), dateFromKey(event.date))) - Math.abs(daysBetween(dateFromKey(b.date), dateFromKey(event.date))));
+        old = candidates[0] || null;
+      }
+      if (old) {
+        takeOld(old);
+        const eventChanged = old.date !== event.date || old.start !== event.start || old.end !== event.end || old.subject !== event.subject || old.teacher !== event.teacher || old.room !== event.room || old.type !== event.type;
+        if (eventChanged) changed += 1;
+        merged.push({ ...event, id: old.id });
+      } else {
+        added += 1; merged.push(event);
+      }
+    }
+    removed = leftovers.length;
+    return { events: merged, changes: { added, changed, removed } };
+  }
+
+  function applyUniversitySchedule(nextUniversity) {
+    const merge = mergeUniversityEvents(data.university.events, nextUniversity.events);
+    const previousIds = new Set(data.university.events.map((event) => String(event.id)));
+    const nextIds = new Set(merge.events.map((event) => String(event.id)));
+    let unlinked = 0;
+    for (const task of data.tasks) {
+      if (task.linkedUniversityEventId && previousIds.has(String(task.linkedUniversityEventId)) && !nextIds.has(String(task.linkedUniversityEventId))) {
+        task.linkedUniversityEventId = null; unlinked += 1;
+      }
+    }
+    data.university = {
+      ...data.university,
+      ...nextUniversity,
+      events: normalizeUniversity({ ...nextUniversity, events: merge.events }).events,
+      syncMode: 'auto'
+    };
+    const conflicts = repairUniversityTaskConflicts();
+    universitySyncChangeCount = merge.changes.added + merge.changes.changed + merge.changes.removed;
+    saveData(); renderAll();
+    return { ...merge.changes, unlinked, conflicts };
+  }
+
+  async function syncUniversitySchedule({ force = false, silent = false } = {}) {
+    const group = String(data.university.groupCode || '').trim();
+    if (!group || !navigator.onLine) return { ok: false, skipped: true };
+    const last = data.university.lastSyncAt ? Date.parse(data.university.lastSyncAt) : 0;
+    const interval = syncConfigNumber('syncIntervalMinutes', 15, 5) * 60 * 1000;
+    if (!force && last && Date.now() - last < interval && data.university.events.length) return { ok: true, skipped: true };
+    if (universitySyncInFlight) return universitySyncInFlight;
+    const endpoint = syncEndpoint();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), syncConfigNumber('requestTimeoutMs', 25000, 5000));
+    universitySyncInFlight = (async () => {
+      setUniversitySyncState('Обновляю расписание…', `Группа ${group} · обращаемся к rasp.rea.ru`);
+      updateHomeSyncUI();
+      try {
+        const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}group=${encodeURIComponent(group)}`;
+        const storedEtag = String(data.university.syncHash || '').trim();
+        const ifNoneMatch = storedEtag ? (storedEtag === '*' || /^(W\/)?"/.test(storedEtag) ? storedEtag : `"${storedEtag}"`) : '';
+        const headers = ifNoneMatch ? { 'If-None-Match': ifNoneMatch } : {};
+        const response = await fetch(url, { method: 'GET', cache: 'no-store', headers, signal: controller.signal });
+        if (response.status === 304) {
+          data.university.lastSyncAt = new Date().toISOString(); data.university.syncError = ''; saveData(); renderAll();
+          setUniversitySyncState('Расписание актуально', `Проверено только что · изменений нет`);
+          return { ok: true, changed: false };
+        }
+        if (!response.ok) throw new Error(`Сервер синхронизации ответил ${response.status}`);
+        const type = response.headers.get('content-type') || '';
+        const payload = type.includes('application/json') ? await response.json() : { ics: await response.text() };
+        const ics = typeof payload.ics === 'string' ? payload.ics : typeof payload.data === 'string' ? payload.data : '';
+        const parsed = ics ? parseUniversityIcs(ics) : { calendarName: '', events: Array.isArray(payload.events) ? payload.events : [] };
+        const hasCalendarPayload = /^BEGIN:VCALENDAR/i.test(String(ics || '').trim()) || Array.isArray(payload.events);
+        if (!hasCalendarPayload) throw new Error('Портал не вернул корректное расписание для этой группы');
+        if (!parsed.events?.length && data.university.events.length) {
+          data.university.lastSyncAt = new Date().toISOString();
+          data.university.syncError = 'Официальный портал вернул пустое расписание. Сохранено последнее известное расписание.';
+          saveData(); renderAll();
+          setUniversitySyncState('Проверка без изменений', 'Портал временно не вернул занятия · оставлено последнее известное расписание.');
+          if (!silent) showToast('Портал временно не вернул занятия. Старое расписание сохранено.');
+          return { ok: true, changed: false, emptyRemote: true };
+        }
+        const next = normalizeUniversity({ groupCode: group, groupName: group, importedAt: new Date().toISOString(), events: parsed.events });
+        const responseEtag = String(response.headers.get('etag') || '').trim();
+        const payloadHash = String(payload.hash || '').trim();
+        const calculatedHash = hashString(ics || JSON.stringify(next.events));
+        const hashValue = responseEtag || (payloadHash ? (/^(W\/)?"/.test(payloadHash) ? payloadHash : `"${payloadHash}"`) : `"${calculatedHash}"`);
+        next.syncHash = hashValue.slice(0, 128); next.lastSyncAt = new Date().toISOString(); next.syncError = ''; next.syncMode = 'auto';
+        const changes = applyUniversitySchedule(next);
+        setUniversitySyncState(changes.added || changes.changed || changes.removed ? 'Расписание обновлено' : 'Расписание актуально', changes.added || changes.changed || changes.removed ? `Изменений: ${changes.added + changes.changed + changes.removed}` : 'Изменений нет');
+        if (!silent) {
+          if (changes.changed || changes.added || changes.removed) showToast(`Расписание обновлено · ${changes.added + changes.changed + changes.removed} изменений.`);
+          else showToast('Расписание уже актуально.');
+          if (changes.conflicts) showToast(`${changes.conflicts} задач перенесено во входящие из-за изменений в парах.`);
+        }
+        return { ok: true, changed: Boolean(changes.added || changes.changed || changes.removed), changes };
+      } catch (error) {
+        const reason = error?.name === 'AbortError' ? 'Превышено время ожидания.' : String(error?.message || 'Неизвестная ошибка.');
+        data.university.syncError = reason.slice(0, 240); data.university.syncMode = 'auto'; saveData(); renderAll();
+        setUniversitySyncState('Ошибка синхронизации', reason);
+        if (!silent) showToast(`Не удалось обновить расписание: ${reason}`);
+        return { ok: false, error: reason };
+      } finally {
+        clearTimeout(timeout); universitySyncInFlight = null; updateHomeSyncUI();
+      }
+    })();
+    return universitySyncInFlight;
+  }
+
+  function scheduleUniversityAutoSync() {
+    clearTimeout(universitySyncTimer);
+    if (!data.university.groupCode) return;
+    const minutes = syncConfigNumber('syncIntervalMinutes', 15, 5);
+    universitySyncTimer = setTimeout(async () => {
+      if (document.visibilityState === 'visible') await syncUniversitySchedule({ silent: true });
+      scheduleUniversityAutoSync();
+    }, minutes * 60 * 1000);
+  }
+
+  function saveUniversityGroup({ andSync = false } = {}) {
     const value = extractGroupCode($('#universityGroupInput').value);
     if (!value) { showToast('Укажи номер группы.'); return; }
     const changed = value !== data.university.groupCode;
     if (changed && data.university.events.length && !confirm('Сменить группу? Старое расписание будет удалено, чтобы не смешать группы.')) return;
-    data.university.groupCode = value; data.university.groupName = value; data.university.source = 'rasp.rea.ru';
-    if (changed) { data.university.events = []; data.university.importedAt = null; }
-    repairAndPersist(); saveData(); closeModal('universitySetupBackdrop'); renderAll();
-    showToast(changed && data.university.events.length === 0 ? `Группа ${value} сохранена. Теперь импортируй её расписание.` : `Группа ${value} сохранена.`);
+    data.university.groupCode = value; data.university.groupName = value; data.university.source = 'rasp.rea.ru'; data.university.syncError = ''; data.university.syncMode = 'auto';
+    if (changed) { data.university.events = []; data.university.importedAt = null; data.university.lastSyncAt = null; data.university.syncHash = ''; }
+    repairAndPersist(); saveData(); closeModal('universitySetupBackdrop'); calendarMode = 'university'; renderAll();
+    showToast(`Группа ${value} сохранена.`);
+    scheduleUniversityAutoSync();
+    if (andSync) syncUniversitySchedule({ force: true });
+  }
+
+  function openUniversitySetup() {
+    $('#universityGroupInput').value = data.university.groupCode || '';
+    const configuredEndpoint = syncEndpoint();
+    const explicitRemote = /^https?:\/\//i.test(configuredEndpoint);
+    const sameOriginAssumption = configuredEndpoint.startsWith('/');
+    const status = data.university.events.length ? `${data.university.events.length} занятий · ${formatImportedAt(data.university.lastSyncAt || data.university.importedAt)}` : 'Расписание ещё не загружено.';
+    const gatewayHint = explicitRemote ? 'Подключён удалённый Sync Gateway.' : sameOriginAssumption ? 'Для автообновления сервер должен обслуживать /api/rea/schedule.' : 'Для автообновления нужен Sync Gateway.';
+    $('#universityImportStatus').textContent = data.university.syncError ? `Ошибка: ${data.university.syncError}` : `${status} ${gatewayHint}`;
+    setUniversitySyncState(data.university.syncError ? 'Ошибка синхронизации' : 'Автосинхронизация включена', data.university.syncError ? 'Исправь подключение и нажми «Обновить расписание».' : 'Tavrimo проверяет rasp.rea.ru при запуске, возвращении в приложение и периодически онлайн.');
+    $('#syncUniversityNowBtn')?.toggleAttribute('disabled', !data.university.groupCode);
+    $('#clearUniversityScheduleBtn')?.toggleAttribute('disabled', !data.university.events.length);
+    openModal('universitySetupBackdrop');
+    setTimeout(() => $('#universityGroupInput').focus(), 100);
+  }
+
+  function openOfficialReaSchedule() {
+    const popup = window.open('https://rasp.rea.ru/', '_blank', 'noopener,noreferrer');
+    if (!popup) showToast('Safari заблокировал новое окно. Открой rasp.rea.ru вручную.');
   }
 
   function importUniversityIcs(file) {
@@ -800,12 +982,9 @@
         const result = parseUniversityIcs(String(reader.result || ''));
         if (!result.events.length) throw new Error('empty');
         const normalizedEvents = normalizeUniversity(result).events;
-        data.university.events = normalizedEvents; data.university.importedAt = new Date().toISOString();
-        const groupFromCalendar = extractGroupCode(result.calendarName);
-        if (groupFromCalendar && !data.university.groupCode) data.university.groupCode = groupFromCalendar;
-        const conflicts = repairUniversityTaskConflicts();
-        saveData(); closeModal('universitySetupBackdrop'); calendarMode = 'university'; renderAll();
-        showToast(conflicts ? `Расписание загружено. ${conflicts} задач${formatCount(conflicts, 'а', 'и', '')} перенесено во входящие из-за конфликтов.` : `Расписание загружено: ${normalizedEvents.length} занятий.`);
+        const changes = applyUniversitySchedule({ groupCode: data.university.groupCode, groupName: data.university.groupName, importedAt: new Date().toISOString(), lastSyncAt: new Date().toISOString(), syncHash: '', syncError: '', syncMode: 'manual', events: normalizedEvents });
+        data.university.syncMode = 'manual'; saveData(); closeModal('universitySetupBackdrop'); calendarMode = 'university'; renderAll();
+        showToast(changes.conflicts ? `Расписание импортировано. ${changes.conflicts} задач перенесено во входящие.` : `Расписание импортировано: ${normalizedEvents.length} занятий.`);
       } catch { showToast('Не удалось прочитать .ics. Экспортируй календарь заново из расписания РЭУ.'); }
     };
     reader.onerror = () => showToast('Не удалось прочитать файл расписания.');
@@ -838,51 +1017,59 @@
     const key = dateKey(currentDate); const load = dayLoad(key); const inbox = getOpenInbox();
     const capacity = workingCapacityMinutes(); const pctRaw = capacity ? Math.round((load.occupied / capacity) * 100) : 0; const pct = Math.min(100, Math.max(0, pctRaw));
     const isToday = key === todayKey(); const working = isWorkingDay(currentDate);
-    const dueToday = data.tasks.filter((task) => !task.done && task.deadline === key).length;
-    const overdue = isToday ? data.tasks.filter(taskIsOverdue).length : 0;
-    $('#todayEyebrow').textContent = isToday ? 'СЕГОДНЯ' : longDate(currentDate).toUpperCase();
-    $('#todayTitle').textContent = isToday ? 'Твой день.' : `План на ${shortDate(currentDate)}.`;
+    const classes = universityEventsForDate(currentDate); const tasks = getScheduled(currentDate, true);
+    $('#todayEyebrow').textContent = data.university.groupCode ? 'РАСПИСАНИЕ' : 'ПЛАН';
+    $('#todayTitle').textContent = isToday ? 'Сегодня' : longDate(currentDate);
     const summaryBits = [];
-    if (!working) summaryBits.push('Выходной. Можно включить выходные в настройках или выбрать рабочий день.');
-    else if (!data.tasks.length && !data.university.events.length) summaryBits.push('Добавь задачу или подключи расписание РЭУ.');
-    else {
-      if (dueToday) summaryBits.push(`${dueToday} ${formatCount(dueToday, 'задача', 'задачи', 'задач')} с дедлайном сегодня.`);
-      if (overdue) summaryBits.push(`${overdue} просрочено.`);
-      if (!summaryBits.length) summaryBits.push('Пары и ручные задачи вместе формируют загрузку дня.');
-    }
-    $('#todaySubtitle').textContent = summaryBits.join(' ');
+    if (!working) summaryBits.push('Выходной день.');
+    if (!data.university.groupCode) summaryBits.push('Подключи группу РЭУ, чтобы видеть пары здесь.');
+    else if (!classes.length) summaryBits.push('Пар сегодня нет.');
+    if (inbox.length) summaryBits.push(`${inbox.length} ${formatCount(inbox.length, 'задача', 'задачи', 'задач')} без времени.`);
+    $('#todaySubtitle').textContent = summaryBits.join(' ') || 'Пары и ручные задачи — в одном расписании.';
     $('#todayDateText').textContent = shortDate(currentDate);
+    $('#todayScheduleTitle').textContent = isToday ? 'Сегодня' : longDate(currentDate);
+    $('#todayClassCount').textContent = String(classes.length);
     $('#focusValue').textContent = `${pct}%`; $('#focusRingValue').textContent = `${pct}%`;
     const taskLoadLabel = `${formatDuration(load.work)} задачи${load.reserve ? ` + ${formatDuration(load.reserve)} резерв` : ''}`;
     const classLabel = load.classWork ? ` + ${formatDuration(load.classWork)} пары` : '';
-    $('#focusLabel').textContent = `${taskLoadLabel}${classLabel} из ${formatDuration(capacity)} · ${load.tasks.length} ${formatCount(load.tasks.length, 'задача', 'задачи', 'задач')} · ${load.classes.length} ${formatCount(load.classes.length, 'пара', 'пары', 'пар')}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
+    $('#focusLabel').textContent = `${taskLoadLabel}${classLabel} из ${formatDuration(capacity)}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
     $('#focusProgress').style.width = `${pct}%`; $('#focusRing').style.setProperty('--ring-pct', `${pct * 3.6}deg`);
     $('#focusProgress').dataset.over = pctRaw > 100 ? 'true' : 'false'; $('#focusRing').dataset.over = pctRaw > 100 ? 'true' : 'false';
-    $('#dayStatusText').textContent = !working ? 'ВЫХОДНОЙ' : pctRaw > 100 ? 'ПЕРЕГРУЗ' : load.tasks.length || load.classes.length ? 'ПЛАН ДНЯ' : 'СВОБОДНЫЙ ДЕНЬ';
-    $('#statusDot').dataset.state = !working ? 'off' : pctRaw > 100 ? 'over' : load.tasks.length || load.classes.length ? 'on' : 'idle';
-    const next = getNextAgendaItem(currentDate);
-    if (next) {
-      $('#nextUpCard').classList.remove('hidden');
-      const item = next.item;
-      if (next.kind === 'class') {
-        const live = key === todayKey() && nowMinutes() >= next.start && nowMinutes() < next.end;
-        $('#nextUpTitle').textContent = live ? `Сейчас · ${item.subject}` : item.subject;
-        $('#nextUpMeta').textContent = `${item.start}–${item.end} · ${item.type}${item.teacher ? ` · ${item.teacher}` : ''}${item.room ? ` · ${item.room}` : ''}`;
-        $('#nextUpAction').textContent = 'Открыть'; $('#nextUpAction').dataset.kind = 'class'; $('#nextUpAction').dataset.uniId = item.id; $('#nextUpAction').dataset.taskId = '';
-      } else {
-        const live = key === todayKey() && nowMinutes() >= next.start && nowMinutes() < next.end;
-        $('#nextUpTitle').textContent = live ? `Сейчас · ${item.title}` : item.title;
-        $('#nextUpMeta').textContent = `${item.scheduledStart}–${scheduleEnd(item)} · ${formatDuration(item.duration)} · вручную`;
-        $('#nextUpAction').textContent = 'Открыть'; $('#nextUpAction').dataset.kind = 'task'; $('#nextUpAction').dataset.taskId = item.id; $('#nextUpAction').dataset.uniId = '';
-      }
+    $('#dayStatusText').textContent = !working ? 'ВЫХОДНОЙ' : pctRaw > 100 ? 'ПЕРЕГРУЗ' : classes.length || tasks.length ? 'ПЛАН ДНЯ' : 'СВОБОДНЫЙ ДЕНЬ';
+    $('#statusDot').dataset.state = !working ? 'off' : pctRaw > 100 ? 'over' : classes.length || tasks.length ? 'on' : 'idle';
+    updateHomeSyncUI();
+
+    const nextClass = isToday ? classes.find((event) => nowMinutes() < toMinutes(event.end)) : classes[0];
+    if (nextClass) {
+      $('#nextClassCard').classList.remove('hidden');
+      const live = isToday && nowMinutes() >= toMinutes(nextClass.start) && nowMinutes() < toMinutes(nextClass.end);
+      $('#nextClassTime').textContent = `${live ? 'Сейчас' : nextClass.start} · ${nextClass.end}`;
+      $('#nextClassTitle').textContent = nextClass.subject;
+      $('#nextClassMeta').textContent = [nextClass.type, nextClass.teacher, nextClass.room].filter(Boolean).join(' · ') || 'Пара';
+      $('#nextClassOpenBtn').dataset.uniId = nextClass.id;
     } else {
-      $('#nextUpCard').classList.add('hidden'); $('#nextUpAction').dataset.taskId = ''; $('#nextUpAction').dataset.uniId = ''; $('#nextUpAction').dataset.kind = '';
+      $('#nextClassCard').classList.add('hidden'); $('#nextClassOpenBtn').dataset.uniId = '';
     }
-    const agenda = getAgendaItemsForDate(currentDate, true);
-    $('#todayAgenda').innerHTML = agenda.length ? agenda.slice(0, 14).map((entry) => entry.kind === 'class' ? renderAgendaUniversityCard(entry.item) : renderAgendaCard(entry.item)).join('') : emptyState('Здесь появится расписание.', inbox.length ? 'Открытые задачи без времени ждут ручного назначения.' : 'Добавь первую задачу через + или подключи расписание РЭУ.');
+
+    const timeline = [];
+    for (const event of classes) timeline.push({ kind: 'class', item: event, start: toMinutes(event.start), end: toMinutes(event.end) });
+    for (const task of tasks) timeline.push({ kind: 'task', item: task, start: toMinutes(task.scheduledStart), end: toMinutes(task.scheduledStart) + task.duration });
+    timeline.sort((a, b) => a.start - b.start || (a.kind === 'class' ? -1 : 1));
+    $('#todayScheduleTimeline').innerHTML = timeline.length ? timeline.map((entry) => entry.kind === 'class' ? renderHomeUniversityEvent(entry.item) : renderHomeTask(entry.item)).join('') : emptyState(data.university.groupCode ? 'На этот день нет пар.' : 'Подключи группу РЭУ.', data.university.groupCode ? 'Если есть задачи, они появятся ниже.' : 'В «Ещё» открой «Расписание РЭУ» и укажи свою группу.');
     $('#inboxCount').textContent = String(inbox.length);
-    $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Все открытые задачи уже имеют время.');
+    $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Все открытые задачи уже имеют ручное время.');
   }
+
+  function renderHomeUniversityEvent(event) {
+    const meta = [event.type, event.teacher, event.room].filter(Boolean).join(' · ');
+    return `<div class="home-schedule-row university" data-home-uni="${escapeHtml(event.id)}"><button class="home-schedule-main" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="home-time"><strong>${escapeHtml(event.start)}</strong><small>${escapeHtml(event.end)}</small></span><span class="home-schedule-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Занятие')}</small></span><span class="home-chevron">›</span></button><button class="home-schedule-add" data-add-task-uni="${escapeHtml(event.id)}" type="button" aria-label="Добавить задачу к паре">＋</button></div>`;
+  }
+
+  function renderHomeTask(task) {
+    return `<button class="home-schedule-row task" data-edit-task="${escapeHtml(task.id)}" type="button"><span class="home-time"><strong>${escapeHtml(task.scheduledStart)}</strong><small>${escapeHtml(scheduleEnd(task))}</small></span><span class="home-schedule-copy"><strong>${escapeHtml(task.title)}</strong><small>${formatDuration(task.duration)} · ${escapeHtml(task.category)}${task.done ? ' · готово' : ''}</small></span><span class="home-chevron">›</span></button>`;
+  }
+
+  function renderHomeTaskCompact(task) { return renderHomeTask(task); }
 
   function scheduleEnd(task) { return hm(toMinutes(task.scheduledStart) + task.duration); }
   function renderAgendaUniversityCard(event) {
@@ -1187,6 +1374,9 @@
 
   function bindEvents() {
     $('#tabAdd').addEventListener('click', () => openTaskSheet());
+    $('#homeSyncBtn')?.addEventListener('click', () => syncUniversitySchedule({ force: true }));
+    $('#homeManageGroupBtn')?.addEventListener('click', openUniversitySetup);
+    $('#nextClassOpenBtn')?.addEventListener('click', () => { const id = $('#nextClassOpenBtn').dataset.uniId; if (id) openUniversityEvent(id); });
     $('#todayDateChip').addEventListener('click', () => { $('#datePickerInput').value = dateKey(currentDate); openModal('dateSheetBackdrop'); });
     $('#closeDateSheet').addEventListener('click', () => closeModal('dateSheetBackdrop'));
     $('#datePickerInput').addEventListener('change', (event) => { updateDateFromInput(event.target.value); closeModal('dateSheetBackdrop'); });
@@ -1194,20 +1384,21 @@
     $('#dateNext').addEventListener('click', () => { currentDate = addDays(currentDate, 1); $('#datePickerInput').value = dateKey(currentDate); renderAll(); });
     $('#dateTodayBtn').addEventListener('click', () => { currentDate = startOfDay(new Date()); $('#datePickerInput').value = dateKey(currentDate); renderAll(); closeModal('dateSheetBackdrop'); });
 
-    $('#nextUpAction').addEventListener('click', () => { const kind = $('#nextUpAction').dataset.kind; const id = kind === 'class' ? $('#nextUpAction').dataset.uniId : $('#nextUpAction').dataset.taskId; if (!id) return; if (kind === 'class') openUniversityEvent(id); else openTaskSheet(id); });
     $('#clearTaskScheduleBtn').onclick = () => { if (!editingId) return; clearTaskSchedule(editingId); closeModal('taskSheetBackdrop'); showToast('Время снято. Задача снова во входящих.'); };
     $('#calendarToday').addEventListener('click', () => { currentDate = startOfDay(new Date()); renderAll(); });
     $('#calendarPrevWeek').addEventListener('click', () => { currentDate = addDays(currentDate, -7); renderAll(); });
     $('#calendarNextWeek').addEventListener('click', () => { currentDate = addDays(currentDate, 7); renderAll(); });
     $$('.tab[data-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view)));
-    $('#todayAgenda').addEventListener('click', handleDelegatedActions); $('#todayInbox').addEventListener('click', handleDelegatedActions);
+    $('#todayScheduleTimeline').addEventListener('click', handleDelegatedActions); $('#todayInbox').addEventListener('click', handleDelegatedActions);
     $('#calendarAgenda').addEventListener('click', handleDelegatedActions); $('#allTaskList').addEventListener('click', handleDelegatedActions);
     $('#universityAgenda').addEventListener('click', handleUniversityActions);
     $$('.calendar-mode-btn').forEach((button) => button.addEventListener('click', () => { calendarMode = button.dataset.calendarMode; renderAll(); }));
     $('#universityManageBtn').addEventListener('click', openUniversitySetup);
+    $('#saveAndSyncUniversityBtn').onclick = () => saveUniversityGroup({ andSync: true });
+    $('#syncUniversityNowBtn').onclick = () => data.university.groupCode ? syncUniversitySchedule({ force: true }) : showToast('Сначала укажи группу.');
     $('#closeUniversitySetup').onclick = () => closeModal('universitySetupBackdrop'); $('#cancelUniversitySetup').onclick = () => closeModal('universitySetupBackdrop');
-    $('#saveUniversityGroupBtn').onclick = saveUniversityGroup; $('#openReaScheduleBtn').onclick = openOfficialReaSchedule;
-    $('#clearUniversityScheduleBtn').onclick = () => { if (!data.university.events.length) { showToast('Расписание уже пустое.'); return; } if (confirm('Удалить загруженное расписание РЭУ?')) { data.university.events = []; data.university.importedAt = null; saveData(); closeModal('universitySetupBackdrop'); renderAll(); showToast('Расписание РЭУ удалено.'); } };
+    $('#openReaScheduleBtn').onclick = openOfficialReaSchedule;
+    $('#clearUniversityScheduleBtn').onclick = () => { if (!data.university.events.length) { showToast('Расписание уже пустое.'); return; } if (confirm('Удалить загруженное расписание РЭУ?')) { data.university.events = []; data.university.importedAt = null; data.university.lastSyncAt = null; data.university.syncHash = ''; data.university.syncError = ''; saveData(); closeModal('universitySetupBackdrop'); renderAll(); showToast('Расписание РЭУ удалено.'); } };
     $('#universityIcsInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importUniversityIcs(file); event.target.value = ''; });
     $('#closeUniversityEvent').onclick = () => closeModal('universityEventBackdrop'); $('#openReaFromEventBtn').onclick = openOfficialReaSchedule;
     $('#addTaskFromUniversityEventBtn').onclick = () => { if (selectedUniversityEventId) addTaskFromUniversityEvent(selectedUniversityEventId); };
@@ -1292,13 +1483,13 @@
 
     $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importData(file); event.target.value = ''; });
     $('#resetBtn').onclick = () => { if (confirm('Удалить все задачи, расписание и статистику?')) resetAllData(); };
-    window.addEventListener('online', () => showToast('Соединение восстановлено.')); window.addEventListener('offline', () => showToast('Офлайн-режим: данные остаются на устройстве.'));
+    window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: true, silent: true }); scheduleUniversityAutoSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
     window.addEventListener('scroll', () => $('#topbar').classList.toggle('scrolled', window.scrollY > 4), { passive: true });
     matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (data.settings.theme === 'system') applyTheme(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAllModals(); });
     document.addEventListener('click', (event) => { if (!event.target.closest('.filter-button') && !event.target.closest('#filterPopover')) $('#filterPopover').hidden = true; });
-    document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); });
-    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); });
+    document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); });
+    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); });
   }
 
   function handleUniversityActions(event) {
@@ -1422,6 +1613,8 @@
   function showUpdateBanner(worker) { $('#updateBanner').hidden = false; $('#updateBtn').onclick = () => worker?.postMessage({ type: 'SKIP_WAITING' }); }
   function boot() {
     repairAndPersist(); $('#appVersionLabel').textContent = `v${APP_VERSION}`; bindEvents(); renderAll(); updateFocusUI(); registerServiceWorker();
+    scheduleUniversityAutoSync();
+    if (data.university.groupCode && navigator.onLine) setTimeout(() => syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync), 700);
     setTimeout(() => startOnboarding(false), 480);
   }
 
@@ -1448,6 +1641,9 @@
     universityConflict,
     universityEventsForDate,
     repairUniversityTaskConflicts,
+    mergeUniversityEvents,
+    syncEndpoint,
+    syncConfigNumber,
     deadlineLabel,
     deadlineTimestamp,
     workingCapacityMinutes,

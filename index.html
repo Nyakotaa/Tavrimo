@@ -11,6 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
+  <script src="config.js"></script>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v13.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="stylesheet" href="style.css" />
@@ -33,38 +34,54 @@
       <section class="view active" data-view="today" id="todayView">
         <div class="page-intro">
           <div>
-            <p class="eyebrow" id="todayEyebrow">СЕГОДНЯ</p>
-            <h1 id="todayTitle">Твой день.</h1>
-            <p class="page-subtitle" id="todaySubtitle">Пары и задачи собраны в одном дне.</p>
+            <p class="eyebrow" id="todayEyebrow">РАСПИСАНИЕ</p>
+            <h1 id="todayTitle">Сегодня</h1>
+            <p class="page-subtitle" id="todaySubtitle">Твои пары и задачи — в одном дне.</p>
           </div>
           <button class="date-chip" id="todayDateChip" type="button" aria-label="Выбрать дату">
             <span id="todayDateText">27 сен</span><span aria-hidden="true">⌄</span>
           </button>
         </div>
 
-        <section class="hero-card" aria-label="Загрузка дня">
-          <div class="hero-copy">
+        <section class="schedule-source-card" id="homeScheduleSourceCard" aria-label="Источник расписания">
+          <div class="schedule-source-main">
+            <div class="uni-avatar" aria-hidden="true">🎓</div>
+            <div>
+              <span class="section-kicker">РЭУ ИМ. Г. В. ПЛЕХАНОВА</span>
+              <strong id="homeGroupLabel">Группа не выбрана</strong>
+              <small id="homeSyncLabel">Укажи группу — расписание загрузится автоматически.</small>
+            </div>
+          </div>
+          <div class="schedule-source-actions">
+            <button class="secondary-button compact-action" id="homeSyncBtn" type="button">↻ Обновить</button>
+            <button class="icon-btn ghost" id="homeManageGroupBtn" type="button" aria-label="Настроить группу">⚙️</button>
+          </div>
+        </section>
+
+        <section class="next-class-card hidden" id="nextClassCard" aria-live="polite">
+          <div class="next-class-time"><span>СЛЕДУЮЩАЯ ПАРА</span><strong id="nextClassTime">—</strong></div>
+          <div class="next-class-copy"><strong id="nextClassTitle">—</strong><small id="nextClassMeta">—</small></div>
+          <button class="next-class-action" id="nextClassOpenBtn" type="button" aria-label="Открыть пару">›</button>
+        </section>
+
+        <section class="section schedule-primary-section">
+          <div class="section-header">
+            <div><p class="section-kicker">РАСПИСАНИЕ</p><h2 id="todayScheduleTitle">Сегодня</h2></div>
+            <span class="count-pill" id="todayClassCount">0</span>
+          </div>
+          <div class="schedule-timeline" id="todayScheduleTimeline"></div>
+        </section>
+
+        <section class="compact-load-card" aria-label="Загрузка дня">
+          <div class="compact-load-main">
             <span class="status-line"><span class="status-dot" id="statusDot"></span><span id="dayStatusText">СВОБОДНЫЙ ДЕНЬ</span></span>
             <strong id="focusValue">0%</strong>
-            <span id="focusLabel">ничего не запланировано</span>
+            <span id="focusLabel">0 мин занято</span>
             <div class="progress"><span id="focusProgress"></span></div>
           </div>
-          <div class="hero-side">
-            <div class="mini-ring" id="focusRing"><div><b id="focusRingValue">0%</b><span>занято</span></div></div>
-          </div>
+          <div class="compact-load-ring" id="focusRing"><div><b id="focusRingValue">0%</b><span>занято</span></div></div>
         </section>
 
-        <section class="next-up-card hidden" id="nextUpCard" aria-live="polite">
-          <div class="next-up-copy"><span class="section-kicker">ДАЛЬШЕ</span><strong id="nextUpTitle">—</strong><small id="nextUpMeta">—</small></div>
-          <button class="next-up-action" id="nextUpAction" type="button">Открыть</button>
-        </section>
-
-        <section class="section" id="nextSection">
-          <div class="section-header">
-            <div><p class="section-kicker">ЗАДАЧИ</p><h2>Сегодня</h2></div>
-          </div>
-          <div class="stack" id="todayAgenda"></div>
-        </section>
 
         <section class="section" id="inboxSection">
           <div class="section-header">
@@ -128,7 +145,7 @@
         </div>
         <div class="more-list">
           <button class="feature-card" id="moreUniversity" type="button">
-            <span class="feature-icon green" aria-hidden="true">🎓</span><span><strong>Моя группа</strong><small>Моя группа и пары РЭУ</small></span><span class="chevron">›</span>
+            <span class="feature-icon green" aria-hidden="true">🎓</span><span><strong>Расписание РЭУ</strong><small>Группа и автоматическая синхронизация</small></span><span class="chevron">›</span>
           </button>
           <button class="feature-card" id="moreFocus" type="button">
             <span class="feature-icon purple" aria-hidden="true">🎯</span><span><strong>Фокус</strong><small>Таймер для одной задачи</small></span><span class="chevron">›</span>
@@ -143,7 +160,7 @@
             <span class="feature-icon gray" aria-hidden="true">⚙️</span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Tavrimo <span id="appVersionLabel">v11.0.0</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.0.0</span></div>
       </section>
     </main>
 
@@ -199,14 +216,21 @@
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="universitySetupTitle">
       <div class="grabber"></div>
       <header class="sheet-header"><div><p class="eyebrow">РЭУ ИМ. Г. В. ПЛЕХАНОВА</p><h2 id="universitySetupTitle">Моя группа</h2></div><button class="icon-btn ghost" id="closeUniversitySetup" type="button" aria-label="Закрыть">×</button></header>
-      <div class="uni-setup-steps"><div><b>1</b><span>Открой официальный портал и найди свою группу.</span></div><div><b>2</b><span>Выгрузи расписание в календарь <strong>.ics</strong>.</span></div><div><b>3</b><span>Импортируй файл сюда — пары появятся в Tavrimo и будут блокировать время задач.</span></div></div>
+      <p class="sheet-lead">Введи номер своей группы. Tavrimo сам получит актуальное расписание из официального портала РЭУ и будет проверять его изменения.</p>
       <label>Номер группы<input id="universityGroupInput" type="text" maxlength="80" placeholder="Например, 24.03-ЭК-12" autocomplete="off" /></label>
+      <div class="uni-sync-status" id="universitySyncStateCard"><span class="status-dot" id="universitySyncDot"></span><div><strong id="universitySyncState">Автосинхронизация готова</strong><small id="universitySyncDetail">После сохранения группа будет обновляться при открытии приложения и периодически онлайн.</small></div></div>
       <div class="stack-buttons">
-        <button class="primary-button wide" id="openReaScheduleBtn" type="button">🌐 Открыть расписание РЭУ</button>
-        <label class="secondary-button wide file-action uni-file-action"><span>📥 Импортировать .ics</span><input type="file" id="universityIcsInput" accept=".ics,text/calendar,application/ics" /></label>
+        <button class="primary-button wide" id="saveAndSyncUniversityBtn" type="button">🎓 Сохранить и загрузить</button>
+        <button class="secondary-button wide" id="syncUniversityNowBtn" type="button">↻ Обновить расписание</button>
+        <button class="secondary-button wide" id="openReaScheduleBtn" type="button">🌐 Открыть rasp.rea.ru</button>
       </div>
-      <div class="uni-import-help" id="universityImportStatus">После импорта пары появятся во вкладке «РЭУ».</div>
-      <div class="form-actions"><button class="danger-button" type="button" id="clearUniversityScheduleBtn">Удалить расписание</button><span></span><button class="secondary-button" type="button" id="cancelUniversitySetup">Отмена</button><button class="primary-button" type="button" id="saveUniversityGroupBtn">Сохранить</button></div>
+      <details class="uni-fallback-details">
+        <summary>Импорт .ics вручную</summary>
+        <p>Резервный способ, если официальный портал временно недоступен.</p>
+        <label class="secondary-button wide file-action uni-file-action"><span>📥 Импортировать .ics</span><input type="file" id="universityIcsInput" accept=".ics,text/calendar,application/ics" /></label>
+      </details>
+      <div class="uni-import-help" id="universityImportStatus">Расписание ещё не подключено.</div>
+      <div class="form-actions"><button class="danger-button" type="button" id="clearUniversityScheduleBtn">Удалить расписание</button><span></span><button class="secondary-button" type="button" id="cancelUniversitySetup">Закрыть</button></div>
     </section>
   </div>
 

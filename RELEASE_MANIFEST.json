@@ -1,16 +1,21 @@
 {
   "name": "Tavrimo",
-  "version": "11.0.0",
-  "release": "university-rea",
+  "version": "12.0.0",
+  "release": "timetable-first-rea-live-sync",
   "features": [
-    "REA official .ics schedule",
+    "REA timetable on the main screen",
+    "automatic timetable synchronization",
+    "official rasp.rea.ru source via sync gateway",
     "teacher and room details",
     "class-task linking",
-    "manual task scheduling",
+    "manual task scheduling only",
     "offline-first",
     "first-run onboarding",
-    "local data"
+    "local data",
+    "ETag conditional sync",
+    "CORS-enabled standalone gateway",
+    "safe empty-remote handling"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "Official REA schedule integration uses the portal calendar export (.ics). No undocumented live API or scraping is required."
+  "notes": "The official REA portal supports group search and calendar export. Tavrimo uses a separate sync gateway to automate the official user flow; GitHub Pages alone cannot execute the required browser automation. Sync is best-effort: on launch/resume and every 15 minutes while the app is open and online."
 }
