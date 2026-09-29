@@ -1,29 +1,9 @@
-# Настройка репозитория GitHub под Tavrimo
+# Публикация Tavrimo через GitHub Pages
 
-## Описание репозитория
+1. Создайте репозиторий и загрузите файлы Tavrimo в корень.
+2. Откройте **Settings → Pages**.
+3. Выберите **Deploy from a branch**.
+4. В качестве branch выберите `main`, папку — `/ (root)`.
+5. Откройте опубликованный адрес вида `https://USERNAME.github.io/REPOSITORY/`.
 
-В поле `About → Description` вставь:
-
-> Offline-first PWA-планировщик для iPhone: ручная расстановка задач по времени, дедлайнам, приоритетам и рабочим часам.
-
-## Website
-
-В поле `Website` укажи опубликованную GitHub Pages ссылку:
-
-`https://USERNAME.github.io/tavrimo/`
-
-## Topics
-
-Добавь:
-
-`pwa`, `ios`, `iphone`, `productivity`, `planner`, `task-manager`, `offline-first`, `github-pages`, `javascript`, `html`, `css`, `student`, `schedule`
-
-## Pages
-
-`Settings → Pages → Build and deployment → Deploy from a branch → main → /(root)`.
-
-После публикации GitHub Pages выдаст HTTPS-ссылку, которую можно размещать в Telegram.
-
-## Что положить в репозиторий
-
-Загружай содержимое папки `personal-planner` в корень репозитория. Файл `index.html` должен лежать именно в корне публикации.
+Именно этот адрес нужно отправлять пользователям. Репозиторий можно оставить публичным, но пользовательские задачи не записываются в GitHub: они хранятся локально в браузере/Web App.

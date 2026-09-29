@@ -1,31 +1,76 @@
-# Tavrimo
+# Tavrimo 11.0.0
 
-**Tavrimo 9.1.0 Final** — offline-first personal planner for iPhone with manual time placement. You choose the date and start time; Tavrimo validates working hours, lunch, duration, deadlines, conflicts and reserve after each task.
+**Tavrimo** — iPhone-first PWA для студентов РЭУ им. Г. В. Плеханова: официальное расписание группы + ручной планировщик задач в одном месте.
 
-## 10.0.0
+Приложение работает офлайн после первого открытия и хранит задачи, настройки, статистику и импортированное расписание на устройстве.
 
-Небольшое UI-обновление: понятные эмодзи для основных иконок интерфейса без изменения логики ручного планирования.
+## Возможности
 
-## 9.1.0
-- Manual-only scheduling: the app never chooses a task time for the user.
-- New tasks can be saved without a slot and scheduled later.
-- Manual slots validate working hours, lunch, deadlines, duration and conflicts.
-- Existing schedules from previous versions are treated as manual slots.
-- Priority, duration and deadline remain meaningful for ordering, load and validation.
-- Preserves offline-first PWA behavior, Focus, statistics, import/export and local storage.
+- расписание группы РЭУ с датой, временем, типом занятия, преподавателем и аудиторией;
+- импорт официального календаря `.ics` из портала расписания РЭУ;
+- пары учитываются как занятое время и блокируют конфликтующие ручные задачи;
+- задачи можно привязать к конкретной паре;
+- ручная расстановка задач по дате и времени;
+- дедлайн, длительность, приоритет и резерв реально участвуют в проверках слота;
+- календарь недели и объединённая повестка дня;
+- Focus, статистика и состояние плана;
+- светлая, тёмная и системная тема;
+- экспорт/импорт резервной копии;
+- офлайн-first и обновление через Service Worker;
+- интерактивное обучение при первом запуске.
 
-## Install
-Open the GitHub Pages URL in Safari and choose **Share → Add to Home Screen**. After the first successful load, the app can continue working offline.
+## Как подключить расписание РЭУ
 
-## Update
-Replace the published project files with the contents of `personal-planner`, open Tavrimo once with internet access and accept the in-app update banner when it appears.
+1. Откройте официальный портал: <https://rasp.rea.ru/>.
+2. Найдите свою университетскую группу.
+3. Используйте экспорт расписания в календарь и получите `.ics`.
+4. В Tavrimo откройте **Неделя → РЭУ → Подключить**.
+5. Укажите номер группы и импортируйте `.ics`.
 
-## Data
-Tasks, schedules, settings and focus sessions are stored locally on the device. Export a JSON backup before resetting or moving data to another device.
+Официальный портал РЭУ позволяет искать расписание по группе/преподавателю и экспортировать выбранный диапазон занятий в календарь. На самом портале отдельно предупреждается, что экспортированные данные могут устаревать, поэтому Tavrimo хранит локальную копию и предлагает повторный импорт при изменениях расписания.
 
-## Development
-- `app.js` — application logic and manual scheduling validation
-- `style.css` — iOS-first UI
-- `sw.js` — offline cache and updates
-- `manifest.webmanifest` — PWA metadata
-- `tools/test_manual_scheduling.mjs` — regression tests
+## Почему импорт `.ics`, а не «магическая» синхронизация
+
+У Tavrimo нет зависимости от недокументированного внутреннего API РЭУ. Используется стандартный календарный экспорт с официального портала, поэтому интеграция остаётся предсказуемой и может работать офлайн.
+
+## Установка на iPhone
+
+Опубликуйте проект через HTTPS, например GitHub Pages. Откройте опубликованный адрес в **Safari** → **Поделиться** → **На экран «Домой»** → **Открыть как веб-приложение**, если такой пункт доступен.
+
+Первый запуск требует подключения к интернету, чтобы Service Worker закэшировал приложение. После этого основные функции работают без сети.
+
+## Обновление
+
+Замените файлы проекта в GitHub Pages. После следующего запуска с интернетом Tavrimo установит новый Service Worker и покажет баннер **«Доступна новая версия»**.
+
+## Разработка и проверка
+
+```bash
+node --check app.js
+node --check sw.js
+node tools/test_manual_scheduling.mjs
+node tools/test_university_schedule.mjs
+node tools/test_onboarding.mjs
+```
+
+GitHub Actions запускает эти проверки автоматически.
+
+## Структура
+
+```text
+index.html
+app.js
+style.css
+sw.js
+manifest.webmanifest
+assets/icons/
+docs/
+tools/
+.github/workflows/
+```
+
+## Источник расписания
+
+Официальный портал расписания РЭУ: <https://rasp.rea.ru/>
+
+Тавримо не является официальным приложением РЭУ и не представляет университет.

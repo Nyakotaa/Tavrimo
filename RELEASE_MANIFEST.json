@@ -1,6 +1,16 @@
 {
   "name": "Tavrimo",
-  "version": "10.0.0",
-  "release": "final",
-  "features": ["manual scheduling", "offline-first", "first-run onboarding", "local data", "guided tour"]
+  "version": "11.0.0",
+  "release": "university-rea",
+  "features": [
+    "REA official .ics schedule",
+    "teacher and room details",
+    "class-task linking",
+    "manual task scheduling",
+    "offline-first",
+    "first-run onboarding",
+    "local data"
+  ],
+  "source": "https://rasp.rea.ru/",
+  "notes": "Official REA schedule integration uses the portal calendar export (.ics). No undocumented live API or scraping is required."
 }

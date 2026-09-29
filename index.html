@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)" />
-  <meta name="description" content="Tavrimo — офлайн-планировщик для ручной расстановки задач по времени, дедлайнам и приоритетам." />
+  <meta name="description" content="Tavrimo — расписание РЭУ и ручной планировщик задач для студентов." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v12.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v13.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="stylesheet" href="style.css" />
   <title>Tavrimo</title>
@@ -35,7 +35,7 @@
           <div>
             <p class="eyebrow" id="todayEyebrow">СЕГОДНЯ</p>
             <h1 id="todayTitle">Твой день.</h1>
-            <p class="page-subtitle" id="todaySubtitle">Начни с одной задачи — время можно назначить сразу или позже.</p>
+            <p class="page-subtitle" id="todaySubtitle">Пары и задачи собраны в одном дне.</p>
           </div>
           <button class="date-chip" id="todayDateChip" type="button" aria-label="Выбрать дату">
             <span id="todayDateText">27 сен</span><span aria-hidden="true">⌄</span>
@@ -61,7 +61,7 @@
 
         <section class="section" id="nextSection">
           <div class="section-header">
-            <div><p class="section-kicker">РАСПИСАНИЕ</p><h2>Сегодня</h2></div>
+            <div><p class="section-kicker">ЗАДАЧИ</p><h2>Сегодня</h2></div>
           </div>
           <div class="stack" id="todayAgenda"></div>
         </section>
@@ -77,15 +77,29 @@
 
       <section class="view" data-view="calendar" id="calendarView">
         <div class="page-intro compact">
-          <div><p class="eyebrow">ОБЗОР</p><h1>Неделя</h1><p class="page-subtitle" id="weekRange">—</p></div>
+          <div><p class="eyebrow">РАСПИСАНИЕ</p><h1>Неделя</h1><p class="page-subtitle" id="weekRange">—</p></div>
           <div class="calendar-actions"><button class="secondary-button compact-action" id="calendarPrevWeek" type="button" aria-label="Предыдущая неделя">‹</button><button class="secondary-button compact-action" id="calendarToday" type="button">Сегодня</button><button class="secondary-button compact-action" id="calendarNextWeek" type="button" aria-label="Следующая неделя">›</button></div>
         </div>
-        <div class="week-strip" id="weekStrip"></div>
-        <section class="day-overview">
-          <div><span id="calendarDateLabel">Сегодня</span><small id="calendarLoadLabel">0 мин запланировано</small></div>
-          <strong id="calendarLoadValue">0%</strong>
-        </section>
-        <div class="calendar-list" id="calendarAgenda"></div>
+        <div class="calendar-mode" role="tablist" aria-label="Тип расписания">
+          <button class="calendar-mode-btn active" data-calendar-mode="plan" role="tab" aria-selected="true" type="button">Мой план</button>
+          <button class="calendar-mode-btn" data-calendar-mode="university" role="tab" aria-selected="false" type="button">РЭУ</button>
+        </div>
+        <div id="calendarPlanPanel">
+          <div class="week-strip" id="weekStrip"></div>
+          <section class="day-overview">
+            <div><span id="calendarDateLabel">Сегодня</span><small id="calendarLoadLabel">0 мин запланировано</small></div>
+            <strong id="calendarLoadValue">0%</strong>
+          </section>
+          <div class="calendar-list" id="calendarAgenda"></div>
+        </div>
+        <div id="universityCalendarPanel" class="university-panel hidden" aria-live="polite">
+          <section class="uni-profile-card" id="universityProfileCard">
+            <div class="uni-profile-copy"><span class="section-kicker">МОЯ ГРУППА</span><strong id="universityGroupLabel">Группа не выбрана</strong><small id="universitySyncLabel">Подключи расписание РЭУ, чтобы видеть пары здесь.</small></div>
+            <button class="secondary-button" id="universityManageBtn" type="button">Настроить</button>
+          </section>
+          <section class="uni-summary" id="universityWeekSummary"></section>
+          <div class="university-week" id="universityAgenda"></div>
+        </div>
       </section>
 
       <section class="view" data-view="tasks" id="tasksView">
@@ -113,6 +127,9 @@
           <div><p class="eyebrow">TAVRIMO</p><h1>Ещё</h1><p class="page-subtitle">Дополнительные инструменты.</p></div>
         </div>
         <div class="more-list">
+          <button class="feature-card" id="moreUniversity" type="button">
+            <span class="feature-icon green" aria-hidden="true">🎓</span><span><strong>Моя группа</strong><small>Моя группа и пары РЭУ</small></span><span class="chevron">›</span>
+          </button>
           <button class="feature-card" id="moreFocus" type="button">
             <span class="feature-icon purple" aria-hidden="true">🎯</span><span><strong>Фокус</strong><small>Таймер для одной задачи</small></span><span class="chevron">›</span>
           </button>
@@ -126,7 +143,7 @@
             <span class="feature-icon gray" aria-hidden="true">⚙️</span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Tavrimo <span id="appVersionLabel">v10.0.0</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v11.0.0</span></div>
       </section>
     </main>
 
@@ -157,6 +174,7 @@
         <div class="two-col"><label>Длительность<select id="taskDuration"><option value="15">15 мин</option><option value="30">30 мин</option><option value="45">45 мин</option><option value="60" selected>1 час</option><option value="90">1 ч 30</option><option value="120">2 часа</option><option value="180">3 часа</option><option value="240">4 часа</option></select></label><label>Приоритет<select id="taskPriority"><option value="3">Высокий</option><option value="2" selected>Средний</option><option value="1">Низкий</option></select></div>
         <div class="two-col"><label>Дедлайн <small class="field-note">необязательно</small><input id="taskDeadline" type="date" /></label><label>Время <small class="field-note">только с датой</small><input id="taskDeadlineTime" type="time" step="900" /></label></div>
         <label>Категория<select id="taskCategory"><option>Учёба</option><option>Работа</option><option>Личное</option><option>Дом</option><option>Другое</option></select></label>
+        <div class="linked-class-note hidden" id="taskLinkedClassContext"><div><span>🎓 К паре</span><strong id="taskLinkedClassText">—</strong></div><button class="text-btn" id="unlinkTaskClassBtn" type="button">Отвязать</button></div>
         <div class="schedule-note"><strong>Время</strong><small>Расставь задачу сам. Можно оставить без времени и назначить позже.</small></div>
         <div class="two-col" id="manualScheduleFields"><label>Дата <small class="field-note">необязательно</small><input id="taskScheduleDate" type="date" /></label><label>Время <small class="field-note">необязательно</small><input id="taskScheduleTime" type="time" step="900" /></label></div><p class="manual-hint" id="manualScheduleHint"></p><p class="logic-hint" id="taskLogicHint"></p>
         <label>Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Опционально"></textarea></label>
@@ -174,6 +192,30 @@
       <header class="sheet-header"><div><p class="eyebrow">ПЕРЕЙТИ К ДАТЕ</p><h2 id="dateSheetTitle">Выбери день</h2></div><button class="icon-btn ghost" id="closeDateSheet" type="button" aria-label="Закрыть">×</button></header>
       <div class="date-stepper"><button class="secondary-button date-step" id="datePrev" type="button" aria-label="Предыдущий день">‹</button><label class="date-input-wrap"><span>Дата</span><input id="datePickerInput" type="date" /></label><button class="secondary-button date-step" id="dateNext" type="button" aria-label="Следующий день">›</button></div>
       <button class="primary-button wide" id="dateTodayBtn" type="button">Сегодня</button>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="universitySetupBackdrop" hidden>
+    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="universitySetupTitle">
+      <div class="grabber"></div>
+      <header class="sheet-header"><div><p class="eyebrow">РЭУ ИМ. Г. В. ПЛЕХАНОВА</p><h2 id="universitySetupTitle">Моя группа</h2></div><button class="icon-btn ghost" id="closeUniversitySetup" type="button" aria-label="Закрыть">×</button></header>
+      <div class="uni-setup-steps"><div><b>1</b><span>Открой официальный портал и найди свою группу.</span></div><div><b>2</b><span>Выгрузи расписание в календарь <strong>.ics</strong>.</span></div><div><b>3</b><span>Импортируй файл сюда — пары появятся в Tavrimo и будут блокировать время задач.</span></div></div>
+      <label>Номер группы<input id="universityGroupInput" type="text" maxlength="80" placeholder="Например, 24.03-ЭК-12" autocomplete="off" /></label>
+      <div class="stack-buttons">
+        <button class="primary-button wide" id="openReaScheduleBtn" type="button">🌐 Открыть расписание РЭУ</button>
+        <label class="secondary-button wide file-action uni-file-action"><span>📥 Импортировать .ics</span><input type="file" id="universityIcsInput" accept=".ics,text/calendar,application/ics" /></label>
+      </div>
+      <div class="uni-import-help" id="universityImportStatus">После импорта пары появятся во вкладке «РЭУ».</div>
+      <div class="form-actions"><button class="danger-button" type="button" id="clearUniversityScheduleBtn">Удалить расписание</button><span></span><button class="secondary-button" type="button" id="cancelUniversitySetup">Отмена</button><button class="primary-button" type="button" id="saveUniversityGroupBtn">Сохранить</button></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="universityEventBackdrop" hidden>
+    <section class="sheet compact" role="dialog" aria-modal="true" aria-labelledby="universityEventTitle">
+      <div class="grabber"></div>
+      <header class="sheet-header"><div><p class="eyebrow" id="universityEventKicker">ПАРА</p><h2 id="universityEventTitle">—</h2></div><button class="icon-btn ghost" id="closeUniversityEvent" type="button" aria-label="Закрыть">×</button></header>
+      <div class="uni-event-details" id="universityEventDetails"></div>
+      <div class="stack-buttons"><button class="primary-button wide" id="addTaskFromUniversityEventBtn" type="button">＋ Поставить задачу к этой паре</button><button class="secondary-button wide" id="openReaFromEventBtn" type="button">🌐 Открыть расписание РЭУ</button></div>
     </section>
   </div>
 

@@ -1,1 +1,17 @@
-Tavrimo 10 — offline-first personal planner for iPhone with manual task scheduling, deadlines, priorities, duration, conflict checks, local storage and guided first-run onboarding.
+Tavrimo — iPhone-first PWA с расписанием РЭУ и ручным планировщиком задач. Импорт .ics, преподаватели и аудитории, задачи к парам, календарь недели и полноценная работа офлайн.
+
+Topics:
+pwa
+ios
+iphone
+productivity
+planner
+student
+university
+schedule
+rea-plekhanov
+offline-first
+javascript
+html
+css
+github-pages

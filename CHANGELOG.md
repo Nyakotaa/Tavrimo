@@ -1,8 +1,14 @@
 # Changelog
 
-## Tavrimo 10.0.0
-- Renamed the app and user-facing documentation from the previous working title to Tavrimo.
-- Added a first-run guided onboarding with target highlighting and skip/replay controls.
-- Added an onboarding replay action under Settings.
-- Preserved legacy local-storage migration so existing user data can survive the rename.
-- Updated manifest, cache namespace, backup filename and GitHub copy.
+## 11.0.0 — REA University Edition
+
+- Добавлено расписание РЭУ из официального календарного экспорта `.ics`.
+- Добавлены преподаватели, аудитории, типы занятий и время пар.
+- Пары интегрированы с загрузкой дня и проверкой конфликтов задач.
+- Добавлена связь задачи с конкретной парой.
+- Добавлена единая повестка дня для задач и занятий.
+- Исправлены стабильность ID и повторный импорт расписания.
+- Улучшен ICS-парсер: TZID, UTC, VALUE=DATE, X-TEACHER/X-ROOM.
+- Добавлена защита от дубликатов расписания.
+- Обновлена схема локальных данных до 14.
+- Обновлены offline cache, документация и CI-проверки.

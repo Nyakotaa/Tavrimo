@@ -1,5 +1,5 @@
 {
-  "name": "Tavrimo — умный планировщик",
+  "name": "Tavrimo — расписание РЭУ и планировщик",
   "short_name": "Tavrimo",
   "lang": "ru",
   "start_url": "./",
@@ -8,9 +8,12 @@
   "orientation": "portrait",
   "background_color": "#f4f5f7",
   "theme_color": "#f4f5f7",
-  "description": "Tavrimo — офлайн-планировщик для ручной расстановки задач по времени.",
+  "description": "Расписание РЭУ с парами, преподавателями и аудиториями + ручной планировщик задач, работающий офлайн.",
   "id": "./tavrimo",
-  "categories": ["productivity", "utilities"],
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "assets/icons/icon-192.png",
