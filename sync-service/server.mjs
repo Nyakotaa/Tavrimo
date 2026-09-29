@@ -1,6 +1,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
@@ -243,13 +244,20 @@ async function downloadOfficialIcs(group) {
   }
 }
 
-app.get('/api/rea/health', (_req, res) => res.json({
-  ok: true,
-  source: UPSTREAM,
-  cacheTtlMinutes: CACHE_TTL_MS / 60000,
-  runtime: 'playwright',
-  browserReady: Boolean(browserPromise)
-}));
+app.get('/api/rea/health', (_req, res) => {
+  const executablePath = chromium.executablePath();
+  const executableExists = fs.existsSync(executablePath);
+  const ok = executableExists;
+  res.status(ok ? 200 : 503).json({
+    ok,
+    source: UPSTREAM,
+    cacheTtlMinutes: CACHE_TTL_MS / 60000,
+    runtime: 'playwright',
+    browserReady: Boolean(browserPromise),
+    executableExists,
+    executablePath
+  });
+});
 
 app.get('/api/rea/schedule', rateLimit, async (req, res) => {
   const group = String(req.query.group || '').trim();

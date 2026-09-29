@@ -1,4 +1,4 @@
-## Tavrimo 12.0.1 — REA Live Sync Hotfix
+## Tavrimo 12.0.2 — REA Live Sync Hotfix
 
 Исправлен сценарий «Сервер синхронизации ответил 502». Gateway стал устойчивее к динамической выдаче rasp.rea.ru: ожидается выбор найденной группы, используется событийное ожидание, перехватываются iCalendar-ответы без обязательного browser-download события, а Chromium настроен для Render Free.
 
