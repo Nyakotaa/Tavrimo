@@ -179,6 +179,11 @@ function parseScheduleText(text) {
   if (!headers.length) return events;
 
   const periodPattern = /(\d{1,2})\s*пара\s+(\d{1,2}:\d{2})\s*(?:[-–—]\s*)?(\d{1,2}:\d{2})\s+([\s\S]*?)(?=\s+\d{1,2}\s*пара\s+\d{1,2}:\d{2}|\s+(?:ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)\s*,?\s*\d{1,2}\.\d{1,2}\.\d{4}|$)/gi;
+  const timePattern = /(\d{1,2}:\d{2})\s*(?:[-–—]\s*)?(\d{1,2}:\d{2})/g;
+  const officialSlots = new Map([
+    ['08:30|10:00', 1], ['10:10|11:40', 2], ['11:50|13:20', 3], ['14:00|15:30', 4],
+    ['15:40|17:10', 5], ['17:20|18:50', 6], ['18:55|20:25', 7], ['20:30|22:00', 8]
+  ]);
 
   for (let i = 0; i < headers.length; i += 1) {
     const header = headers[i];
@@ -187,21 +192,48 @@ function parseScheduleText(text) {
     const start = header.index + header[0].length;
     const end = i + 1 < headers.length ? headers[i + 1].index : normalized.length;
     const section = normalized.slice(start, end);
+
+    // First, use the most precise representation when the portal exposes the slot number.
     for (const match of section.matchAll(periodPattern)) {
       const lesson = parseLessonDetails(match[4]);
       if (!lesson) continue;
-      const slot = Number(match[1]);
       const startTime = match[2];
       const endTime = match[3];
+      const mappedSlot = officialSlots.get(`${startTime}|${endTime}`);
+      const slot = mappedSlot || Number(match[1]);
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) continue;
       events.push({
         id: hash(`${dateKey}|${slot}|${startTime}|${endTime}|${lesson.subject}|${lesson.teacher}|${lesson.room}`).slice(0, 20),
-        date: dateKey,
-        slot,
-        start: startTime,
-        end: endTime,
-        ...lesson
+        date: dateKey, slot, start: startTime, end: endTime, ...lesson
       });
+    }
+
+    // The current portal also renders period labels and lesson cells separately. In that
+    // layout the text reads like "1 пара 2 пара 11:50 13:20 Предмет ...". Recover the
+    // actual lesson from every visible time pair and map standard REA bell times to a slot.
+    {
+      const matches = [...section.matchAll(timePattern)];
+      for (let j = 0; j < matches.length; j += 1) {
+        const startTime = matches[j][1];
+        const endTime = matches[j][2];
+        const key = `${startTime}|${endTime}`;
+        const slot = officialSlots.get(key);
+        if (!slot) continue;
+        const contentStart = matches[j].index + matches[j][0].length;
+        const contentEnd = j + 1 < matches.length ? matches[j + 1].index : section.length;
+        let detailsText = section.slice(contentStart, contentEnd)
+          .replace(/^\s*(?:\d{1,2}\s*пара\s*)+/i, '')
+          .replace(/\s+(?:Подробнее|Подробности|Экспорт расписания в календарь|Выберите экспортируемый диапазон|Экспортируемые типы занятий).*$/i, '')
+          .trim();
+        // Ignore isolated UI times and avoid swallowing the next day/portal navigation.
+        if (!detailsText || /^(?:Сегодня|Назад|Далее|Обновить|Закрыть)$/i.test(detailsText)) continue;
+        const lesson = parseLessonDetails(detailsText);
+        if (!lesson) continue;
+        events.push({
+          id: hash(`${dateKey}|${slot}|${startTime}|${endTime}|${lesson.subject}|${lesson.teacher}|${lesson.room}`).slice(0, 20),
+          date: dateKey, slot, start: startTime, end: endTime, ...lesson
+        });
+      }
     }
   }
 
@@ -473,6 +505,7 @@ async function downloadOfficialIcs(group) {
     const visibleText = await page.locator('body').innerText().catch(() => '');
     const events = parseScheduleText(visibleText);
     if (events.length) {
+      console.info(`[REA_SYNC_FALLBACK] group=${group} parsed=${events.length} events from rendered timetable`);
       return scheduleEventsToIcs(group, events);
     }
 

@@ -1,17 +1,1 @@
-Tavrimo — iPhone-first PWA для студентов РЭУ: расписание группы на главном экране, автоматическая синхронизация с официальным rasp.rea.ru через Sync Gateway и ручной планировщик задач, привязанных к парам. Работает офлайн после загрузки.
-
-Topics:
-pwa
-ios
-iphone
-productivity
-planner
-student
-university
-schedule
-rea-plekhanov
-offline-first
-automatic-sync
-javascript
-html
-css
+Tavrimo — расписание РЭУ на главном экране + ручной планировщик задач, дедлайны, Focus, статистика и офлайн-режим.

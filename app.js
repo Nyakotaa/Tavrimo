@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.0.0';
+  const APP_VERSION = '12.0.4';
   const SCHEMA_VERSION = 16;
   const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [
@@ -63,6 +63,8 @@
   let draftLinkedUniversityEventId = null;
   let swRegistration = null;
   let universitySyncInFlight = null;
+  let universitySyncController = null;
+  let universitySyncToken = 0;
   let universitySyncTimer = null;
   let universitySyncMessage = '';
   let universitySyncChangeCount = 0;
@@ -805,7 +807,11 @@
     else if (data.university.lastSyncAt) detail.textContent = `Синхронизировано ${formatImportedAt(data.university.lastSyncAt).replace(/^Обновлено\s*/i,'')}`;
     else if (data.university.events.length) detail.textContent = `${data.university.events.length} занятий · синхронизация включена`;
     else detail.textContent = 'Синхронизация включена · проверяем расписание онлайн';
-    if (button) button.disabled = !group || Boolean(universitySyncInFlight);
+    if (button) {
+      button.disabled = !group;
+      button.setAttribute('aria-busy', String(Boolean(universitySyncInFlight)));
+      button.textContent = universitySyncInFlight ? '↻ Обновляю…' : '↻ Обновить';
+    }
   }
 
   function extractGroupCode(value) {
@@ -871,12 +877,26 @@
     const last = data.university.lastSyncAt ? Date.parse(data.university.lastSyncAt) : 0;
     const interval = syncConfigNumber('syncIntervalMinutes', 15, 5) * 60 * 1000;
     if (!force && last && Date.now() - last < interval && data.university.events.length) return { ok: true, skipped: true };
-    if (universitySyncInFlight) return universitySyncInFlight;
+
+    // A manual refresh must always do something. If a silent startup/visibility refresh is
+    // already running, cancel that request and start a fresh one instead of silently ignoring
+    // the button press.
+    if (universitySyncInFlight) {
+      if (!force) return universitySyncInFlight;
+      universitySyncToken += 1;
+      try { universitySyncController?.abort(); } catch {}
+      universitySyncController = null;
+      universitySyncInFlight = null;
+      updateHomeSyncUI();
+    }
+
     const endpoint = syncEndpoint();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), syncConfigNumber('requestTimeoutMs', 25000, 5000));
+    universitySyncController = controller;
+    const token = ++universitySyncToken;
+    const timeout = setTimeout(() => controller.abort(), syncConfigNumber('requestTimeoutMs', 60000, 5000));
     universitySyncInFlight = (async () => {
-      setUniversitySyncState('Обновляю расписание…', `Группа ${group} · обращаемся к rasp.rea.ru`);
+      setUniversitySyncState('Обновляю расписание…', `Группа ${group} · обращаемся к серверу синхронизации`);
       updateHomeSyncUI();
       try {
         const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}group=${encodeURIComponent(group)}`;
@@ -884,12 +904,20 @@
         const ifNoneMatch = storedEtag ? (storedEtag === '*' || /^(W\/)?"/.test(storedEtag) ? storedEtag : `"${storedEtag}"`) : '';
         const headers = ifNoneMatch ? { 'If-None-Match': ifNoneMatch } : {};
         const response = await fetch(url, { method: 'GET', cache: 'no-store', headers, signal: controller.signal });
+        if (token !== universitySyncToken) return { ok: false, cancelled: true };
         if (response.status === 304) {
-          data.university.lastSyncAt = new Date().toISOString(); data.university.syncError = ''; saveData(); renderAll();
-          setUniversitySyncState('Расписание актуально', `Проверено только что · изменений нет`);
+          data.university.lastSyncAt = new Date().toISOString();
+          data.university.syncError = '';
+          saveData();
+          renderAll();
+          setUniversitySyncState('Расписание актуально', 'Проверено только что · изменений нет');
           return { ok: true, changed: false };
         }
-        if (!response.ok) throw new Error(`Сервер синхронизации ответил ${response.status}`);
+        if (!response.ok) {
+          let detail = `Сервер синхронизации ответил ${response.status}`;
+          try { const payload = await response.json(); if (payload?.error) detail += ` · ${payload.error}`; } catch {}
+          throw new Error(detail);
+        }
         const type = response.headers.get('content-type') || '';
         const payload = type.includes('application/json') ? await response.json() : { ics: await response.text() };
         const ics = typeof payload.ics === 'string' ? payload.ics : typeof payload.data === 'string' ? payload.data : '';
@@ -919,13 +947,19 @@
         }
         return { ok: true, changed: Boolean(changes.added || changes.changed || changes.removed), changes };
       } catch (error) {
+        if (token !== universitySyncToken) return { ok: false, cancelled: true };
         const reason = error?.name === 'AbortError' ? 'Превышено время ожидания.' : String(error?.message || 'Неизвестная ошибка.');
         data.university.syncError = reason.slice(0, 240); data.university.syncMode = 'auto'; saveData(); renderAll();
         setUniversitySyncState('Ошибка синхронизации', reason);
         if (!silent) showToast(`Не удалось обновить расписание: ${reason}`);
         return { ok: false, error: reason };
       } finally {
-        clearTimeout(timeout); universitySyncInFlight = null; updateHomeSyncUI();
+        clearTimeout(timeout);
+        if (token === universitySyncToken) {
+          universitySyncController = null;
+          universitySyncInFlight = null;
+          updateHomeSyncUI();
+        }
       }
     })();
     return universitySyncInFlight;
