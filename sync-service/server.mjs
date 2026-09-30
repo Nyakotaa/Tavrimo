@@ -386,7 +386,55 @@ async function clickPortalSearch(page, input) {
       return true;
     }
   }
+  const iconCandidates = page.locator('.material-icons, i, span').filter({ hasText: /^search$/i });
+  for (let i = 0; i < Math.min(await iconCandidates.count(), 20); i += 1) {
+    const button = iconCandidates.nth(i);
+    if (!await button.isVisible().catch(() => false)) continue;
+    await button.click({ timeout: 4_000 }).catch(() => {});
+    return true;
+  }
   await input.press('Enter').catch(() => {});
+  return false;
+}
+
+async function selectGroupTab(page) {
+  const candidates = [
+    page.getByText('Группы', { exact: true }),
+    page.locator('[role="tab"]').filter({ hasText: /^Группы$/i }),
+    page.locator('button, a, [role="button"]').filter({ hasText: /^Группы$/i })
+  ];
+  for (const locator of candidates) {
+    const count = Math.min(await locator.count(), 10);
+    for (let i = 0; i < count; i += 1) {
+      const item = locator.nth(i);
+      if (!await item.isVisible().catch(() => false)) continue;
+      await item.click({ timeout: 3_000 }).catch(() => {});
+      await page.waitForTimeout(250);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function selectGroupOption(page, group) {
+  const normalize = (value) => String(value || '')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/[–—−]/g, '-')
+    .replace(/ё/g, 'е')
+    .replace(/[^0-9a-zа-я]+/gi, '');
+  const target = normalize(group);
+  const selects = page.locator('select');
+  for (let i = 0; i < Math.min(await selects.count(), 12); i += 1) {
+    const select = selects.nth(i);
+    if (!await select.isVisible().catch(() => false)) continue;
+    const options = await select.locator('option').evaluateAll((els) => els.map((el) => ({ value: el.value, text: el.textContent || '' }))).catch(() => []);
+    const hit = options.find((o) => normalize(o.text) === target || normalize(o.value) === target);
+    if (hit) {
+      await select.selectOption(hit.value).catch(() => {});
+      await page.waitForTimeout(700);
+      return true;
+    }
+  }
   return false;
 }
 
@@ -450,18 +498,33 @@ async function searchForGroup(page, group) {
   }
   if (!input) throw new Error('На портале не найдено поле поиска группы.');
 
+  await selectGroupTab(page);
   await input.fill(group);
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(500);
   await clickPortalSearch(page, input);
-  // The portal is a client-side app; wait for either a visible result or a timetable.
-  await page.waitForTimeout(2_000);
-  if (await pageHasTimetable(page)) return true;
-  if (await findGroupInResults(page, group)) return true;
+  await page.waitForTimeout(1_500);
 
-  await input.press('Enter').catch(() => {});
-  await page.waitForTimeout(2_000);
+  // Some versions expose search results as <option> values instead of visible list items.
+  // Select those first, then fall back to clickable results.
+  if (await selectGroupOption(page, group)) {
+    await page.waitForTimeout(1_500);
+    if (await pageHasTimetable(page)) return true;
+  }
+
+  if (await findGroupInResults(page, group)) return true;
   if (await pageHasTimetable(page)) return true;
-  return await findGroupInResults(page, group);
+
+  // Retry once using the portal's explicit search control. This is useful when Enter is
+  // intercepted by an autocomplete component.
+  await input.press('Enter').catch(() => {});
+  await clickPortalSearch(page, input);
+  await page.waitForTimeout(2_500);
+  if (await selectGroupOption(page, group)) {
+    await page.waitForTimeout(1_000);
+    if (await pageHasTimetable(page)) return true;
+  }
+  if (await findGroupInResults(page, group)) return true;
+  return await pageHasTimetable(page);
 }
 
 
@@ -525,24 +588,20 @@ async function downloadOfficialIcs(group) {
     await page.goto(UPSTREAM, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
 
-    // The REA portal is itself an offline-capable web app. Do NOT block its service worker:
-    // otherwise it can report "offline" and return no search results even though Chromium has internet.
-    const pageOnline = await page.evaluate(() => navigator.onLine).catch(() => true);
-    if (!pageOnline) {
+    // The REA portal is itself an offline-capable web app. Keep its service worker enabled.
+    // Refresh only after we have selected the requested group; refreshing the landing page
+    // before search can reset the active query and produce a false "group not found" state.
+    const searched = await searchForGroup(page, group);
+    if (searched) {
       await clickPortalRefresh(page);
       await page.waitForTimeout(1_500);
     }
-
-    // Try to refresh the portal before searching. This is harmless when the page is already fresh
-    // and fixes stale/offline cached portal states.
-    await clickPortalRefresh(page);
-    const searched = await searchForGroup(page, group);
     if (!searched) {
       const visibleText = await page.locator('body').innerText().catch(() => '');
       const hasNoResults = /не найдено результатов|результаты поиска/i.test(visibleText);
       throw new Error(hasNoResults
-        ? `Портал РЭУ не нашёл группу «${group}». Проверь номер группы. Последняя страница: ${cleanText(visibleText).slice(0, 1000)}`
-        : 'Портал РЭУ не показал расписание для выбранной группы.');
+        ? `Портал РЭУ не нашёл группу «${group}». Проверь номер группы. URL: ${page.url()}. Последняя страница: ${cleanText(visibleText).slice(0, 1400)}`
+        : `Портал РЭУ не показал расписание для выбранной группы. URL: ${page.url()}`);
     }
 
     await page.waitForTimeout(1_000);
@@ -636,8 +695,10 @@ app.get('/api/rea/schedule', rateLimit, async (req, res) => {
   if (!allowedGroup(group)) return res.status(400).json({ error: 'Укажите корректный номер группы.' });
   const key = group.toLowerCase();
   const now = Date.now();
+  const force = /^(1|true|yes)$/i.test(String(req.query.force || ''));
+  res.set('X-Tavrimo-Refresh-Mode', force ? 'force' : 'normal');
   const cached = cache.get(key);
-  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+  if (!force && cached && now - cached.fetchedAt < CACHE_TTL_MS) {
     if (req.headers['if-none-match'] === cached.etag) return res.status(304).end();
     res.set('ETag', cached.etag);
     return res.json({ ics: cached.ics, hash: cached.etag, fetchedAt: new Date(cached.fetchedAt).toISOString(), source: UPSTREAM });

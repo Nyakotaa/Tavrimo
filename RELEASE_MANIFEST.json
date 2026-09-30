@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo",
-  "version": "12.0.5",
-  "release": "rea-sync-refresh-fixed-3",
+  "version": "12.0.6",
+  "release": "rea-sync-refresh-force-4",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -22,5 +22,5 @@
     "actionable sync diagnostics"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "Manual refresh is always actionable; PWA static assets are cache-busted/network-first; REA portal service workers remain enabled so group search can use the portal online state."
+  "notes": "Manual refresh is forced end-to-end; REA group search selects the Группы mode and supports icon search, select/listbox and normalized results; official portal service workers remain enabled."
 }

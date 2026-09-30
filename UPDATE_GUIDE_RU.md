@@ -22,3 +22,8 @@
 ## 12.0.5
 
 Загрузите содержимое `personal-planner` поверх старой версии. В Render при необходимости нажмите Manual Deploy → Deploy latest commit. После статуса Live проверьте `/api/rea/health`, затем откройте Tavrimo онлайн на iPhone.
+
+
+## 12.0.6
+
+Замените содержимое `personal-planner` в GitHub-репозитории и сделайте Commit. Render автоматически создаст новый deploy; при необходимости используйте Manual Deploy → Deploy latest commit. После статуса Live проверьте `/api/rea/health`, затем откройте Tavrimo онлайн и нажмите «Обновить» рядом с расписанием. В логах принудительное обновление содержит `force=1`.

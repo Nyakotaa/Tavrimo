@@ -12,7 +12,7 @@ assert.match(app, /If-None-Match/, 'App must use conditional requests for schedu
 assert.match(app, /response\.status === 304/, 'App must handle 304 Not Modified');
 assert.match(app, /последнее известное расписание/i, 'App should avoid wiping a known schedule on an empty remote result');
 assert.match(sw, /api\//, 'Service Worker must treat API separately from cached app shell');
-assert.match(config, /syncEndpoint: '\/api\/rea\/schedule'/, 'Default same-origin sync endpoint missing');
+assert.match(config, /defaultSyncEndpoint = isGitHubPages[\s\S]*\? 'https:\/\/tavrimo-rea-sync\.onrender\.com\/api\/rea\/schedule'[\s\S]*: '\/api\/rea\/schedule'/, 'Default sync endpoint configuration missing');
 assert.match(config, /syncIntervalMinutes: 15/, 'Config sync interval missing');
 assert.match(app, /function syncConfigNumber\(/, 'Config number helper missing for invalid runtime config values');
 assert.match(server, /Access-Control-Allow-Origin/, 'Gateway must allow cross-origin PWA requests');
@@ -23,6 +23,8 @@ assert.match(server, /rasp\.rea\.ru/, 'Gateway must use official REA portal as u
 assert.match(server, /--no-sandbox/, 'Gateway should be Render-friendly');
 assert.match(server, /page\.waitForEvent\('download'/, 'Gateway should support browser-download export');
 assert.match(server, /text\/calendar/, 'Gateway should intercept direct calendar responses');
-assert.match(server, /getByText\(group, \{ exact: true \}\)/, 'Gateway should select the exact group suggestion when available');
+assert.match(server, /findGroupInResults\(page, group\)/, 'Gateway should select a matching group result when available');
+assert.match(server, /selectGroupOption\(page, group\)/, 'Gateway should support select-based group results');
+assert.match(server, /clickPortalSearch\(page, input\)/, 'Gateway should trigger the portal search control');
 assert.match(server, /REA_SYNC_502/, 'Gateway should log actionable 502 diagnostics');
 console.log('Live sync static tests passed.');

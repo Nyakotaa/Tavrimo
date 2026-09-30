@@ -1,7 +1,7 @@
-const VERSION = 'tavrimo-v12.0.5-refresh-sync-fixed-2';
+const VERSION = 'tavrimo-v12.0.6-rea-sync-refresh-force-2';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './404.html',
-  './assets/icons/apple-touch-icon-v15.png', './assets/icons/icon-180.png',
+  './assets/icons/apple-touch-icon-v16.png', './assets/icons/icon-180.png',
   './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/favicon-32.png', './assets/icons/source-icon-1024.png'
 ];
 

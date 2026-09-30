@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.0.5';
+  const APP_VERSION = '12.0.6';
   const SCHEMA_VERSION = 16;
   const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [
@@ -811,8 +811,11 @@
       button.disabled = false;
       button.removeAttribute('aria-disabled');
       button.setAttribute('aria-busy', String(Boolean(universitySyncInFlight)));
-      button.textContent = universitySyncInFlight ? '↻ Обновляю…' : '↻ Обновить';
+      const failed = Boolean(data.university.syncError) && !universitySyncInFlight;
+      button.textContent = universitySyncInFlight ? '↻ Обновляю…' : (failed ? '↻ Повторить' : '↻ Обновить');
+      button.title = failed ? 'Повторить синхронизацию расписания' : 'Принудительно проверить расписание РЭУ';
       button.classList.toggle('is-busy', Boolean(universitySyncInFlight));
+      button.classList.toggle('is-error', failed);
     }
   }
 
@@ -910,11 +913,13 @@
       setUniversitySyncState('Обновляю расписание…', `Группа ${group} · обращаемся к серверу синхронизации`);
       updateHomeSyncUI();
       try {
-        const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}group=${encodeURIComponent(group)}`;
-        const storedEtag = String(data.university.syncHash || '').trim();
+        const params = new URLSearchParams({ group });
+        if (force) params.set('force', '1');
+        const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${params.toString()}`;
+        const storedEtag = force ? '' : String(data.university.syncHash || '').trim();
         const ifNoneMatch = storedEtag ? (storedEtag === '*' || /^(W\/)?"/.test(storedEtag) ? storedEtag : `"${storedEtag}"`) : '';
         const headers = ifNoneMatch ? { 'If-None-Match': ifNoneMatch } : {};
-        const response = await fetch(url, { method: 'GET', cache: 'no-store', headers, signal: controller.signal });
+        const response = await fetch(url, { method: 'GET', cache: 'no-store', headers: { ...headers, 'Cache-Control': 'no-cache', Pragma: 'no-cache' }, signal: controller.signal });
         if (token !== universitySyncToken) return { ok: false, cancelled: true };
         if (response.status === 304) {
           data.university.lastSyncAt = new Date().toISOString();
@@ -1008,7 +1013,7 @@
     const gatewayHint = explicitRemote ? 'Подключён удалённый Sync Gateway.' : sameOriginAssumption ? 'Для автообновления сервер должен обслуживать /api/rea/schedule.' : 'Для автообновления нужен Sync Gateway.';
     $('#universityImportStatus').textContent = data.university.syncError ? `Ошибка: ${data.university.syncError}` : `${status} ${gatewayHint}`;
     setUniversitySyncState(data.university.syncError ? 'Ошибка синхронизации' : 'Автосинхронизация включена', data.university.syncError ? 'Исправь подключение и нажми «Обновить расписание».' : 'Tavrimo проверяет rasp.rea.ru при запуске, возвращении в приложение и периодически онлайн.');
-    $('#syncUniversityNowBtn')?.toggleAttribute('disabled', !data.university.groupCode);
+    const refreshNow = $('#syncUniversityNowBtn'); if (refreshNow) { refreshNow.disabled = false; refreshNow.textContent = data.university.syncError ? '↻ Повторить обновление' : '↻ Обновить расписание'; }
     $('#clearUniversityScheduleBtn')?.toggleAttribute('disabled', !data.university.events.length);
     openModal('universitySetupBackdrop');
     setTimeout(() => $('#universityGroupInput').focus(), 100);
@@ -1418,14 +1423,14 @@
   }
 
   function bindEvents() {
-    document.addEventListener('click', (event) => {
-      const button = event.target.closest('#homeSyncBtn, #syncUniversityNowBtn');
-      if (!button) return;
+    const runManualUniversityRefresh = (event) => {
       event.preventDefault();
       event.stopPropagation();
       if (!data.university.groupCode) { openUniversitySetup(); return; }
       void syncUniversitySchedule({ force: true, silent: false });
-    });
+    };
+    $('#homeSyncBtn')?.addEventListener('click', runManualUniversityRefresh);
+    $('#syncUniversityNowBtn')?.addEventListener('click', runManualUniversityRefresh);
     $('#tabAdd').addEventListener('click', () => openTaskSheet());
         $('#homeManageGroupBtn')?.addEventListener('click', openUniversitySetup);
     $('#nextClassOpenBtn')?.addEventListener('click', () => { const id = $('#nextClassOpenBtn').dataset.uniId; if (id) openUniversityEvent(id); });
