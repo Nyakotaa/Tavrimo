@@ -1,11 +1,11 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.0.7';
-  const SCHEMA_VERSION = 16;
-  const STORAGE_KEY = 'tavrimo-planner-v16';
+  const APP_VERSION = '12.1.0';
+  const SCHEMA_VERSION = 17;
+  const STORAGE_KEY = 'tavrimo-planner-v17';
   const LEGACY_KEYS = [
-    'tavrimo-planner-v15', 'tavrimo-planner-v14', 'tavrimo-planner-v13', 'tavrimo-planner-v12', 'tavrimo-planner-v11', 'flowday-planner-v12', 'flowday-planner-v11', 'flowday-planner-v10', 'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
+    'tavrimo-planner-v16', 'tavrimo-planner-v15', 'tavrimo-planner-v14', 'tavrimo-planner-v13', 'tavrimo-planner-v12', 'tavrimo-planner-v11', 'flowday-planner-v12', 'flowday-planner-v11', 'flowday-planner-v10', 'flowday-planner-v9', 'flowday-planner-v8', 'flowday-planner-v7', 'flowday-planner-v6', 'flowday-planner-v5',
     'flowday-planner-v4', 'flowday-planner-v3', 'flowday-planner-v2'
   ];
   const DEMO_TITLES = new Set([
@@ -41,7 +41,7 @@
     },
     tasks: [],
     focus: { totalMinutes: 0, sessions: [] },
-    university: { groupCode: '', groupName: '', importedAt: null, source: 'rasp.rea.ru', events: [], syncHash: '', lastSyncAt: null, syncError: '', syncMode: 'auto' }
+    university: { groupCode: '', groupName: '', importedAt: null, source: 'rasp.rea.ru', events: [], syncHash: '', lastSyncAt: null, lastFullSyncAt: null, syncRange: 'all', syncWeeksScanned: 0, syncWeeksWithEvents: 0, coverageStart: null, coverageEnd: null, syncError: '', syncMode: 'auto' }
   };
 
   let data = loadData();
@@ -222,7 +222,13 @@
       groupName: String(raw.groupName || raw.groupCode || '').trim().slice(0, 120),
       importedAt: safeIso(raw.importedAt, null),
       lastSyncAt: safeIso(raw.lastSyncAt, null),
+      lastFullSyncAt: safeIso(raw.lastFullSyncAt, null),
       syncHash: String(raw.syncHash || '').trim().slice(0, 128),
+      syncRange: raw.syncRange === 'current' ? 'current' : 'all',
+      syncWeeksScanned: Math.max(0, Number(raw.syncWeeksScanned) || 0),
+      syncWeeksWithEvents: Math.max(0, Number(raw.syncWeeksWithEvents) || 0),
+      coverageStart: isValidDateKey(raw.coverageStart) ? String(raw.coverageStart) : null,
+      coverageEnd: isValidDateKey(raw.coverageEnd) ? String(raw.coverageEnd) : null,
       syncError: String(raw.syncError || '').trim().slice(0, 240),
       syncMode: ['auto', 'manual'].includes(raw.syncMode) ? raw.syncMode : 'auto',
       source: 'rasp.rea.ru',
@@ -748,7 +754,7 @@
     const group = data.university.groupCode || '';
     $('#universityGroupLabel').textContent = group || 'Группа не выбрана';
     $('#universityManageBtn').textContent = group ? 'Настроить' : 'Подключить';
-    $('#universitySyncLabel').textContent = data.university.events.length ? `${formatImportedAt(data.university.lastSyncAt || data.university.importedAt)} · ${data.university.events.length} занятий${data.university.syncError ? ' · не удалось обновить' : ''}` : (data.university.syncError ? `Ошибка синхронизации · ${data.university.syncError}` : 'Группа подключена — расписание загрузится автоматически.');
+    $('#universitySyncLabel').textContent = data.university.events.length ? `${formatImportedAt(data.university.lastSyncAt || data.university.importedAt)} · ${data.university.events.length} занятий${data.university.syncWeeksScanned ? ` · ${data.university.syncWeeksScanned} нед.` : ''}${data.university.syncError ? ' · не удалось обновить' : ''}` : (data.university.syncError ? `Ошибка синхронизации · ${data.university.syncError}` : 'Группа подключена — расписание загрузится автоматически.');
     const monday = getWeekStart(currentDate);
     const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
     const total = days.reduce((sum, day) => sum + universityEventsForDate(day).length, 0);
@@ -805,7 +811,7 @@
     if (!group) detail.textContent = 'Укажи группу — расписание загрузится автоматически.';
     else if (data.university.syncError) detail.textContent = `Не удалось обновить · ${data.university.syncError}`;
     else if (data.university.lastSyncAt) detail.textContent = `Синхронизировано ${formatImportedAt(data.university.lastSyncAt).replace(/^Обновлено\s*/i,'')}`;
-    else if (data.university.events.length) detail.textContent = `${data.university.events.length} занятий · синхронизация включена`;
+    else if (data.university.events.length) detail.textContent = `${data.university.events.length} занятий${data.university.syncWeeksScanned ? ` · ${data.university.syncWeeksScanned} нед.` : ''} · полное расписание сохранено`;
     else detail.textContent = 'Синхронизация включена · проверяем расписание онлайн';
     if (button) {
       button.disabled = false;
@@ -854,8 +860,17 @@
     return { events: merged, changes: { added, changed, removed } };
   }
 
-  function applyUniversitySchedule(nextUniversity) {
-    const merge = mergeUniversityEvents(data.university.events, nextUniversity.events);
+  function mergePartialUniversitySchedule(nextUniversity) {
+    const coverageStart = nextUniversity.coverageStart;
+    const coverageEnd = nextUniversity.coverageEnd;
+    if (!coverageStart || !coverageEnd) return nextUniversity.events;
+    const keep = data.university.events.filter((event) => event.date < coverageStart || event.date > coverageEnd);
+    return [...keep, ...nextUniversity.events];
+  }
+
+  function applyUniversitySchedule(nextUniversity, { partial = false } = {}) {
+    const incomingEvents = partial ? mergePartialUniversitySchedule(nextUniversity) : nextUniversity.events;
+    const merge = mergeUniversityEvents(data.university.events, incomingEvents);
     const previousIds = new Set(data.university.events.map((event) => String(event.id)));
     const nextIds = new Set(merge.events.map((event) => String(event.id)));
     let unlinked = 0;
@@ -876,7 +891,7 @@
     return { ...merge.changes, unlinked, conflicts };
   }
 
-  async function syncUniversitySchedule({ force = false, silent = false } = {}) {
+  async function syncUniversitySchedule({ force = false, silent = false, range = 'all' } = {}) {
     const group = String(data.university.groupCode || '').trim();
     if (!group) {
       if (force && !silent) {
@@ -913,7 +928,7 @@
       setUniversitySyncState('Обновляю расписание…', `Группа ${group} · обращаемся к серверу синхронизации`);
       updateHomeSyncUI();
       try {
-        const params = new URLSearchParams({ group });
+        const params = new URLSearchParams({ group, range: range === 'current' ? 'current' : 'all' });
         if (force) params.set('force', '1');
         const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${params.toString()}`;
         const storedEtag = force ? '' : String(data.university.syncHash || '').trim();
@@ -940,7 +955,8 @@
         const parsed = ics ? parseUniversityIcs(ics) : { calendarName: '', events: Array.isArray(payload.events) ? payload.events : [] };
         const hasCalendarPayload = /^BEGIN:VCALENDAR/i.test(String(ics || '').trim()) || Array.isArray(payload.events);
         if (!hasCalendarPayload) throw new Error('Портал не вернул корректное расписание для этой группы');
-        if (!parsed.events?.length && data.university.events.length) {
+        const responseRange = payload.range === 'current' ? 'current' : range;
+        if (!parsed.events?.length && data.university.events.length && responseRange === 'all') {
           data.university.lastSyncAt = new Date().toISOString();
           data.university.syncError = 'Официальный портал вернул пустое расписание. Сохранено последнее известное расписание.';
           saveData(); renderAll();
@@ -948,13 +964,13 @@
           if (!silent) showToast('Портал временно не вернул занятия. Старое расписание сохранено.');
           return { ok: true, changed: false, emptyRemote: true };
         }
-        const next = normalizeUniversity({ groupCode: group, groupName: group, importedAt: new Date().toISOString(), events: parsed.events });
+        const next = normalizeUniversity({ groupCode: group, groupName: group, importedAt: new Date().toISOString(), events: parsed.events, syncRange: responseRange === 'all' ? 'all' : data.university.syncRange, syncWeeksScanned: responseRange === 'all' ? (Number(payload.weeksScanned) || 1) : data.university.syncWeeksScanned, syncWeeksWithEvents: responseRange === 'all' ? (Number(payload.weeksWithEvents) || (parsed.events.length ? 1 : 0)) : data.university.syncWeeksWithEvents, coverageStart: responseRange === 'all' ? (payload.coverageStart || null) : data.university.coverageStart, coverageEnd: responseRange === 'all' ? (payload.coverageEnd || null) : data.university.coverageEnd });
         const responseEtag = String(response.headers.get('etag') || '').trim();
         const payloadHash = String(payload.hash || '').trim();
         const calculatedHash = hashString(ics || JSON.stringify(next.events));
         const hashValue = responseEtag || (payloadHash ? (/^(W\/)?"/.test(payloadHash) ? payloadHash : `"${payloadHash}"`) : `"${calculatedHash}"`);
-        next.syncHash = hashValue.slice(0, 128); next.lastSyncAt = new Date().toISOString(); next.syncError = ''; next.syncMode = 'auto';
-        const changes = applyUniversitySchedule(next);
+        next.syncHash = hashValue.slice(0, 128); next.lastSyncAt = new Date().toISOString(); next.lastFullSyncAt = responseRange === 'all' ? next.lastSyncAt : data.university.lastFullSyncAt; next.syncError = ''; next.syncMode = 'auto';
+        const changes = applyUniversitySchedule(next, { partial: responseRange === 'current' });
         setUniversitySyncState(changes.added || changes.changed || changes.removed ? 'Расписание обновлено' : 'Расписание актуально', changes.added || changes.changed || changes.removed ? `Изменений: ${changes.added + changes.changed + changes.removed}` : 'Изменений нет');
         if (!silent) {
           if (changes.changed || changes.added || changes.removed) showToast(`Расписание обновлено · ${changes.added + changes.changed + changes.removed} изменений.`);
@@ -981,12 +997,19 @@
     return universitySyncInFlight;
   }
 
+  function getUniversityAutoSyncRange() {
+    const lastFull = data.university.lastFullSyncAt ? Date.parse(data.university.lastFullSyncAt) : 0;
+    return !lastFull || (Date.now() - lastFull >= 6 * 60 * 60 * 1000) ? 'all' : 'current';
+  }
+
   function scheduleUniversityAutoSync() {
     clearTimeout(universitySyncTimer);
     if (!data.university.groupCode) return;
     const minutes = syncConfigNumber('syncIntervalMinutes', 15, 5);
     universitySyncTimer = setTimeout(async () => {
-      if (document.visibilityState === 'visible') await syncUniversitySchedule({ silent: true });
+      if (document.visibilityState === 'visible') {
+        await syncUniversitySchedule({ silent: true, range: getUniversityAutoSyncRange() });
+      }
       scheduleUniversityAutoSync();
     }, minutes * 60 * 1000);
   }
@@ -996,8 +1019,8 @@
     if (!value) { showToast('Укажи номер группы.'); return; }
     const changed = value !== data.university.groupCode;
     if (changed && data.university.events.length && !confirm('Сменить группу? Старое расписание будет удалено, чтобы не смешать группы.')) return;
-    data.university.groupCode = value; data.university.groupName = value; data.university.source = 'rasp.rea.ru'; data.university.syncError = ''; data.university.syncMode = 'auto';
-    if (changed) { data.university.events = []; data.university.importedAt = null; data.university.lastSyncAt = null; data.university.syncHash = ''; }
+    data.university.groupCode = value; data.university.groupName = value; data.university.source = 'rasp.rea.ru'; data.university.syncError = ''; data.university.syncMode = 'auto'; data.university.syncRange = 'all'; data.university.syncWeeksScanned = 0; data.university.syncWeeksWithEvents = 0; data.university.coverageStart = null; data.university.coverageEnd = null; data.university.lastFullSyncAt = null;
+    if (changed) { data.university.events = []; data.university.importedAt = null; data.university.lastSyncAt = null; data.university.lastFullSyncAt = null; data.university.syncHash = ''; data.university.syncWeeksScanned = 0; data.university.syncWeeksWithEvents = 0; data.university.coverageStart = null; data.university.coverageEnd = null; }
     repairAndPersist(); saveData(); closeModal('universitySetupBackdrop'); calendarMode = 'university'; renderAll();
     showToast(`Группа ${value} сохранена.`);
     scheduleUniversityAutoSync();
@@ -1009,7 +1032,7 @@
     const configuredEndpoint = syncEndpoint();
     const explicitRemote = /^https?:\/\//i.test(configuredEndpoint);
     const sameOriginAssumption = configuredEndpoint.startsWith('/');
-    const status = data.university.events.length ? `${data.university.events.length} занятий · ${formatImportedAt(data.university.lastSyncAt || data.university.importedAt)}` : 'Расписание ещё не загружено.';
+    const status = data.university.events.length ? `${data.university.events.length} занятий${data.university.syncWeeksScanned ? ` · ${data.university.syncWeeksScanned} нед.` : ''} · ${formatImportedAt(data.university.lastSyncAt || data.university.importedAt)}` : 'Расписание ещё не загружено.';
     const gatewayHint = explicitRemote ? 'Подключён удалённый Sync Gateway.' : sameOriginAssumption ? 'Для автообновления сервер должен обслуживать /api/rea/schedule.' : 'Для автообновления нужен Sync Gateway.';
     $('#universityImportStatus').textContent = data.university.syncError ? `Ошибка: ${data.university.syncError}` : `${status} ${gatewayHint}`;
     setUniversitySyncState(data.university.syncError ? 'Ошибка синхронизации' : 'Автосинхронизация включена', data.university.syncError ? 'Исправь подключение и нажми «Обновить расписание».' : 'Tavrimo проверяет rasp.rea.ru при запуске, возвращении в приложение и периодически онлайн.');
@@ -1427,7 +1450,7 @@
       event.preventDefault();
       event.stopPropagation();
       if (!data.university.groupCode) { openUniversitySetup(); return; }
-      void syncUniversitySchedule({ force: true, silent: false });
+      void syncUniversitySchedule({ force: true, silent: false, range: 'all' });
     };
     $('#homeSyncBtn')?.addEventListener('click', runManualUniversityRefresh);
     $('#syncUniversityNowBtn')?.addEventListener('click', runManualUniversityRefresh);
@@ -1539,13 +1562,13 @@
 
     $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importData(file); event.target.value = ''; });
     $('#resetBtn').onclick = () => { if (confirm('Удалить все задачи, расписание и статистику?')) resetAllData(); };
-    window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: true, silent: true }); scheduleUniversityAutoSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
+    window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: false, silent: true, range: getUniversityAutoSyncRange() }); scheduleUniversityAutoSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
     window.addEventListener('scroll', () => $('#topbar').classList.toggle('scrolled', window.scrollY > 4), { passive: true });
     matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (data.settings.theme === 'system') applyTheme(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAllModals(); });
     document.addEventListener('click', (event) => { if (!event.target.closest('.filter-button') && !event.target.closest('#filterPopover')) $('#filterPopover').hidden = true; });
-    document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); });
-    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); });
+    document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true, range: getUniversityAutoSyncRange() }).finally(scheduleUniversityAutoSync); });
+    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true, range: getUniversityAutoSyncRange() }).finally(scheduleUniversityAutoSync); });
   }
 
   function handleUniversityActions(event) {

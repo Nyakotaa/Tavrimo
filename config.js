@@ -12,6 +12,6 @@
   window.TAVRIMO_CONFIG = Object.assign({
     syncEndpoint: defaultSyncEndpoint,
     syncIntervalMinutes: 15,
-    requestTimeoutMs: 60000
+    requestTimeoutMs: 90000
   }, window.TAVRIMO_CONFIG || {});
 })();

@@ -1,4 +1,4 @@
-## 12.0.7 — REA Sync resolution hotfix
+## 12.1.0 — REA Sync resolution hotfix
 
 Принудительный прямой поиск по `?q=`, расширенный выбор результата и разбор уже отображённого расписания до попытки экспортировать `.ics`.
 
@@ -28,6 +28,6 @@
 Загрузите содержимое `personal-planner` поверх старой версии. В Render при необходимости нажмите Manual Deploy → Deploy latest commit. После статуса Live проверьте `/api/rea/health`, затем откройте Tavrimo онлайн на iPhone.
 
 
-## 12.0.6
+## 12.1.0
 
 Замените содержимое `personal-planner` в GitHub-репозитории и сделайте Commit. Render автоматически создаст новый deploy; при необходимости используйте Manual Deploy → Deploy latest commit. После статуса Live проверьте `/api/rea/health`, затем откройте Tavrimo онлайн и нажмите «Обновить» рядом с расписанием. В логах принудительное обновление содержит `force=1`.

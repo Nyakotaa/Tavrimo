@@ -1,4 +1,4 @@
-## 12.0.7 — REA Sync resolution hotfix
+## 12.1.0 — REA Sync resolution hotfix
 
 Принудительный прямой поиск по `?q=`, расширенный выбор результата и разбор уже отображённого расписания до попытки экспортировать `.ics`.
 
@@ -29,3 +29,8 @@
 - Fixed refresh interaction and stale PWA assets.
 - Fixed REA portal offline-state caused by blocked service workers.
 - Hardened group search and timetable detection.
+
+## 12.1.0
+- Полная синхронизация всех опубликованных недель из переключателя недель РЭУ.
+- Ручное обновление сканирует прошлые и будущие недели.
+- Фоновая синхронизация обновляет текущую неделю, не удаляя полный архив.

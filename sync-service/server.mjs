@@ -670,7 +670,177 @@ async function searchForGroup(page, group) {
 }
 
 
-async function downloadOfficialIcs(group) {
+
+function currentMoscowWeekRange() {
+  const now = new Date(Date.now() + 3 * 60 * 60 * 1000);
+  const day = now.getUTCDay() || 7;
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() - (day - 1));
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const toKey = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  return { start: toKey(monday), end: toKey(sunday) };
+}
+
+
+async function ensureWeekPickerOpen(page) {
+  const countVisibleWeekControls = async () => {
+    return await page.locator('a,button,[role="button"],[role="link"]').evaluateAll((els) => els.filter((el) => {
+      if (!(el instanceof HTMLElement) || !el.offsetParent) return false;
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      return /^\d{1,2}$/.test(text) && Number(text) >= 1 && Number(text) <= 53;
+    }).length).catch(() => 0);
+  };
+  if (await countVisibleWeekControls() >= 15) return true;
+  const toggles = [
+    page.getByText('Нажмите, чтобы выбрать другую неделю', { exact: false }),
+    page.locator('[role="button"]').filter({ hasText: /выбрать другую неделю/i }),
+    page.locator('button, a').filter({ hasText: /другую неделю/i })
+  ];
+  for (const locator of toggles) {
+    const count = Math.min(await locator.count().catch(() => 0), 5);
+    for (let i = 0; i < count; i += 1) {
+      const item = locator.nth(i);
+      if (!await item.isVisible().catch(() => false)) continue;
+      await item.click({ timeout: 3_000 }).catch(() => {});
+      await page.waitForTimeout(180);
+      if (await countVisibleWeekControls() >= 5) return true;
+    }
+  }
+  return (await countVisibleWeekControls()) > 0;
+}
+
+async function discoverWeekControls(page) {
+  return page.evaluate(() => {
+    const months = /(?:январь|февраль|март|апрель|май|июнь|июль|август|сентябрь|октябрь|ноябрь|декабрь)/i;
+    const nodes = Array.from(document.querySelectorAll('a,button,[role="button"],[role="link"]'));
+    const candidates = [];
+    for (const el of nodes) {
+      if (!(el instanceof HTMLElement)) continue;
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!/^\d{1,2}$/.test(text)) continue;
+      const n = Number(text);
+      if (n < 1 || n > 53) continue;
+      let ctx = el;
+      let score = 0;
+      let contextText = '';
+      for (let depth = 0; depth < 5 && ctx; depth += 1, ctx = ctx.parentElement) {
+        const part = `${ctx.id || ''} ${ctx.className || ''}`.toLowerCase();
+        const txt = (ctx.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+        contextText += ` ${txt}`;
+        if (/week|недел|calendar|календар|schedule|распис/i.test(part)) score += 12;
+        if (months.test(txt)) score += 8;
+      }
+      if (el.tagName === 'A' || el.tagName === 'BUTTON') score += 4;
+      candidates.push({ n, score, text, href: el.getAttribute('href') || '', onclick: el.getAttribute('onclick') || '', className: String(el.className || ''), contextText: contextText.slice(0, 900) });
+    }
+    candidates.sort((a,b) => b.score - a.score || a.n - b.n);
+    const unique = new Map();
+    for (const c of candidates) {
+      const key = `${c.n}|${c.href}|${c.onclick}|${c.className}`;
+      if (!unique.has(key)) unique.set(key, c);
+    }
+    return Array.from(unique.values()).slice(0, 140);
+  });
+}
+
+async function clickWeekControl(page, weekNumber, beforeSignature = '') {
+  await ensureWeekPickerOpen(page);
+  const marker = `tavrimo-week-${Date.now()}-${Math.random().toString(16).slice(2)}-${weekNumber}`;
+  const marked = await page.evaluate(({ n, markerValue }) => {
+    const months = /(?:январь|февраль|март|апрель|май|июнь|июль|август|сентябрь|октябрь|ноябрь|декабрь)/i;
+    const nodes = Array.from(document.querySelectorAll('a,button,[role="button"],[role="link"]'));
+    let best = null;
+    for (const el of nodes) {
+      if (!(el instanceof HTMLElement)) continue;
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (text !== String(n)) continue;
+      let ctx = el; let score = 0; let context = '';
+      for (let depth = 0; depth < 5 && ctx; depth += 1, ctx = ctx.parentElement) {
+        const part = `${ctx.id || ''} ${ctx.className || ''}`.toLowerCase();
+        const txt = (ctx.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+        context += ` ${txt}`;
+        if (/week|недел|calendar|календар|schedule|распис/i.test(part)) score += 12;
+        if (months.test(txt)) score += 8;
+      }
+      if (el.tagName === 'A' || el.tagName === 'BUTTON') score += 4;
+      if (/пара|экспорт|выгруз/i.test(context)) score -= 1;
+      if (!best || score > best.score) best = { el, score };
+    }
+    if (!best) return false;
+    best.el.setAttribute('data-tavrimo-week-marker', markerValue);
+    best.el.scrollIntoView({ block: 'center', inline: 'center' });
+    return true;
+  }, { n: weekNumber, markerValue: marker });
+  if (!marked) return false;
+  const locator = page.locator(`[data-tavrimo-week-marker="${marker}"]`).first();
+  try {
+    await locator.click({ timeout: 4_000, force: true });
+  } catch {
+    await locator.evaluate((el) => el.click()).catch(() => {});
+  }
+  await page.waitForTimeout(100);
+  for (let i = 0; i < 12; i += 1) {
+    await page.waitForTimeout(200);
+    const body = cleanText(await page.locator('body').innerText().catch(() => ''));
+    const signature = hash(body.slice(0, 12000));
+    if (!beforeSignature || signature !== beforeSignature) return true;
+  }
+  return true;
+}
+
+async function collectAllAvailableWeeks(page, group) {
+  // The official portal exposes a week picker covering the published academic-year weeks.
+  // We use the portal's own week controls instead of guessing hidden API parameters.
+  // Manual/full sync scans every week control currently exposed by the portal, so past and
+  // future published weeks are included in the resulting calendar.
+  const eventsByKey = new Map();
+  await ensureWeekPickerOpen(page);
+  const controls = await discoverWeekControls(page);
+  const weekNumbers = [...new Set(controls.map((item) => Number(item.n)).filter((n) => n >= 1 && n <= 53))].sort((a,b) => a-b);
+  const candidateNumbers = weekNumbers.length >= 15 ? weekNumbers : Array.from({ length: 53 }, (_, i) => i + 1);
+  console.info(`[REA_WEEK_CONTROLS] group=${group} discovered=${weekNumbers.length} scanning=${candidateNumbers.length}`);
+  let scanned = 0;
+  let successful = 0;
+
+  for (const weekNumber of candidateNumbers) {
+    const before = hash(cleanText(await page.locator('body').innerText().catch(() => '')).slice(0, 12000));
+    await clickWeekControl(page, weekNumber, before);
+    await page.waitForTimeout(120);
+    const body = cleanText(await page.locator('body').innerText().catch(() => ''));
+    const parsed = parseScheduleText(body);
+    if (parsed.length) successful += 1;
+    for (const event of parsed) {
+      const key = `${event.date}|${event.start}|${event.end}|${event.subject}|${event.teacher}|${event.room}`.toLowerCase();
+      eventsByKey.set(key, event);
+    }
+    scanned += 1;
+  }
+
+  // Always include the initially selected/current week if navigation controls were flaky.
+  const currentBody = cleanText(await page.locator('body').innerText().catch(() => ''));
+  for (const event of parseScheduleText(currentBody)) {
+    const key = `${event.date}|${event.start}|${event.end}|${event.subject}|${event.teacher}|${event.room}`.toLowerCase();
+    eventsByKey.set(key, event);
+  }
+
+  const events = Array.from(eventsByKey.values()).sort((a,b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`, 'ru'));
+  const dates = events.map((e) => e.date).sort();
+  const moscowWeek = currentMoscowWeekRange();
+  const coverageStart = dates[0] || moscowWeek.start;
+  const coverageEnd = dates[dates.length - 1] || moscowWeek.end;
+  console.info(`[REA_FULL_RANGE] group=${group} controls=${candidateNumbers.length} scanned=${scanned} activeWeeks=${successful} parsed=${events.length} coverage=${coverageStart}..${coverageEnd}`);
+  return { events, weeksScanned: scanned, weeksWithEvents: successful, coverageStart, coverageEnd };
+}
+
+async function downloadCurrentWeekIcs(group, page) {
+  const body = cleanText(await page.locator('body').innerText().catch(() => ''));
+  const events = parseScheduleText(body);
+  const range = currentMoscowWeekRange();
+  return { ics: scheduleEventsToIcs(group, events), events, weeksScanned: 1, weeksWithEvents: events.length ? 1 : 0, coverageStart: range.start, coverageEnd: range.end };
+}
+
+async function downloadOfficialIcs(group, { range = 'all' } = {}) {
   const browser = await getBrowser();
   const context = await browser.newContext({
     locale: 'ru-RU',
@@ -743,9 +913,17 @@ async function downloadOfficialIcs(group) {
     // immediately and build a deterministic ICS. This avoids depending on the portal's
     // private download/blob implementation.
     const renderedEvents = parseScheduleText(bodyBeforeExport);
+    if (range === 'all') {
+      const full = await collectAllAvailableWeeks(page, group);
+      if (full.events.length) {
+        console.info(`[REA_RENDERED_FULL_RANGE_OK] group=${group} parsed=${full.events.length} weeks=${full.weeksScanned}`);
+        return { ics: scheduleEventsToIcs(group, full.events), meta: full };
+      }
+    }
     if (renderedEvents.length) {
       console.info(`[REA_RENDERED_PRIMARY] group=${group} parsed=${renderedEvents.length}`);
-      return scheduleEventsToIcs(group, renderedEvents);
+      const rangeMeta = currentMoscowWeekRange();
+      return { ics: scheduleEventsToIcs(group, renderedEvents), meta: { events: renderedEvents, weeksScanned: 1, weeksWithEvents: 1, coverageStart: rangeMeta.start, coverageEnd: rangeMeta.end } };
     }
 
     if (!searched) {
@@ -784,14 +962,23 @@ async function downloadOfficialIcs(group) {
       const chunks = [];
       for await (const chunk of stream) chunks.push(Buffer.from(chunk));
       const body = Buffer.concat(chunks).toString('utf8');
-      if (/BEGIN:VCALENDAR/i.test(body)) return body;
+      if (/BEGIN:VCALENDAR/i.test(body)) {
+        const rangeMeta = currentMoscowWeekRange();
+        return { ics: body, meta: { events: [], weeksScanned: 1, weeksWithEvents: 0, coverageStart: rangeMeta.start, coverageEnd: rangeMeta.end } };
+      }
     }
 
     await page.waitForTimeout(1_000);
-    if (icsCandidates.length) return icsCandidates[icsCandidates.length - 1].text;
+    if (icsCandidates.length) {
+      const rangeMeta = currentMoscowWeekRange();
+      return { ics: icsCandidates[icsCandidates.length - 1].text, meta: { events: [], weeksScanned: 1, weeksWithEvents: 0, coverageStart: rangeMeta.start, coverageEnd: rangeMeta.end } };
+    }
 
     const generatedCalendar = await extractClientGeneratedCalendar(page).catch(() => '');
-    if (/BEGIN:VCALENDAR/i.test(generatedCalendar)) return generatedCalendar;
+    if (/BEGIN:VCALENDAR/i.test(generatedCalendar)) {
+      const rangeMeta = currentMoscowWeekRange();
+      return { ics: generatedCalendar, meta: { events: [], weeksScanned: 1, weeksWithEvents: 0, coverageStart: rangeMeta.start, coverageEnd: rangeMeta.end } };
+    }
 
     const directUrls = await discoverCalendarUrls(page, context);
     for (const url of [...new Set([...directUrls, ...resourceCandidates, ...networkCandidates])]) {
@@ -799,7 +986,10 @@ async function downloadOfficialIcs(group) {
         const response = await context.request.get(url, { timeout: 15_000, failOnStatusCode: false });
         const body = await response.body();
         const candidate = body.toString('utf8');
-        if (response.ok() && /BEGIN:VCALENDAR/i.test(candidate)) return candidate;
+        if (response.ok() && /BEGIN:VCALENDAR/i.test(candidate)) {
+          const rangeMeta = currentMoscowWeekRange();
+          return { ics: candidate, meta: { events: [], weeksScanned: 1, weeksWithEvents: 0, coverageStart: rangeMeta.start, coverageEnd: rangeMeta.end } };
+        }
       } catch {}
     }
 
@@ -807,7 +997,8 @@ async function downloadOfficialIcs(group) {
     const events = parseScheduleText(visibleText);
     if (events.length) {
       console.info(`[REA_SYNC_FALLBACK] group=${group} parsed=${events.length} events from rendered timetable`);
-      return scheduleEventsToIcs(group, events);
+      const rangeMeta = currentMoscowWeekRange();
+      return { ics: scheduleEventsToIcs(group, events), meta: { events, weeksScanned: 1, weeksWithEvents: 1, coverageStart: rangeMeta.start, coverageEnd: rangeMeta.end } };
     }
 
     const title = await page.title().catch(() => '');
@@ -840,32 +1031,37 @@ app.get('/api/rea/schedule', rateLimit, async (req, res) => {
   const key = group.toLowerCase();
   const now = Date.now();
   const force = /^(1|true|yes)$/i.test(String(req.query.force || ''));
+  const range = String(req.query.range || 'all').toLowerCase() === 'current' ? 'current' : 'all';
+  const cacheKey = `${key}|${range}`;
   res.set('X-Tavrimo-Refresh-Mode', force ? 'force' : 'normal');
-  const cached = cache.get(key);
+  res.set('X-Tavrimo-Sync-Range', range);
+  const cached = cache.get(cacheKey);
   if (!force && cached && now - cached.fetchedAt < CACHE_TTL_MS) {
     if (req.headers['if-none-match'] === cached.etag) return res.status(304).end();
     res.set('ETag', cached.etag);
-    return res.json({ ics: cached.ics, hash: cached.etag, fetchedAt: new Date(cached.fetchedAt).toISOString(), source: UPSTREAM });
+    return res.json({ ics: cached.ics, hash: cached.etag, fetchedAt: new Date(cached.fetchedAt).toISOString(), source: UPSTREAM, range: cached.range, weeksScanned: cached.meta?.weeksScanned || 1, weeksWithEvents: cached.meta?.weeksWithEvents || 0, coverageStart: cached.meta?.coverageStart || null, coverageEnd: cached.meta?.coverageEnd || null });
   }
 
   try {
-    const existing = inflightByGroup.get(key);
+    const existing = inflightByGroup.get(cacheKey);
     const fetchPromise = existing || (async () => {
-      const ics = await downloadOfficialIcs(group);
-      if (!/^BEGIN:VCALENDAR/i.test(ics.trim())) throw new Error('Получен ответ не в формате iCalendar.');
+      const result = await downloadOfficialIcs(group, { range });
+      const ics = typeof result === 'string' ? result : result?.ics;
+      const meta = typeof result === 'object' ? (result.meta || {}) : {};
+      if (!/^BEGIN:VCALENDAR/i.test(String(ics || '').trim())) throw new Error('Получен ответ не в формате iCalendar.');
       const etag = `"${hash(ics)}"`;
       const fetchedAt = Date.now();
-      cache.set(key, { ics, etag, fetchedAt });
-      return { ics, etag, fetchedAt };
+      cache.set(cacheKey, { ics, etag, fetchedAt, range, meta });
+      return { ics, etag, fetchedAt, range, meta };
     })();
     if (!existing) inflightByGroup.set(key, fetchPromise);
     const fresh = await fetchPromise;
-    if (inflightByGroup.get(key) === fetchPromise) inflightByGroup.delete(key);
+    if (inflightByGroup.get(cacheKey) === fetchPromise) inflightByGroup.delete(cacheKey);
     if (req.headers['if-none-match'] === fresh.etag) return res.status(304).end();
     res.set('ETag', fresh.etag);
-    return res.json({ ics: fresh.ics, hash: fresh.etag, fetchedAt: new Date(fresh.fetchedAt).toISOString(), source: UPSTREAM });
+    return res.json({ ics: fresh.ics, hash: fresh.etag, fetchedAt: new Date(fresh.fetchedAt).toISOString(), source: UPSTREAM, range: fresh.range, weeksScanned: fresh.meta?.weeksScanned || 1, weeksWithEvents: fresh.meta?.weeksWithEvents || 0, coverageStart: fresh.meta?.coverageStart || null, coverageEnd: fresh.meta?.coverageEnd || null });
   } catch (error) {
-    if (inflightByGroup.get(key)) inflightByGroup.delete(key);
+    if (inflightByGroup.get(cacheKey)) inflightByGroup.delete(cacheKey);
     console.error(`[REA_SYNC_502] group=${group} error=${String(error?.stack || error?.message || error)}`);
     return res.status(502).json({
       error: String(error?.message || 'Не удалось получить расписание РЭУ.'),
