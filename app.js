@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.0.6';
+  const APP_VERSION = '12.0.7';
   const SCHEMA_VERSION = 16;
   const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [

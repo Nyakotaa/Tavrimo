@@ -440,11 +440,13 @@ async function selectGroupOption(page, group) {
 
 
 async function pageHasTimetable(page) {
-  const body = await page.locator('body').innerText().catch(() => '');
-  const day = /(ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)\s*,?\s*\d{1,2}\.\d{1,2}\.\d{4}/i.test(body);
+  const body = cleanText(await page.locator('body').innerText().catch(() => ''));
+  const day = /(ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)/i.test(body);
+  const datedDay = /(?:ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)\s*,?\s*\d{1,2}\.\d{1,2}\.\d{4}/i.test(body);
   const time = /\d{1,2}:\d{2}\s*(?:[-–—]\s*)\d{1,2}:\d{2}/.test(body);
-  const offlineOnly = /Вы находитесь в режиме оффлайн/i.test(body) && /Найденные результаты/i.test(body) && !day;
-  return Boolean(day && time && !offlineOnly);
+  const lessonLike = /(\d{1,2}\s*пара|Лекция|Практическое занятие|Семинар|Лабораторная работа|Зачет|Экзамен)/i.test(body);
+  const offlineSearchOnly = /Найденные результаты/i.test(body) && !datedDay && !time;
+  return Boolean(day && time && lessonLike && !offlineSearchOnly);
 }
 
 async function findGroupInResults(page, group) {
@@ -478,7 +480,145 @@ async function findGroupInResults(page, group) {
 }
 
 
+async function tryDirectGroupUrl(page, group) {
+  const raw = String(group || '').trim();
+  const variants = [
+    raw,
+    raw.replace(/[–—−]/g, '-'),
+    raw.replace(/[–—−]/g, '-').replace(/\s+/g, ' '),
+    raw.replace(/[–—−]/g, '-').replace(/\s+/g, '')
+  ];
+  for (const variant of [...new Set(variants)].slice(0, 4)) {
+    const url = `${UPSTREAM}?q=${encodeURIComponent(variant)}`;
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.waitForLoadState('networkidle', { timeout: 12_000 }).catch(() => {});
+      await page.waitForTimeout(1_000);
+      const directBody = cleanText(await page.locator('body').innerText().catch(() => ''));
+      const directEvents = parseScheduleText(directBody);
+      if (directEvents.length || await pageHasTimetable(page)) {
+        console.info(`[REA_DIRECT_OK] group=${group} variant=${variant} url=${page.url()} parsed=${directEvents.length}`);
+        return true;
+      }
+      // Sometimes the direct query leaves the result list open. Try clicking an exact visible match.
+      if (await clickExactGroupText(page, variant)) {
+        console.info(`[REA_DIRECT_SELECT_OK] group=${group} variant=${variant} url=${page.url()}`);
+        return true;
+      }
+    } catch (error) {
+      console.warn(`[REA_DIRECT_FAIL] group=${group} variant=${variant} error=${String(error?.message || error)}`);
+    }
+  }
+  return false;
+}
+
+async function clickExactGroupText(page, group) {
+  const normalize = (value) => String(value || '')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/[–—−]/g, '-')
+    .replace(/ё/g, 'е')
+    .replace(/[^0-9a-zа-я]+/gi, '');
+  const target = normalize(group);
+  if (!target) return false;
+
+  const locators = [
+    page.getByText(group, { exact: true }),
+    page.getByText(String(group).replace(/[–—−]/g, '-'), { exact: true }),
+    page.getByText(group, { exact: false })
+  ];
+  for (const locator of locators) {
+    const count = Math.min(await locator.count().catch(() => 0), 60);
+    const hits = [];
+    for (let i = 0; i < count; i += 1) {
+      const item = locator.nth(i);
+      if (!await item.isVisible().catch(() => false)) continue;
+      const text = cleanText(await item.innerText().catch(() => ''));
+      if (normalize(text) === target || normalize(text).includes(target)) hits.push({ item, len: text.length });
+    }
+    hits.sort((a,b) => a.len - b.len);
+    for (const { item } of hits.slice(0, 12)) {
+      try {
+        await item.scrollIntoViewIfNeeded().catch(() => {});
+        await item.click({ timeout: 3_500, force: true }).catch(async () => {
+          await item.evaluate((el) => {
+            const clickable = el.closest('a,button,[role="option"],[role="link"],[role="button"],li') || el;
+            clickable.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            clickable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            clickable.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          });
+        });
+        await page.waitForTimeout(1_500);
+        if (await pageHasTimetable(page)) return true;
+        const afterText = cleanText(await page.locator('body').innerText().catch(() => ''));
+        if (parseScheduleText(afterText).length) return true;
+      } catch {}
+    }
+  }
+
+  // Some portal builds use anchors carrying the query directly and render little or no text.
+  const links = page.locator('a[href]');
+  const linkCount = Math.min(await links.count().catch(() => 0), 300);
+  for (let i = 0; i < linkCount; i += 1) {
+    const link = links.nth(i);
+    if (!await link.isVisible().catch(() => false)) continue;
+    const href = String(await link.getAttribute('href').catch(() => '') || '');
+    let decoded = href;
+    try { decoded = decodeURIComponent(href); } catch {}
+    if (!normalize(decoded).includes(target)) continue;
+    await link.click({ timeout: 3_500, force: true }).catch(async () => {
+      await link.evaluate((el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))).catch(() => {});
+    });
+    await page.waitForTimeout(1_500);
+    if (await pageHasTimetable(page)) return true;
+    if (parseScheduleText(cleanText(await page.locator('body').innerText().catch(() => ''))).length) return true;
+  }
+  return false;
+}
+
+
+async function clickFirstLikelyGroupResult(page, group) {
+  const normalize = (value) => String(value || '')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/[–—−]/g, '-')
+    .replace(/ё/g, 'е')
+    .replace(/[^0-9a-zа-я]+/gi, '');
+  const target = normalize(group);
+  const candidates = page.locator('a,button,li,[role="option"],[role="link"],[role="button"],div,span');
+  const count = Math.min(await candidates.count().catch(() => 0), 800);
+  const scored = [];
+  for (let i = 0; i < count; i += 1) {
+    const item = candidates.nth(i);
+    if (!await item.isVisible().catch(() => false)) continue;
+    const text = cleanText(await item.innerText().catch(() => ''));
+    const compact = normalize(text);
+    if (!compact || text.length > 180) continue;
+    if (compact === target) scored.push({ item, score: 1000 - text.length });
+    else if (compact.includes(target)) scored.push({ item, score: 500 - text.length });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  for (const { item } of scored.slice(0, 20)) {
+    try {
+      await item.scrollIntoViewIfNeeded().catch(() => {});
+      await item.click({ timeout: 3_500, force: true }).catch(async () => {
+        await item.evaluate((el) => {
+          const clickable = el.closest('a,button,[role="option"],[role="link"],[role="button"],li') || el;
+          clickable.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        });
+      });
+      await page.waitForTimeout(1_500);
+      if (await pageHasTimetable(page)) return true;
+      if (parseScheduleText(cleanText(await page.locator('body').innerText().catch(() => ''))).length) return true;
+    } catch {}
+  }
+  return false;
+}
+
+
 async function searchForGroup(page, group) {
+  // First try the portal's documented query URL. This avoids relying on the current
+  // autocomplete implementation, which has changed on rasp.rea.ru several times.
+  if (await tryDirectGroupUrl(page, group)) return true;
+
   const inputCandidates = [
     'input[placeholder*="групп" i]',
     'input[placeholder*="номер" i]',
@@ -500,31 +640,33 @@ async function searchForGroup(page, group) {
 
   await selectGroupTab(page);
   await input.fill(group);
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(800);
   await clickPortalSearch(page, input);
-  await page.waitForTimeout(1_500);
+  await page.waitForTimeout(1_800);
 
-  // Some versions expose search results as <option> values instead of visible list items.
-  // Select those first, then fall back to clickable results.
-  if (await selectGroupOption(page, group)) {
-    await page.waitForTimeout(1_500);
-    if (await pageHasTimetable(page)) return true;
-  }
-
-  if (await findGroupInResults(page, group)) return true;
-  if (await pageHasTimetable(page)) return true;
-
-  // Retry once using the portal's explicit search control. This is useful when Enter is
-  // intercepted by an autocomplete component.
-  await input.press('Enter').catch(() => {});
-  await clickPortalSearch(page, input);
-  await page.waitForTimeout(2_500);
   if (await selectGroupOption(page, group)) {
     await page.waitForTimeout(1_000);
     if (await pageHasTimetable(page)) return true;
   }
   if (await findGroupInResults(page, group)) return true;
-  return await pageHasTimetable(page);
+  if (await clickExactGroupText(page, group)) {
+    await page.waitForTimeout(1_000);
+    if (await pageHasTimetable(page)) return true;
+  }
+  if (await clickFirstLikelyGroupResult(page, group)) return true;
+  if (await pageHasTimetable(page)) return true;
+
+  // Keyboard selection handles Material/ARIA autocomplete controls that are not ordinary links.
+  for (const presses of [1, 2, 3]) {
+    await input.press('ArrowDown').catch(() => {});
+  }
+  await input.press('Enter').catch(() => {});
+  await page.waitForTimeout(2_000);
+  if (await pageHasTimetable(page)) return true;
+  if (await findGroupInResults(page, group)) return true;
+
+  // One final direct URL attempt after the search UI has been primed.
+  return await tryDirectGroupUrl(page, group);
 }
 
 
@@ -588,29 +730,31 @@ async function downloadOfficialIcs(group) {
     await page.goto(UPSTREAM, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
 
-    // The REA portal is itself an offline-capable web app. Keep its service worker enabled.
-    // Refresh only after we have selected the requested group; refreshing the landing page
-    // before search can reset the active query and produce a false "group not found" state.
+    // Try the requested group using several strategies. Do not click the portal's own
+    // "Обновить" button automatically: on the current PWA it can reset a selected query.
     const searched = await searchForGroup(page, group);
-    if (searched) {
-      await clickPortalRefresh(page);
-      await page.waitForTimeout(1_500);
-    }
-    if (!searched) {
-      const visibleText = await page.locator('body').innerText().catch(() => '');
-      const hasNoResults = /не найдено результатов|результаты поиска/i.test(visibleText);
-      throw new Error(hasNoResults
-        ? `Портал РЭУ не нашёл группу «${group}». Проверь номер группы. URL: ${page.url()}. Последняя страница: ${cleanText(visibleText).slice(0, 1400)}`
-        : `Портал РЭУ не показал расписание для выбранной группы. URL: ${page.url()}`);
-    }
 
-    await page.waitForTimeout(1_000);
-
-    // Verify that a timetable, not only the search results page, is open.
+    await page.waitForTimeout(800);
     const bodyBeforeExport = await page.locator('body').innerText().catch(() => '');
-    const timetableLike = /(ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)/i.test(bodyBeforeExport)
-      && /\d{1,2}:\d{2}\s*(?:[-–—]\s*)?\d{1,2}:\d{2}/.test(bodyBeforeExport);
-    console.info(`[REA_SEARCH_OK] group=${group} url=${page.url()} timetable=${timetableLike}`);
+    const timetableLike = await pageHasTimetable(page);
+    console.info(`[REA_SEARCH_STATE] group=${group} url=${page.url()} selected=${searched} timetable=${timetableLike}`);
+
+    // The rendered timetable itself is now the primary source. If we can see it, parse it
+    // immediately and build a deterministic ICS. This avoids depending on the portal's
+    // private download/blob implementation.
+    const renderedEvents = parseScheduleText(bodyBeforeExport);
+    if (renderedEvents.length) {
+      console.info(`[REA_RENDERED_PRIMARY] group=${group} parsed=${renderedEvents.length}`);
+      return scheduleEventsToIcs(group, renderedEvents);
+    }
+
+    if (!searched) {
+      const visibleText = bodyBeforeExport;
+      const hasNoResults = /не найдено результатов/i.test(visibleText);
+      throw new Error(hasNoResults
+        ? `Портал РЭУ не открыл расписание группы «${group}». URL: ${page.url()}.`
+        : `Портал РЭУ не открыл расписание группы «${group}». URL: ${page.url()}.`);
+    }
 
     // Prefer the explicit export controls, but capture browser downloads and client-generated blobs.
     const exportText = page.getByText('Экспорт расписания в календарь', { exact: false }).last();
@@ -667,7 +811,7 @@ async function downloadOfficialIcs(group) {
     }
 
     const title = await page.title().catch(() => '');
-    throw new Error(`Портал РЭУ открыл расписание, но календарь не выгружается и расписание не удалось разобрать. Страница: ${title || 'без заголовка'}. ${cleanText(visibleText).slice(0, 1200)}`);
+    throw new Error(`Портал РЭУ открыл страницу группы, но расписание не удалось извлечь. Страница: ${title || 'без заголовка'}. ${cleanText(visibleText).slice(0, 1200)}`);
   } finally {
     page.removeListener('response', captureResponse);
     await context.close();

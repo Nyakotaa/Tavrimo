@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo",
-  "version": "12.0.6",
-  "release": "rea-sync-refresh-force-4",
+  "version": "12.0.7",
+  "release": "12.0.7",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -19,8 +19,12 @@
     "rendered timetable DOM fallback parser",
     "calendar blob/data download capture",
     "export endpoint discovery",
-    "actionable sync diagnostics"
+    "actionable sync diagnostics",
+    "direct REA ?q= group navigation",
+    "rendered timetable primary parser",
+    "refresh-safe sync flow"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "Manual refresh is forced end-to-end; REA group search selects the Группы mode and supports icon search, select/listbox and normalized results; official portal service workers remain enabled."
+  "notes": "Direct ?q= group navigation, multiple result-selection strategies, rendered timetable is parsed before ICS export, and portal refresh is not forced after selection.",
+  "status": "stable-hotfix"
 }

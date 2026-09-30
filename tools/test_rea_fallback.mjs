@@ -33,5 +33,7 @@ for (let i = 0; i < headers.length; i += 1) {
 assert.equal(parsed, 4);
 assert.match(server, /08:30.*10:00/);
 assert.match(server, /11:50.*13:20/);
-assert.match(server, /The REA portal is itself an offline-capable web app/i);
+assert.match(server, /Try the portal's documented query URL/i);
+assert.match(server, /REA_DIRECT_OK/);
+assert.match(server, /REA_RENDERED_PRIMARY/);
 console.log('REA fallback parser static tests passed.');

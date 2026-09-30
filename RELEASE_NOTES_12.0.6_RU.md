@@ -1,4 +1,4 @@
-# Tavrimo 12.0.6 — REA Sync Refresh Fix
+# Tavrimo 12.0.7 — REA Sync Refresh Fix
 
 ## Что исправлено
 
