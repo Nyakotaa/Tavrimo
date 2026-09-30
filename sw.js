@@ -1,7 +1,7 @@
-const VERSION = 'tavrimo-v12.0.4-rea-live-sync-4';
+const VERSION = 'tavrimo-v12.0.5-refresh-sync-fixed-2';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './404.html',
-  './assets/icons/apple-touch-icon-v14.png', './assets/icons/icon-180.png',
+  './assets/icons/apple-touch-icon-v15.png', './assets/icons/icon-180.png',
   './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/favicon-32.png', './assets/icons/source-icon-1024.png'
 ];
 
@@ -34,6 +34,14 @@ self.addEventListener('fetch', (event) => {
         const copy = response.clone(); caches.open(VERSION).then((cache) => cache.put('./index.html', copy)); return response;
       }).catch(() => caches.match('./index.html'))
     );
+    return;
+  }
+  const networkFirst = /\.(?:js|css|json|webmanifest)(?:$|\?)/i.test(url.pathname + url.search);
+  if (networkFirst) {
+    event.respondWith(fetch(request, { cache: 'no-store' }).then((response) => {
+      if (response.ok) { const copy = response.clone(); caches.open(VERSION).then((cache) => cache.put(request, copy)); }
+      return response;
+    }).catch(() => caches.match(request)));
     return;
   }
   event.respondWith(

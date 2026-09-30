@@ -33,5 +33,5 @@ for (let i = 0; i < headers.length; i += 1) {
 assert.equal(parsed, 4);
 assert.match(server, /08:30.*10:00/);
 assert.match(server, /11:50.*13:20/);
-assert.match(server, /current portal renders the timetable in the page itself/i);
+assert.match(server, /The REA portal is itself an offline-capable web app/i);
 console.log('REA fallback parser static tests passed.');

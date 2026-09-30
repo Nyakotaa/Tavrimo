@@ -342,6 +342,129 @@ async function discoverCalendarUrls(page, context) {
   return [...new Set(candidates)];
 }
 
+
+async function clickPortalRefresh(page) {
+  const buttons = [
+    page.getByRole('button', { name: /^обновить$/i }),
+    page.locator('button[title*="обновить" i], button[aria-label*="обновить" i]'),
+    page.locator('[role="button"]').filter({ hasText: /^обновить$/i })
+  ];
+  for (const locator of buttons) {
+    const count = await locator.count();
+    for (let i = 0; i < count; i += 1) {
+      const button = locator.nth(i);
+      if (await button.isVisible().catch(() => false)) {
+        await button.click({ timeout: 4_000 }).catch(() => {});
+        await page.waitForTimeout(1_500);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function clickPortalSearch(page, input) {
+  const selectors = [
+    'button[aria-label*="поиск" i]',
+    'button[title*="поиск" i]',
+    'button[aria-label*="search" i]',
+    'button[title*="search" i]',
+    '[role="button"][aria-label*="поиск" i]',
+    '[role="button"][title*="поиск" i]',
+    '[role="button"][aria-label*="search" i]',
+    '[role="button"][title*="search" i]',
+    'form button[type="submit"]',
+    'input[type="submit"]'
+  ];
+  for (const selector of selectors) {
+    const locator = page.locator(selector);
+    const count = Math.min(await locator.count(), 10);
+    for (let i = 0; i < count; i += 1) {
+      const button = locator.nth(i);
+      if (!await button.isVisible().catch(() => false)) continue;
+      await button.click({ timeout: 4_000 }).catch(() => {});
+      return true;
+    }
+  }
+  await input.press('Enter').catch(() => {});
+  return false;
+}
+
+
+async function pageHasTimetable(page) {
+  const body = await page.locator('body').innerText().catch(() => '');
+  const day = /(ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)\s*,?\s*\d{1,2}\.\d{1,2}\.\d{4}/i.test(body);
+  const time = /\d{1,2}:\d{2}\s*(?:[-–—]\s*)\d{1,2}:\d{2}/.test(body);
+  const offlineOnly = /Вы находитесь в режиме оффлайн/i.test(body) && /Найденные результаты/i.test(body) && !day;
+  return Boolean(day && time && !offlineOnly);
+}
+
+async function findGroupInResults(page, group) {
+  const normalize = (value) => String(value || '')
+    .toLowerCase()
+    .replace(/[–—−]/g, '-')
+    .replace(/ё/g, 'е')
+    .replace(/[^0-9a-zа-я]+/gi, '');
+  const target = normalize(group);
+  const selectors = [
+    'a', 'button', 'li', '[role="option"]', '[role="link"]'
+  ];
+  for (const selector of selectors) {
+    const candidates = page.locator(selector);
+    const count = Math.min(await candidates.count(), 300);
+    for (let i = 0; i < count; i += 1) {
+      const item = candidates.nth(i);
+      if (!await item.isVisible().catch(() => false)) continue;
+      const text = cleanText(await item.innerText().catch(() => ''));
+      const compact = normalize(text);
+      if (!compact || compact.length > 180) continue;
+      if (compact === target || compact.includes(target)) {
+        await item.scrollIntoViewIfNeeded().catch(() => {});
+        await item.click({ timeout: 4_000 }).catch(async () => { await item.evaluate((el) => el.click()).catch(() => {}); });
+        await page.waitForTimeout(1_200);
+        if (await pageHasTimetable(page)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+
+async function searchForGroup(page, group) {
+  const inputCandidates = [
+    'input[placeholder*="групп" i]',
+    'input[placeholder*="номер" i]',
+    'input[type="search"]',
+    'input[type="text"]',
+    'input:not([type])'
+  ];
+  let input = null;
+  for (const selector of inputCandidates) {
+    const locator = page.locator(selector);
+    const count = Math.min(await locator.count(), 10);
+    for (let i = 0; i < count; i += 1) {
+      const candidate = locator.nth(i);
+      if (await candidate.isVisible().catch(() => false)) { input = candidate; break; }
+    }
+    if (input) break;
+  }
+  if (!input) throw new Error('На портале не найдено поле поиска группы.');
+
+  await input.fill(group);
+  await page.waitForTimeout(250);
+  await clickPortalSearch(page, input);
+  // The portal is a client-side app; wait for either a visible result or a timetable.
+  await page.waitForTimeout(2_000);
+  if (await pageHasTimetable(page)) return true;
+  if (await findGroupInResults(page, group)) return true;
+
+  await input.press('Enter').catch(() => {});
+  await page.waitForTimeout(2_000);
+  if (await pageHasTimetable(page)) return true;
+  return await findGroupInResults(page, group);
+}
+
+
 async function downloadOfficialIcs(group) {
   const browser = await getBrowser();
   const context = await browser.newContext({
@@ -349,7 +472,7 @@ async function downloadOfficialIcs(group) {
     timezoneId: 'Europe/Moscow',
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36',
     acceptDownloads: true,
-    serviceWorkers: 'block'
+    serviceWorkers: 'allow'
   });
   const page = await context.newPage();
   const icsCandidates = [];
@@ -362,12 +485,12 @@ async function downloadOfficialIcs(group) {
     const originalCreateObjectURL = URL.createObjectURL.bind(URL);
     URL.createObjectURL = function (object) {
       const url = originalCreateObjectURL(object);
-      try { window.__tavrimoBlobUrls.push(url); } catch { /* ignore */ }
+      try { window.__tavrimoBlobUrls.push(url); } catch {}
       return url;
     };
     const originalAnchorClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function () {
-      try { window.__tavrimoDownloads.push({ href: this.href || '', download: this.download || '' }); } catch { /* ignore */ }
+      try { window.__tavrimoDownloads.push({ href: this.href || '', download: this.download || '' }); } catch {}
       return originalAnchorClick.call(this);
     };
   });
@@ -394,7 +517,7 @@ async function downloadOfficialIcs(group) {
       if (response.request().resourceType() === 'xhr' || response.request().resourceType() === 'fetch') {
         if (/calendar|ical|ics|export|schedule|raspis|выгруз/i.test(url)) resourceCandidates.add(url);
       }
-    } catch { /* best effort */ }
+    } catch {}
   };
   page.on('response', captureResponse);
 
@@ -402,56 +525,35 @@ async function downloadOfficialIcs(group) {
     await page.goto(UPSTREAM, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
 
-    const candidateSelectors = [
-      'input[placeholder*="групп" i]',
-      'input[placeholder*="номер" i]',
-      'input[type="search"]',
-      'input[type="text"]',
-      'input:not([type])'
-    ];
-    let input = null;
-    for (const selector of candidateSelectors) {
-      const locator = page.locator(selector);
-      const count = await locator.count();
-      for (let i = 0; i < Math.min(count, 8); i += 1) {
-        const candidate = locator.nth(i);
-        if (await candidate.isVisible().catch(() => false)) { input = candidate; break; }
-      }
-      if (input) break;
-    }
-    if (!input) throw new Error('На портале не найдено поле поиска группы.');
-    await input.fill(group);
-    await input.press('Enter').catch(() => {});
-    await page.waitForTimeout(800);
-
-    const exact = page.getByText(group, { exact: true });
-    if (await exact.count()) {
-      for (let i = 0; i < Math.min(await exact.count(), 10); i += 1) {
-        const item = exact.nth(i);
-        if (await item.isVisible().catch(() => false)) {
-          await item.click({ timeout: 3_000 }).catch(() => {});
-          break;
-        }
-      }
+    // The REA portal is itself an offline-capable web app. Do NOT block its service worker:
+    // otherwise it can report "offline" and return no search results even though Chromium has internet.
+    const pageOnline = await page.evaluate(() => navigator.onLine).catch(() => true);
+    if (!pageOnline) {
+      await clickPortalRefresh(page);
+      await page.waitForTimeout(1_500);
     }
 
-    await page.waitForFunction((groupCode) => {
-      const body = document.body?.innerText || '';
-      return body.includes(groupCode) && (/Экспорт расписания в календарь/i.test(body) || /Подробности/i.test(body));
-    }, group, { timeout: 25_000 }).catch(() => {});
-
-    // The portal can start in an offline/stale state, but still exposes the refresh button.
-    const refreshes = page.getByRole('button', { name: /обновить/i });
-    for (let i = 0; i < await refreshes.count(); i += 1) {
-      const item = refreshes.nth(i);
-      if (await item.isVisible().catch(() => false)) {
-        await item.click({ timeout: 3_000 }).catch(() => {});
-        await page.waitForTimeout(2_500);
-        break;
-      }
+    // Try to refresh the portal before searching. This is harmless when the page is already fresh
+    // and fixes stale/offline cached portal states.
+    await clickPortalRefresh(page);
+    const searched = await searchForGroup(page, group);
+    if (!searched) {
+      const visibleText = await page.locator('body').innerText().catch(() => '');
+      const hasNoResults = /не найдено результатов|результаты поиска/i.test(visibleText);
+      throw new Error(hasNoResults
+        ? `Портал РЭУ не нашёл группу «${group}». Проверь номер группы. Последняя страница: ${cleanText(visibleText).slice(0, 1000)}`
+        : 'Портал РЭУ не показал расписание для выбранной группы.');
     }
 
-    // Prefer the explicit export controls, but capture both browser downloads and client-generated blobs.
+    await page.waitForTimeout(1_000);
+
+    // Verify that a timetable, not only the search results page, is open.
+    const bodyBeforeExport = await page.locator('body').innerText().catch(() => '');
+    const timetableLike = /(ПОНЕДЕЛЬНИК|ВТОРНИК|СРЕДА|ЧЕТВЕРГ|ПЯТНИЦА|СУББОТА|ВОСКРЕСЕНЬЕ)/i.test(bodyBeforeExport)
+      && /\d{1,2}:\d{2}\s*(?:[-–—]\s*)?\d{1,2}:\d{2}/.test(bodyBeforeExport);
+    console.info(`[REA_SEARCH_OK] group=${group} url=${page.url()} timetable=${timetableLike}`);
+
+    // Prefer the explicit export controls, but capture browser downloads and client-generated blobs.
     const exportText = page.getByText('Экспорт расписания в календарь', { exact: false }).last();
     if (await exportText.count() && await exportText.isVisible().catch(() => false)) {
       await exportText.click({ timeout: 3_000 }).catch(() => {});
@@ -460,7 +562,6 @@ async function downloadOfficialIcs(group) {
 
     const rangeLabels = page.locator('label').filter({ hasText: /За всё время/i });
     if (await rangeLabels.count()) await rangeLabels.last().click().catch(() => {});
-    const rangeInputs = page.locator('input[type="radio"]');
     const checkedInput = await page.locator('label', { hasText: /За всё время/i }).last().locator('input').count().catch(() => 0);
     if (checkedInput) await page.locator('label', { hasText: /За всё время/i }).last().locator('input').check().catch(() => {});
     await page.waitForTimeout(200);
@@ -470,7 +571,6 @@ async function downloadOfficialIcs(group) {
     if (await exportButton.count() && await exportButton.isVisible().catch(() => false)) {
       await exportButton.click({ timeout: 5_000 }).catch(() => {});
     } else {
-      // Last resort: click any visible element containing the export action text.
       const clickable = page.locator('button, [role="button"], a').filter({ hasText: /выгрузить/i }).last();
       if (await clickable.count()) await clickable.evaluate((el) => el.click()).catch(() => {});
     }
@@ -497,11 +597,9 @@ async function downloadOfficialIcs(group) {
         const body = await response.body();
         const candidate = body.toString('utf8');
         if (response.ok() && /BEGIN:VCALENDAR/i.test(candidate)) return candidate;
-      } catch { /* continue */ }
+      } catch {}
     }
 
-    // Robust fallback: the current portal renders the timetable in the page itself.
-    // When its download button is client-only, parse the rendered day/period text and build a standards-compliant ICS.
     const visibleText = await page.locator('body').innerText().catch(() => '');
     const events = parseScheduleText(visibleText);
     if (events.length) {

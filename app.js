@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.0.4';
+  const APP_VERSION = '12.0.5';
   const SCHEMA_VERSION = 16;
   const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [
@@ -808,9 +808,11 @@
     else if (data.university.events.length) detail.textContent = `${data.university.events.length} занятий · синхронизация включена`;
     else detail.textContent = 'Синхронизация включена · проверяем расписание онлайн';
     if (button) {
-      button.disabled = !group;
+      button.disabled = false;
+      button.removeAttribute('aria-disabled');
       button.setAttribute('aria-busy', String(Boolean(universitySyncInFlight)));
       button.textContent = universitySyncInFlight ? '↻ Обновляю…' : '↻ Обновить';
+      button.classList.toggle('is-busy', Boolean(universitySyncInFlight));
     }
   }
 
@@ -873,7 +875,16 @@
 
   async function syncUniversitySchedule({ force = false, silent = false } = {}) {
     const group = String(data.university.groupCode || '').trim();
-    if (!group || !navigator.onLine) return { ok: false, skipped: true };
+    if (!group) {
+      if (force && !silent) {
+        showToast('Сначала укажи группу РЭУ.');
+        setUniversitySyncState('Группа не выбрана', 'Укажи группу, чтобы загрузить расписание.');
+      }
+      return { ok: false, skipped: true, reason: 'no-group' };
+    }
+    // navigator.onLine is only a hint in Safari/PWA (VPNs, captive portals and some
+    // network stacks can report it incorrectly). A manual refresh should try the request
+    // instead of becoming a no-op because of a stale online flag.
     const last = data.university.lastSyncAt ? Date.parse(data.university.lastSyncAt) : 0;
     const interval = syncConfigNumber('syncIntervalMinutes', 15, 5) * 60 * 1000;
     if (!force && last && Date.now() - last < interval && data.university.events.length) return { ok: true, skipped: true };
@@ -1407,9 +1418,16 @@
   }
 
   function bindEvents() {
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('#homeSyncBtn, #syncUniversityNowBtn');
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!data.university.groupCode) { openUniversitySetup(); return; }
+      void syncUniversitySchedule({ force: true, silent: false });
+    });
     $('#tabAdd').addEventListener('click', () => openTaskSheet());
-    $('#homeSyncBtn')?.addEventListener('click', () => syncUniversitySchedule({ force: true }));
-    $('#homeManageGroupBtn')?.addEventListener('click', openUniversitySetup);
+        $('#homeManageGroupBtn')?.addEventListener('click', openUniversitySetup);
     $('#nextClassOpenBtn')?.addEventListener('click', () => { const id = $('#nextClassOpenBtn').dataset.uniId; if (id) openUniversityEvent(id); });
     $('#todayDateChip').addEventListener('click', () => { $('#datePickerInput').value = dateKey(currentDate); openModal('dateSheetBackdrop'); });
     $('#closeDateSheet').addEventListener('click', () => closeModal('dateSheetBackdrop'));
@@ -1429,7 +1447,6 @@
     $$('.calendar-mode-btn').forEach((button) => button.addEventListener('click', () => { calendarMode = button.dataset.calendarMode; renderAll(); }));
     $('#universityManageBtn').addEventListener('click', openUniversitySetup);
     $('#saveAndSyncUniversityBtn').onclick = () => saveUniversityGroup({ andSync: true });
-    $('#syncUniversityNowBtn').onclick = () => data.university.groupCode ? syncUniversitySchedule({ force: true }) : showToast('Сначала укажи группу.');
     $('#closeUniversitySetup').onclick = () => closeModal('universitySetupBackdrop'); $('#cancelUniversitySetup').onclick = () => closeModal('universitySetupBackdrop');
     $('#openReaScheduleBtn').onclick = openOfficialReaSchedule;
     $('#clearUniversityScheduleBtn').onclick = () => { if (!data.university.events.length) { showToast('Расписание уже пустое.'); return; } if (confirm('Удалить загруженное расписание РЭУ?')) { data.university.events = []; data.university.importedAt = null; data.university.lastSyncAt = null; data.university.syncHash = ''; data.university.syncError = ''; saveData(); closeModal('universitySetupBackdrop'); renderAll(); showToast('Расписание РЭУ удалено.'); } };

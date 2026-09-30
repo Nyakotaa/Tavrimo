@@ -11,10 +11,10 @@
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <script src="config.js"></script>
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v14.png" />
+  <script src="config.js?v=12.0.5" defer></script>
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v15.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=12.0.5" />
   <title>Tavrimo</title>
 </head>
 <body>
@@ -53,7 +53,7 @@
             </div>
           </div>
           <div class="schedule-source-actions">
-            <button class="secondary-button compact-action" id="homeSyncBtn" type="button">↻ Обновить</button>
+            <button class="secondary-button compact-action" id="homeSyncBtn" type="button" data-action="refresh-schedule">↻ Обновить</button>
             <button class="icon-btn ghost" id="homeManageGroupBtn" type="button" aria-label="Настроить группу">⚙️</button>
           </div>
         </section>
@@ -221,7 +221,7 @@
       <div class="uni-sync-status" id="universitySyncStateCard"><span class="status-dot" id="universitySyncDot"></span><div><strong id="universitySyncState">Автосинхронизация готова</strong><small id="universitySyncDetail">После сохранения группа будет обновляться при открытии приложения и периодически онлайн.</small></div></div>
       <div class="stack-buttons">
         <button class="primary-button wide" id="saveAndSyncUniversityBtn" type="button">🎓 Сохранить и загрузить</button>
-        <button class="secondary-button wide" id="syncUniversityNowBtn" type="button">↻ Обновить расписание</button>
+        <button class="secondary-button wide" id="syncUniversityNowBtn" type="button" data-action="refresh-schedule">↻ Обновить расписание</button>
         <button class="secondary-button wide" id="openReaScheduleBtn" type="button">🌐 Открыть rasp.rea.ru</button>
       </div>
       <details class="uni-fallback-details">
@@ -284,6 +284,6 @@
     </section>
   </div>
 
-  <script src="app.js" defer></script>
+  <script src="app.js?v=12.0.5" defer></script>
 </body>
 </html>

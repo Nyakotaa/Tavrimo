@@ -1,36 +1,27 @@
 # Changelog
 
-## 12.0.2 — REA Live Sync Hotfix
+## 12.0.5
+- Исправлен ручной refresh расписания: он больше не теряется из-за фоновой синхронизации.
+- Добавлена явная offline-обратная связь.
+- Sync Gateway получил более надёжный поиск группы через реальные autocomplete/results controls.
+- Добавлены повторные варианты поиска для групп с `/`, пробелами и регистром.
+- Добавлено обнаружение реального timetable state вместо ложного совпадения по глобальному тексту страницы.
+- Добавлен capture сетевых search responses и попытка извлечения расписания без обязательного iCalendar download event.
+- При повторном обновлении stale request не может перезаписать свежий результат.
 
-- Исправлен 502 при получении расписания РЭУ: более устойчивое взаимодействие с динамическим порталом, выбор группы из подсказок и несколько способов получения iCalendar.
-- Добавлены Render-friendly параметры Chromium и увеличен timeout синхронизации.
-- Добавлены диагностические сообщения в Render Logs.
-- Старое расписание не удаляется при ошибке получения.
+## 12.0.5
+- Fixed manual timetable refresh interaction.
+- Do not block rasp.rea.ru service workers.
+- Added explicit portal refresh before group search.
+- Improved group search/click flow and rendered fallback.
+- Network-first loading for JS/CSS/config/manifest reduces stale PWA builds after deploy.
 
-## 12.0.0 — Timetable-first REA Live Sync
-- Расписание РЭУ стало главным экраном приложения.
-- Группа сохраняется локально и запускает автоматическую загрузку расписания.
-- Добавлен Sync Gateway: серверная browser automation получает официальный экспорт с rasp.rea.ru.
-- Синхронизация запускается при сохранении группы, при старте, возврате в приложение и далее раз в 15 минут при активном подключении.
-- Поддерживаются изменения времени, даты, преподавателя, аудитории, типа и предмета; стабильные UID сохраняют связи задач с занятиями.
-- При конфликте изменённой пары ручная задача безопасно возвращается во входящие.
-- Пустой ответ портала не стирает последнее известное расписание автоматически.
-- ETag/304 исправлены для экономии запросов и более быстрой проверки актуальности.
-- Добавлен CORS для отдельного GitHub Pages + Gateway deployment.
-- Исправлен Express 5 SPA fallback.
-- Сохранены ручные задачи, Focus, статистика, импорт/экспорт и офлайн-работа.
-- Добавлены тесты live-sync и обновлена документация релиза.
+## 12.0.5
+- Fixed manual timetable refresh.
+- Fixed stale PWA assets after deployment.
+- Fixed REA portal search by allowing its service worker and explicitly submitting search.
 
-## 12.0.3 — REA Sync Resilience Hotfix
-
-- Исправлен 502 при сценарии, когда расписание РЭУ открывается, но экспорт iCalendar не генерирует стандартный browser download.
-- Добавлен перехват Blob/data URL загрузок, сетевых ресурсов и ссылок на экспорт.
-- Добавлен fallback-парсер уже отрисованного расписания с датами, временем пары, предметом, типом занятия и аудиторией.
-- При временной ошибке источник не приводит к потере последнего успешного расписания.
-
-## 12.0.4 — REA Sync & Refresh Hotfix
-
-- исправлена ручная кнопка «Обновить расписание»: она отменяет устаревший фоновый запрос и запускает новый;
-- GitHub Pages автоматически использует Render Sync Gateway;
-- усилен fallback-парсер расписания РЭУ для текущей разметки портала;
-- добавлен лог `[REA_SYNC_FALLBACK]` и дополнительные релизные проверки.
+## 12.0.5
+- Fixed refresh interaction and stale PWA assets.
+- Fixed REA portal offline-state caused by blocked service workers.
+- Hardened group search and timetable detection.

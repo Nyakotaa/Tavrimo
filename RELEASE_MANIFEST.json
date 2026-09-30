@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo",
-  "version": "12.0.3",
-  "release": "rea-live-sync-resilient-parser",
+  "version": "12.0.5",
+  "release": "rea-sync-refresh-fixed-3",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -22,5 +22,5 @@
     "actionable sync diagnostics"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "12.0.3 adds multiple fallback paths for the public rasp.rea.ru timetable export: client-generated Blob/data downloads, discovered calendar endpoints, and a rendered timetable parser. The existing cached schedule is preserved on upstream failures."
+  "notes": "Manual refresh is always actionable; PWA static assets are cache-busted/network-first; REA portal service workers remain enabled so group search can use the portal online state."
 }

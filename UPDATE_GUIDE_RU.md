@@ -17,3 +17,8 @@
 
 ## 12.0.4
 Замените файлы в GitHub-репозитории и сделайте Commit. Render автоматически задеплоит обновлённый Sync Gateway. Если UI открыт через GitHub Pages, endpoint Render подставляется автоматически.
+
+
+## 12.0.5
+
+Загрузите содержимое `personal-planner` поверх старой версии. В Render при необходимости нажмите Manual Deploy → Deploy latest commit. После статуса Live проверьте `/api/rea/health`, затем откройте Tavrimo онлайн на iPhone.
