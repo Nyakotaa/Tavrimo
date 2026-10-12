@@ -1,3 +1,10 @@
+## 12.0.9 — REA search order fix
+
+- Fixed a 502 sync failure where the gateway tried direct `?q=` navigation first and then searched for the group field on the resulting page.
+- The gateway now uses the official portal search field first, reloads the canonical `https://rasp.rea.ru/` page once if the field is missing, and only then tries direct query navigation as a fallback.
+- Added broader search-field selectors while excluding login/password fields and extra diagnostics for cases when the portal does not render a search field.
+- Preserved the 12.0.8 all-time calendar export path for importing past and future timetable events when the portal supports it.
+
 ## 12.0.8 — Full-range university timetable
 
 - Fixed a control-flow bug that returned the currently visible week before attempting the REA calendar export.

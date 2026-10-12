@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo",
-  "version": "12.0.8",
-  "release": "12.0.8",
+  "version": "12.0.9",
+  "release": "12.0.9",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -22,10 +22,14 @@
     "actionable sync diagnostics",
     "direct REA ?q= group navigation",
     "rendered timetable primary parser",
-    "refresh-safe sync flow"
+    "refresh-safe sync flow",
+    "portal search-first flow",
+    "canonical timetable page retry",
+    "expanded and login-safe search field detection",
+    "REA search diagnostics"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "Direct ?q= group navigation, multiple result-selection strategies, rendered timetable is parsed before ICS export, and portal refresh is not forced after selection.",
-  "status": "stable-hotfix",
-  "summary": "Fix full-range REA calendar import; prefer all-time export over current-week fallback."
+  "notes": "Search the portal through its visible group-search field first, retry the canonical timetable page if missing, then use direct ?q= navigation only as a fallback. All-time calendar export remains enabled.",
+  "status": "search-fix-hotfix",
+  "summary": "Fix REA sync 502 caused by searching for the group field after failed direct ?q= navigation."
 }
