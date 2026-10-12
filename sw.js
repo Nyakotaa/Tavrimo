@@ -1,4 +1,4 @@
-const VERSION = 'tavrimo-v12.0.9-rea-search-first-fix';
+const VERSION = 'tavrimo-v12.0.10-rea-sync-ci-fix';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './404.html',
   './assets/icons/apple-touch-icon-v17.png', './assets/icons/icon-180.png',

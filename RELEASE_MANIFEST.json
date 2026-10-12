@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo",
-  "version": "12.0.9",
-  "release": "12.0.9",
+  "version": "12.0.10",
+  "release": "12.0.10",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -26,10 +26,11 @@
     "portal search-first flow",
     "canonical timetable page retry",
     "expanded and login-safe search field detection",
-    "REA search diagnostics"
+    "REA search diagnostics",
+    "CI validation aligned with current PWA icon and current release"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "Search the portal through its visible group-search field first, retry the canonical timetable page if missing, then use direct ?q= navigation only as a fallback. All-time calendar export remains enabled.",
-  "status": "search-fix-hotfix",
-  "summary": "Fix REA sync 502 caused by searching for the group field after failed direct ?q= navigation."
+  "notes": "Retains the 12.0.9 search-first REA sync code. CI and regression tests now target the current release and use future dates for scheduling checks. Live Render and portal sync still require deployment-level verification.",
+  "status": "static-checks-passed-live-sync-unverified",
+  "summary": "Align automated validation with release 12.0.10 and retain the REA search-first sync fix from 12.0.9."
 }

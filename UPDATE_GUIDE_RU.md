@@ -31,3 +31,8 @@
 ## 12.0.6
 
 Замените содержимое `personal-planner` в GitHub-репозитории и сделайте Commit. Render автоматически создаст новый deploy; при необходимости используйте Manual Deploy → Deploy latest commit. После статуса Live проверьте `/api/rea/health`, затем откройте Tavrimo онлайн и нажмите «Обновить» рядом с расписанием. В логах принудительное обновление содержит `force=1`.
+
+
+## 12.0.10
+
+Замените содержимое каталога `personal-planner` в репозитории и сделайте commit в `main`. GitHub Actions должен выполнить проверки актуальной версии. После успешной проверки убедитесь, что Render собирает этот commit; при необходимости выберите Manual Deploy → Deploy latest commit. После статуса Live проверьте `/api/rea/health`, откройте Tavrimo онлайн и нажмите «Повторить» у расписания. Если синхронизация снова завершится ошибкой, сохраните строки логов с префиксами `[REA_SEARCH_INPUT_RETRY]`, `[REA_SEARCH_INPUT_MISSING]`, `[REA_SEARCH_STATE]` и `[REA_SYNC_502]`.

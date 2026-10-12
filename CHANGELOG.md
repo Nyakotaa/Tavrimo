@@ -1,3 +1,12 @@
+## 12.0.10 — release validation alignment
+
+- Retained the REA search-first sync flow introduced in 12.0.9; no speculative changes were made to the live portal interaction.
+- Updated GitHub Actions to test the current release instead of stale 12.0.6 asset/version expectations.
+- Updated icon validation to match `apple-touch-icon-v17.png`, now referenced by HTML and the Service Worker.
+- Made manual-scheduling and university-schedule regression tests use future dates so they remain valid after the calendar advances.
+- Updated REA fallback smoke-test expectations to match the current diagnostic markers.
+- Live synchronization through Render remains unverified and must be checked after deployment.
+
 ## 12.0.9 — REA search order fix
 
 - Fixed a 502 sync failure where the gateway tried direct `?q=` navigation first and then searched for the group field on the resulting page.

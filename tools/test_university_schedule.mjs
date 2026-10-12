@@ -21,23 +21,35 @@ vm.runInNewContext(source, context, { filename: 'app.js' });
 const t = context.__TAVRIMO_TEST__;
 assert.ok(t, 'QA hooks must be available');
 
-const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nX-WR-CALNAME:РЭУ · группа 24.03-ЭК-12\r\nBEGIN:VEVENT\r\nUID:a@rea\r\nDTSTART;TZID=Europe/Moscow:20261001T081500\r\nDTEND;TZID=Europe/Moscow:20261001T094500\r\nSUMMARY:Микроэкономика (Лекция)\r\nLOCATION:1 корпус, 312 ауд.\r\nDESCRIPTION:Преподаватель: Иванов Иван Иванович\\nЛекция\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:b@rea\r\nDTSTART;TZID=Europe/Moscow:20261001T095500\r\nDTEND;TZID=Europe/Moscow:20261001T112500\r\nSUMMARY:Математика\r\nLOCATION:3.14\r\nDESCRIPTION:Преподаватель — Петрова Анна Петровна\r\nCATEGORIES:Практическое занятие\r\nEND:VEVENT\r\nEND:VCALENDAR`;
+function nextDateForWeekday(dayOfWeek) {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  let delta = (dayOfWeek - date.getDay() + 7) % 7;
+  if (delta === 0) delta = 7;
+  date.setDate(date.getDate() + delta);
+  return date;
+}
+const lessonDate = nextDateForWeekday(4); // Keep the schedule sample in the future on a weekday.
+const lessonDateKey = `${lessonDate.getFullYear()}-${String(lessonDate.getMonth() + 1).padStart(2, '0')}-${String(lessonDate.getDate()).padStart(2, '0')}`;
+const lessonDateCompact = lessonDateKey.replace(/-/g, '');
+
+const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nX-WR-CALNAME:РЭУ · группа 24.03-ЭК-12\r\nBEGIN:VEVENT\r\nUID:a@rea\r\nDTSTART;TZID=Europe/Moscow:${lessonDateCompact}T081500\r\nDTEND;TZID=Europe/Moscow:${lessonDateCompact}T094500\r\nSUMMARY:Микроэкономика (Лекция)\r\nLOCATION:1 корпус, 312 ауд.\r\nDESCRIPTION:Преподаватель: Иванов Иван Иванович\\nЛекция\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:b@rea\r\nDTSTART;TZID=Europe/Moscow:${lessonDateCompact}T095500\r\nDTEND;TZID=Europe/Moscow:${lessonDateCompact}T112500\r\nSUMMARY:Математика\r\nLOCATION:3.14\r\nDESCRIPTION:Преподаватель — Петрова Анна Петровна\r\nCATEGORIES:Практическое занятие\r\nEND:VEVENT\r\nEND:VCALENDAR`;
 const parsed = t.parseUniversityIcs(ics);
 assert.equal(parsed.events.length, 2);
 assert.equal(parsed.calendarName, 'РЭУ · группа 24.03-ЭК-12');
-assert.equal(JSON.stringify(parsed.events[0]), JSON.stringify({ uid: 'a@rea', date: '2026-10-01', start: '08:15', end: '09:45', subject: 'Микроэкономика', type: 'Лекция', teacher: 'Иванов Иван Иванович', room: '1 корпус, 312 ауд.', note: 'Преподаватель: Иванов Иван Иванович\nЛекция' }));
+assert.equal(JSON.stringify(parsed.events[0]), JSON.stringify({ uid: 'a@rea', date: lessonDateKey, start: '08:15', end: '09:45', subject: 'Микроэкономика', type: 'Лекция', teacher: 'Иванов Иван Иванович', room: '1 корпус, 312 ауд.', note: 'Преподаватель: Иванов Иван Иванович\nЛекция' }));
 assert.equal(parsed.events[1].type, 'Практическое занятие');
 assert.equal(t.extractGroupCode(parsed.calendarName), '24.03-ЭК-12');
 
 const base = { version: 14, settings: { workStart: 8, workEnd: 18, lunchStart: 13, lunchEnd: 14, buffer: 10, focusLength: 25, weekends: false, theme: 'system' }, tasks: [], focus: { totalMinutes: 0, sessions: [] }, university: { groupCode: '24.03-ЭК-12', groupName: '24.03-ЭК-12', importedAt: new Date().toISOString(), source: 'rasp.rea.ru', events: parsed.events } };
 t.setData(base);
-t.setCurrentDate(new Date(2026, 8, 27));
+t.setCurrentDate(lessonDate);
 
-assert.match(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: '2026-10-01', deadlineTime: '17:00' }, '2026-10-01', '08:15', 30), /^В это время пара/);
-assert.match(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: '2026-10-01', deadlineTime: '17:00' }, '2026-10-01', '09:45', 30), /^В это время пара/);
-assert.equal(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: '2026-10-01', deadlineTime: '17:00' }, '2026-10-01', '11:30', 30), '');
-assert.equal(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: '2026-10-01', deadlineTime: '17:00' }, '2026-10-01', '12:30', 30), 'Резерв после задачи пересекает перерыв.');
-assert.equal(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: '2026-10-01', deadlineTime: '17:00' }, '2026-10-01', '14:00', 30), '');
+assert.match(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: lessonDateKey, deadlineTime: '17:00' }, lessonDateKey, '08:15', 30), /^В это время пара/);
+assert.match(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: lessonDateKey, deadlineTime: '17:00' }, lessonDateKey, '09:45', 30), /^В это время пара/);
+assert.equal(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: lessonDateKey, deadlineTime: '17:00' }, lessonDateKey, '11:30', 30), '');
+assert.equal(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: lessonDateKey, deadlineTime: '17:00' }, lessonDateKey, '12:30', 30), 'Резерв после задачи пересекает перерыв.');
+assert.equal(t.validateManualSlot({ id: 'task-1', title: 'Подготовить семинар', duration: 60, priority: 2, deadline: lessonDateKey, deadlineTime: '17:00' }, lessonDateKey, '14:00', 30), '');
 
 const normalized = t.normalizeUniversity(base.university);
 const reordered = t.normalizeUniversity({ ...base.university, events: [...parsed.events].reverse() });
@@ -57,19 +69,19 @@ assert.equal(JSON.stringify(utc), JSON.stringify({ date: '2026-10-02', time: '00
 const allDay = t.parseUniversityIcs(`BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:day\nDTSTART;VALUE=DATE:20261001\nDTEND;VALUE=DATE:20261002\nSUMMARY:All day\nEND:VEVENT\nEND:VCALENDAR`);
 assert.equal(allDay.events.length, 0, 'All-day events should not become fake lectures');
 
-const loaded = t.normalizeData({ ...base, tasks: [{ id: 'linked', title: 'Подготовиться', duration: 30, priority: 2, deadline: '2026-10-01', linkedUniversityEventId: firstId, scheduledDate: '2026-10-01', scheduledStart: '11:30', locked: true }] });
+const loaded = t.normalizeData({ ...base, tasks: [{ id: 'linked', title: 'Подготовиться', duration: 30, priority: 2, deadline: lessonDateKey, linkedUniversityEventId: firstId, scheduledDate: lessonDateKey, scheduledStart: '11:30', locked: true }] });
 assert.equal(loaded.tasks[0].linkedUniversityEventId, firstId, 'Task link must survive normalization');
-const unlinked = t.normalizeData({ ...base, university: { ...base.university, events: [] }, tasks: [{ id: 'linked', title: 'Подготовиться', duration: 30, priority: 2, deadline: '2026-10-01', linkedUniversityEventId: firstId }] });
+const unlinked = t.normalizeData({ ...base, university: { ...base.university, events: [] }, tasks: [{ id: 'linked', title: 'Подготовиться', duration: 30, priority: 2, deadline: lessonDateKey, linkedUniversityEventId: firstId }] });
 assert.equal(unlinked.tasks[0].linkedUniversityEventId, null, 'Task link to missing class must be cleared');
 
-const load = t.dayLoad('2026-10-01');
+const load = t.dayLoad(lessonDateKey);
 assert.equal(load.classWork, 180, 'University class minutes must be part of day load');
 assert.equal(load.occupied, 180 + 10 * load.tasks.length + load.work, 'Day occupied minutes must include classes, task work and reserve');
-const agenda = t.getAgendaItemsForDate('2026-10-01');
+const agenda = t.getAgendaItemsForDate(lessonDateKey);
 assert.equal(agenda[0].kind, 'class', 'Agenda must merge university classes with tasks');
-assert.equal(t.getNextAgendaItem('2026-10-01')?.kind, 'class', 'Next agenda item should see university classes');
+assert.equal(t.getNextAgendaItem(lessonDateKey)?.kind, 'class', 'Next agenda item should see university classes');
 
-const withConflict = t.normalizeData({ ...base, tasks: [{ id: 'task-2', title: 'Конфликт', duration: 60, priority: 2, deadline: '2026-10-01', deadlineTime: '17:00', scheduledDate: '2026-10-01', scheduledStart: '08:15', locked: true }] });
+const withConflict = t.normalizeData({ ...base, tasks: [{ id: 'task-2', title: 'Конфликт', duration: 60, priority: 2, deadline: lessonDateKey, deadlineTime: '17:00', scheduledDate: lessonDateKey, scheduledStart: '08:15', locked: true }] });
 assert.equal(withConflict.tasks[0].scheduledDate, null, 'REA timetable conflict must move task to inbox');
 assert.equal(withConflict.tasks[0].locked, false);
 

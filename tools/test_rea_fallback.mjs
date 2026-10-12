@@ -33,7 +33,8 @@ for (let i = 0; i < headers.length; i += 1) {
 assert.equal(parsed, 4);
 assert.match(server, /08:30.*10:00/);
 assert.match(server, /11:50.*13:20/);
-assert.match(server, /Try the portal's documented query URL/i);
+assert.match(server, /const url = `\$\{UPSTREAM\}\?q=\$\{encodeURIComponent\(variant\)\}`/);
 assert.match(server, /REA_DIRECT_OK/);
-assert.match(server, /REA_RENDERED_PRIMARY/);
+assert.match(server, /REA_RENDERED_WEEK_FALLBACK/);
+assert.match(server, /REA_SYNC_FALLBACK/);
 console.log('REA fallback parser static tests passed.');

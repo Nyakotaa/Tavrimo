@@ -21,8 +21,16 @@ vm.runInNewContext(source, context, { filename: 'app.js' });
 const t = context.__TAVRIMO_TEST__;
 assert.ok(t, 'QA hooks must be available');
 
-const monday = new Date(2026, 8, 30, 12);
-const mondayKey = '2026-09-30';
+function nextDateForWeekday(dayOfWeek) {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  let delta = (dayOfWeek - date.getDay() + 7) % 7;
+  if (delta === 0) delta = 7;
+  date.setDate(date.getDate() + delta);
+  return date;
+}
+const monday = nextDateForWeekday(1);
+const mondayKey = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
 const base = {
   version: 11,
   settings: { workStart: 9, workEnd: 18, lunchStart: 13, lunchEnd: 14, buffer: 10, focusLength: 25, weekends: false, theme: 'system' },
