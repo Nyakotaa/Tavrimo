@@ -1,4 +1,11 @@
-## 12.1.0 — REA Sync resolution hotfix
+## 12.0.8 — Full-range university timetable
+
+- Fixed a control-flow bug that returned the currently visible week before attempting the REA calendar export.
+- The sync gateway now attempts the portal's “За всё время” calendar export first, so past and future lessons can be imported together when REA exposes them.
+- The currently rendered week remains a fallback if the portal export fails; logs explicitly mark that fallback as week-only instead of implying the full calendar was fetched.
+- Bumped static asset and Service Worker versions to avoid keeping the previous release on installed PWAs.
+
+## 12.0.7 — REA Sync resolution hotfix
 
 Принудительный прямой поиск по `?q=`, расширенный выбор результата и разбор уже отображённого расписания до попытки экспортировать `.ics`.
 
@@ -29,8 +36,3 @@
 - Fixed refresh interaction and stale PWA assets.
 - Fixed REA portal offline-state caused by blocked service workers.
 - Hardened group search and timetable detection.
-
-## 12.1.0
-- Полная синхронизация всех опубликованных недель из переключателя недель РЭУ.
-- Ручное обновление сканирует прошлые и будущие недели.
-- Фоновая синхронизация обновляет текущую неделю, не удаляя полный архив.

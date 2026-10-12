@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo",
-  "version": "12.1.0",
-  "release": "12.1.0",
+  "version": "12.0.8",
+  "release": "12.0.8",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -26,7 +26,6 @@
   ],
   "source": "https://rasp.rea.ru/",
   "notes": "Direct ?q= group navigation, multiple result-selection strategies, rendered timetable is parsed before ICS export, and portal refresh is not forced after selection.",
-  "status": "release-candidate",
-  "title": "Tavrimo 12.1.0 — REA Full Range Sync",
-  "sync": "all published weeks from portal week picker"
+  "status": "stable-hotfix",
+  "summary": "Fix full-range REA calendar import; prefer all-time export over current-week fallback."
 }
