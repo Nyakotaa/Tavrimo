@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.0.10';
+  const APP_VERSION = '12.1.0';
   const SCHEMA_VERSION = 16;
   const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [
@@ -20,14 +20,14 @@
   const APP_NAME = 'Tavrimo';
   const ONBOARDING_KEY = 'tavrimo-onboarding-v1';
   const ONBOARDING_STEPS = [
-    { target: '#homeScheduleSourceCard', view: 'today', icon: '🎓', title: 'Расписание — главный экран', text: 'Здесь каждый день начинается с твоих пар РЭУ. Время, преподаватель и аудитория всегда рядом с задачами.' },
-    { target: '#todayDateChip', view: 'today', icon: '📅', title: 'Переключай день', text: 'Нажми на дату, чтобы открыть любой день. Недельный обзор с парами доступен во вкладке «Неделя».' },
-    { target: '#homeSyncBtn', view: 'today', icon: '🔄', title: 'Актуализируй расписание', text: 'Tavrimo проверяет официальный портал РЭУ онлайн. Если университет изменит пару, обновлённое расписание попадёт в приложение.' },
-    { target: '#tabAdd', view: 'today', icon: '➕', title: 'Планируй задачи вокруг пар', text: 'Задачи по-прежнему добавляются одной кнопкой и назначаются только вручную. Время пар автоматически считается занятым.' },
-    { target: '[data-view="calendar"]', view: 'calendar', icon: '🗓️', title: 'Смотри всю неделю', text: 'Во вкладке «Неделя» можно посмотреть учебную неделю целиком и перейти на конкретный день.' },
-    { target: '[data-view="tasks"]', view: 'tasks', icon: '✅', title: 'Управляй задачами', text: 'Поиск и фильтры помогают быстро найти нужную задачу, а привязка к паре сохраняет учебный контекст.' },
-    { target: '[data-view="more"]', view: 'more', icon: '🧩', title: 'Инструменты', text: 'Фокус, статистика, состояние плана и настройки собраны в одном месте, чтобы не перегружать главный экран.' },
-    { target: '#moreSettings', view: 'more', icon: '⚙️', title: 'Настрой расписание и данные', text: 'Группа РЭУ, рабочие часы, тема и резервные копии находятся здесь. Расписание обновляется в фоне, пока есть интернет.' },
+    { target: '#homeScheduleSourceCard', view: 'today', icon: '01', title: 'Расписание — главный экран', text: 'Здесь каждый день начинается с твоих пар РЭУ. Время, преподаватель и аудитория всегда рядом с задачами.' },
+    { target: '#todayDateChip', view: 'today', icon: '02', title: 'Переключай день', text: 'Нажми на дату, чтобы открыть любой день. Недельный обзор с парами доступен во вкладке «Неделя».' },
+    { target: '#homeSyncBtn', view: 'today', icon: '03', title: 'Актуализируй расписание', text: 'Tavrimo проверяет официальный портал РЭУ онлайн. Если университет изменит пару, обновлённое расписание попадёт в приложение.' },
+    { target: '#tabAdd', view: 'today', icon: '04', title: 'Планируй задачи вокруг пар', text: 'Задачи по-прежнему добавляются одной кнопкой и назначаются только вручную. Время пар автоматически считается занятым.' },
+    { target: '[data-view="calendar"]', view: 'calendar', icon: '05', title: 'Смотри всю неделю', text: 'Во вкладке «Неделя» можно посмотреть учебную неделю целиком и перейти на конкретный день.' },
+    { target: '[data-view="tasks"]', view: 'tasks', icon: '06', title: 'Управляй задачами', text: 'Поиск и фильтры помогают быстро найти нужную задачу, а привязка к паре сохраняет учебный контекст.' },
+    { target: '[data-view="more"]', view: 'more', icon: '07', title: 'Инструменты', text: 'Фокус, статистика, состояние плана и настройки собраны в одном месте, чтобы не перегружать главный экран.' },
+    { target: '#moreSettings', view: 'more', icon: '08', title: 'Настрой расписание и данные', text: 'Группа РЭУ, рабочие часы, тема и резервные копии находятся здесь. Расписание обновляется в фоне, пока есть интернет.' },
   ];
   let onboardingStep = 0;
   let onboardingTimer = null;
@@ -37,7 +37,7 @@
     version: SCHEMA_VERSION,
     settings: {
       workStart: 9, workEnd: 18, lunchStart: 13, lunchEnd: 14,
-      buffer: 10, focusLength: 25, weekends: false, theme: 'system'
+      buffer: 10, focusLength: 25, weekends: false, theme: 'dark'
     },
     tasks: [],
     focus: { totalMinutes: 0, sessions: [] },
@@ -812,7 +812,7 @@
       button.removeAttribute('aria-disabled');
       button.setAttribute('aria-busy', String(Boolean(universitySyncInFlight)));
       const failed = Boolean(data.university.syncError) && !universitySyncInFlight;
-      button.textContent = universitySyncInFlight ? '↻ Обновляю…' : (failed ? '↻ Повторить' : '↻ Обновить');
+      const buttonText = $('#homeSyncBtnText'); if (buttonText) buttonText.textContent = universitySyncInFlight ? 'Обновляю…' : (failed ? 'Повторить' : 'Обновить'); else button.textContent = universitySyncInFlight ? 'Обновляю…' : (failed ? '↻ Повторить' : '↻ Обновить');
       button.title = failed ? 'Повторить синхронизацию расписания' : 'Принудительно проверить расписание РЭУ';
       button.classList.toggle('is-busy', Boolean(universitySyncInFlight));
       button.classList.toggle('is-error', failed);
@@ -1124,7 +1124,7 @@
   function scheduleEnd(task) { return hm(toMinutes(task.scheduledStart) + task.duration); }
   function renderAgendaUniversityCard(event) {
     const meta = [event.type, event.teacher, event.room].filter(Boolean).join(' · ');
-    return `<button class="agenda-card university" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="agenda-time"><strong>${escapeHtml(event.start)}</strong><small>${escapeHtml(event.end)}</small></span><span class="agenda-main"><strong class="agenda-title">${escapeHtml(event.subject)}</strong><small class="agenda-meta">🎓 ${escapeHtml(meta || 'Пара')}</small></span><span class="chevron">›</span></button>`;
+    return `<button class="agenda-card university" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="agenda-time"><strong>${escapeHtml(event.start)}</strong><small>${escapeHtml(event.end)}</small></span><span class="agenda-main"><strong class="agenda-title">${escapeHtml(event.subject)}</strong><small class="agenda-meta">${escapeHtml(meta || 'Пара')}</small></span><span class="chevron">›</span></button>`;
   }
 
   function renderAgendaCard(task) {
@@ -1152,7 +1152,7 @@
   }
 
   function renderCalendarUniversityBlock(event) {
-    return `<button class="calendar-block university" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="calendar-time">${escapeHtml(event.start)}<small>${escapeHtml(event.end)}</small></span><span class="calendar-slot university"><strong>${escapeHtml(event.subject)}</strong><small>🎓 ${escapeHtml([event.type, event.teacher, event.room].filter(Boolean).join(' · ') || 'Пара')}</small></span></button>`;
+    return `<button class="calendar-block university" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="calendar-time">${escapeHtml(event.start)}<small>${escapeHtml(event.end)}</small></span><span class="calendar-slot university"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml([event.type, event.teacher, event.room].filter(Boolean).join(' · ') || 'Пара')}</small></span></button>`;
   }
 
   function renderTasks() {
@@ -1172,7 +1172,7 @@
   function renderTaskRow(task) {
     const priority = priorityLabel(task.priority); const deadline = deadlineLabel(task); const schedule = scheduleLabel(task);
     const status = task.done ? 'Готово' : taskIsOverdue(task) ? 'Нужен перенос' : (!task.scheduledDate ? 'Без времени' : 'Вручную');
-    const linkedClass = task.linkedUniversityEventId && universityEventById(task.linkedUniversityEventId) ? '🎓 К паре' : '';
+    const linkedClass = task.linkedUniversityEventId && universityEventById(task.linkedUniversityEventId) ? 'К паре' : '';
     return `<div class="task-row ${task.done ? 'done' : ''}"><button class="task-check ${task.done ? 'done' : ''}" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="${task.done ? 'Вернуть в работу' : 'Выполнить'}">${task.done ? '✓' : ''}</button><button class="task-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="task-title">${escapeHtml(task.title)}</strong><span class="task-badges"><span class="badge ${priorityClass(task.priority)}">${escapeHtml(priority)}</span><span class="badge">${escapeHtml(formatDuration(task.duration))}</span><span class="badge">${escapeHtml(deadline)}</span><span class="badge">${escapeHtml(status)}</span>${linkedClass ? `<span class="badge">${escapeHtml(linkedClass)}</span>` : ''}</span></button></div>`;
   }
 
@@ -1321,11 +1321,11 @@
       <div class="health-card ${health.overdue ? 'danger' : ''}"><strong>${health.overdue}</strong><small>просрочено</small></div>
     `;
     const items = [];
-    if (health.overdue) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">🚨</span><div><strong>${health.overdue} просрочено</strong><small>Открой задачу и поставь новый дедлайн или ближайшее свободное окно.</small></div></div>`);
-    if (health.inbox) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">📥</span><div><strong>${health.inbox} без времени</strong><small>Их можно поставить вручную в карточке задачи.</small></div></div>`);
-    if (health.due48h) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">⏰</span><div><strong>${health.due48h} с дедлайном в ближайшие 48 часов</strong><small>Проверь, хватает ли свободного времени до срока.</small></div></div>`);
-    if (health.overloaded) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">⚠️</span><div><strong>${health.overloaded} перегруженных дня</strong><small>Открой задачи и перенеси часть слотов на свободные дни.</small></div></div>`);
-    if (!items.length) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true">✅</span><div><strong>План в порядке</strong><small>Критичных конфликтов, просрочек и перегруженных дней не найдено.</small></div></div>`);
+    if (health.overdue) items.push(`<div class="health-item"><span class="health-icon health-icon-danger" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5M12 17.5v.1"/></svg></span><div><strong>${health.overdue} просрочено</strong><small>Открой задачу и поставь новый дедлайн или ближайшее свободное окно.</small></div></div>`);
+    if (health.inbox) items.push(`<div class="health-item"><span class="health-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 14h4l2 3h4l2-3h4"/></svg></span><div><strong>${health.inbox} без времени</strong><small>Их можно поставить вручную в карточке задачи.</small></div></div>`);
+    if (health.due48h) items.push(`<div class="health-item"><span class="health-icon health-icon-warning" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><strong>${health.due48h} с дедлайном в ближайшие 48 часов</strong><small>Проверь, хватает ли свободного времени до срока.</small></div></div>`);
+    if (health.overloaded) items.push(`<div class="health-item"><span class="health-icon health-icon-warning" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5M12 17.5v.1"/></svg></span><div><strong>${health.overloaded} перегруженных дня</strong><small>Открой задачи и перенеси часть слотов на свободные дни.</small></div></div>`);
+    if (!items.length) items.push(`<div class="health-item"><span class="health-icon health-icon-check" aria-hidden="true">✓</span><div><strong>План в порядке</strong><small>Критичных конфликтов, просрочек и перегруженных дней не найдено.</small></div></div>`);
     $('#healthList').innerHTML = items.join('');
     openModal('healthSheetBackdrop');
   }

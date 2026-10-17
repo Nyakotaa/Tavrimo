@@ -5,5 +5,5 @@ const required = ['onboarding', 'onboardingSpotlight', 'onboardingCard', 'onboar
 for (const id of required) if (!html.includes(`id="${id}"`)) throw new Error(`Missing onboarding element: ${id}`);
 for (const token of ['ONBOARDING_STEPS', 'startOnboarding', 'finishOnboarding', 'refreshOnboardingTarget', 'nextOnboarding', 'prevOnboarding']) if (!js.includes(token)) throw new Error(`Missing onboarding logic: ${token}`);
 if (!html.includes('apple-touch-icon-v17.png')) throw new Error('Missing current Apple touch icon reference');
-if (!html.includes('<strong>Tavrimo</strong>')) throw new Error('Brand not updated in header');
+if (!html.includes('class="brand-wordmark">TAVRIMO</span>')) throw new Error('Centered Tavrimo wordmark is missing');
 console.log('Onboarding static tests passed.');

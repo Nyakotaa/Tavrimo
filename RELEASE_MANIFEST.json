@@ -1,7 +1,7 @@
 {
-  "name": "Tavrimo",
-  "version": "12.0.10",
-  "release": "12.0.10",
+  "name": "Tavrimo Campus Editorial Redesign",
+  "version": "12.1.0",
+  "release": "12.1.0",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -32,5 +32,5 @@
   "source": "https://rasp.rea.ru/",
   "notes": "Retains the 12.0.9 search-first REA sync code. CI and regression tests now target the current release and use future dates for scheduling checks. Live Render and portal sync still require deployment-level verification.",
   "status": "static-checks-passed-live-sync-unverified",
-  "summary": "Align automated validation with release 12.0.10 and retain the REA search-first sync fix from 12.0.9."
+  "summary": "Редизайн интерфейса Tavrimo: графитово-зелёная палитра, центрированный логотип, читаемая временная шкала и согласованная система компонентов."
 }

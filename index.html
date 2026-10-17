@@ -3,31 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)" />
-  <meta name="description" content="Tavrimo — расписание РЭУ и ручной планировщик задач для студентов." />
+  <meta name="theme-color" content="#F1F0E8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#151A17" media="(prefers-color-scheme: dark)" />
+  <meta name="description" content="Tavrimo — расписание университета и персональный планировщик студента." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <script src="config.js?v=12.0.10" defer></script>
+  <script src="config.js?v=12.1.0" defer></script>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v17.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
-  <link rel="stylesheet" href="style.css?v=12.0.10" />
-  <title>Tavrimo</title>
+  <link rel="stylesheet" href="style.css?v=12.1.0" />
+  <title>Tavrimo — планирование студенческой жизни</title>
 </head>
 <body>
   <div class="app-shell" id="appShell">
     <header class="topbar" id="topbar">
-      <div class="topbar-title">
-        <span class="brand-mark" aria-hidden="true">◒</span>
-        <div>
-          <strong>Tavrimo</strong>
-          <span id="headerContext">Сегодня</span>
-        </div>
+      <span class="topbar-spacer" aria-hidden="true"></span>
+      <div class="brand-lockup" aria-label="Tavrimo">
+        <span class="brand-wordmark">TAVRIMO</span>
+        <span class="brand-mark-line" aria-hidden="true"></span>
       </div>
-      <div class="topbar-actions" aria-hidden="true"></div>
+      <span class="topbar-context" id="headerContext">Сегодня</span>
     </header>
 
     <main class="screen" id="screen" tabindex="-1">
@@ -45,16 +43,16 @@
 
         <section class="schedule-source-card" id="homeScheduleSourceCard" aria-label="Источник расписания">
           <div class="schedule-source-main">
-            <div class="uni-avatar" aria-hidden="true">🎓</div>
-            <div>
-              <span class="section-kicker">РЭУ ИМ. Г. В. ПЛЕХАНОВА</span>
+            <span class="uni-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5.5 10.5V19M10 10.5V19M14 10.5V19M18.5 10.5V19M3 20h18M2.5 9.5h19"/></svg></span>
+            <div class="schedule-source-copy">
+              <span class="section-kicker">РАСПИСАНИЕ РЭУ</span>
               <strong id="homeGroupLabel">Группа не выбрана</strong>
               <small id="homeSyncLabel">Укажи группу — расписание загрузится автоматически.</small>
             </div>
           </div>
           <div class="schedule-source-actions">
-            <button class="secondary-button compact-action" id="homeSyncBtn" type="button" data-action="refresh-schedule">↻ Обновить</button>
-            <button class="icon-btn ghost" id="homeManageGroupBtn" type="button" aria-label="Настроить группу">⚙️</button>
+            <button class="secondary-button compact-action" id="homeSyncBtn" type="button" data-action="refresh-schedule" aria-label="Обновить расписание"><svg class="ui-icon sync-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9A7 7 0 0 1 18 6.2L20 8M4 16l2 1.8A7 7 0 0 0 18.4 15"/></svg><span id="homeSyncBtnText">Обновить</span></button>
+            <button class="icon-btn ghost" id="homeManageGroupBtn" type="button" aria-label="Настроить группу"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="m19.4 13.4 1.1.8-1.2 2.1-1.3-.5a7.6 7.6 0 0 1-1.5.9l-.2 1.4h-2.5l-.4-1.4a7.6 7.6 0 0 1-1.6 0l-.7 1.2-2.3-1.1.4-1.4a7.5 7.5 0 0 1-1.1-1.2l-1.4.1-.7-2.4 1.2-.7a7.5 7.5 0 0 1 0-1.6L6 8.9l1.1-2.3 1.4.4a7.5 7.5 0 0 1 1.2-1.1l-.1-1.4L12 3.8l.7 1.2a7.5 7.5 0 0 1 1.6 0l.7-1.2 2.3 1.1-.4 1.4A7.5 7.5 0 0 1 18 7.5l1.4-.1.7 2.4-1.2.7a7.5 7.5 0 0 1 0 1.6Z"/></svg></button>
           </div>
         </section>
 
@@ -124,7 +122,7 @@
           <div><p class="eyebrow">БИБЛИОТЕКА</p><h1>Задачи</h1><p class="page-subtitle" id="taskSummary">0 открытых</p></div>
         </div>
         <div class="search-row">
-          <label class="search-field"><span class="search-emoji" aria-hidden="true">🔎</span><input id="taskSearch" aria-label="Поиск задач" placeholder="Поиск" autocomplete="off" /></label>
+          <label class="search-field"><svg class="ui-icon search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="taskSearch" aria-label="Поиск задач" placeholder="Найти задачу" autocomplete="off" /></label>
           <button class="filter-button" id="filterButton" type="button">Фильтр <span id="filterCount"></span></button>
         </div>
         <div class="filter-popover" id="filterPopover" hidden>
@@ -145,31 +143,31 @@
         </div>
         <div class="more-list">
           <button class="feature-card" id="moreUniversity" type="button">
-            <span class="feature-icon green" aria-hidden="true">🎓</span><span><strong>Расписание РЭУ</strong><small>Группа и автоматическая синхронизация</small></span><span class="chevron">›</span>
+            <span class="feature-icon green" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5.5 10.5V19M10 10.5V19M14 10.5V19M18.5 10.5V19M3 20h18M2.5 9.5h19"/></svg></span><span><strong>Расписание РЭУ</strong><small>Группа и автоматическая синхронизация</small></span><span class="chevron">›</span>
           </button>
           <button class="feature-card" id="moreFocus" type="button">
-            <span class="feature-icon purple" aria-hidden="true">🎯</span><span><strong>Фокус</strong><small>Таймер для одной задачи</small></span><span class="chevron">›</span>
+            <span class="feature-icon purple" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></span><span><strong>Фокус</strong><small>Таймер для одной задачи</small></span><span class="chevron">›</span>
           </button>
           <button class="feature-card" id="moreInsights" type="button">
-            <span class="feature-icon blue" aria-hidden="true">📊</span><span><strong>Статистика</strong><small>Нагрузка и фокус за неделю</small></span><span class="chevron">›</span>
+            <span class="feature-icon blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5h16"/><rect x="5" y="11" width="3.5" height="6.5" rx=".7"/><rect x="10.3" y="7" width="3.5" height="10.5" rx=".7"/><rect x="15.6" y="4" width="3.5" height="13.5" rx=".7"/></svg></span><span><strong>Статистика</strong><small>Нагрузка и фокус за неделю</small></span><span class="chevron">›</span>
           </button>
           <button class="feature-card" id="moreHealth" type="button">
-            <span class="feature-icon green" aria-hidden="true">🧭</span><span><strong>Состояние плана</strong><small>Дедлайны, перегруз и задачи без слота</small></span><span class="chevron">›</span>
+            <span class="feature-icon green" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.8 8.2-2.4 5.2-5.2 2.4 2.4-5.2 5.2-2.4Z"/></svg></span><span><strong>Состояние плана</strong><small>Дедлайны, перегруз и задачи без слота</small></span><span class="chevron">›</span>
           </button>
           <button class="feature-card" id="moreSettings" type="button">
-            <span class="feature-icon gray" aria-hidden="true">⚙️</span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
+            <span class="feature-icon gray" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.0.0</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.1.0</span></div>
       </section>
     </main>
 
     <nav class="tabbar" aria-label="Навигация">
-      <button class="tab active" data-view="today" type="button"><span class="tab-icon" aria-hidden="true">🏠</span><small>Сегодня</small></button>
-      <button class="tab" data-view="calendar" type="button"><span class="tab-icon" aria-hidden="true">🗓️</span><small>Неделя</small></button>
-      <button class="tab tab-add" id="tabAdd" type="button" aria-label="Добавить задачу"><span>＋</span></button>
-      <button class="tab" data-view="tasks" type="button"><span class="tab-icon" aria-hidden="true">✅</span><small>Задачи</small></button>
-      <button class="tab" data-view="more" type="button"><span class="tab-icon" aria-hidden="true">🧩</span><small>Ещё</small></button>
+      <button class="tab active" data-view="today" type="button"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16M8 13.5h2M8 17h2"/></svg><small>Сегодня</small></button>
+      <button class="tab" data-view="calendar" type="button"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16M8 13h2M12 13h2M16 13h.01M8 16.5h2M12 16.5h2"/></svg><small>Неделя</small></button>
+      <button class="tab tab-add" id="tabAdd" type="button" aria-label="Добавить задачу"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="tab" data-view="tasks" type="button"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 1.5 1.5L8 6M11 7h9M4 13l1.5 1.5L8 12M11 13h9M4 19l1.5 1.5L8 18M11 19h9"/></svg><small>Задачи</small></button>
+      <button class="tab" data-view="more" type="button"><svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><small>Ещё</small></button>
     </nav>
   </div>
 
@@ -191,7 +189,7 @@
         <div class="two-col"><label>Длительность<select id="taskDuration"><option value="15">15 мин</option><option value="30">30 мин</option><option value="45">45 мин</option><option value="60" selected>1 час</option><option value="90">1 ч 30</option><option value="120">2 часа</option><option value="180">3 часа</option><option value="240">4 часа</option></select></label><label>Приоритет<select id="taskPriority"><option value="3">Высокий</option><option value="2" selected>Средний</option><option value="1">Низкий</option></select></div>
         <div class="two-col"><label>Дедлайн <small class="field-note">необязательно</small><input id="taskDeadline" type="date" /></label><label>Время <small class="field-note">только с датой</small><input id="taskDeadlineTime" type="time" step="900" /></label></div>
         <label>Категория<select id="taskCategory"><option>Учёба</option><option>Работа</option><option>Личное</option><option>Дом</option><option>Другое</option></select></label>
-        <div class="linked-class-note hidden" id="taskLinkedClassContext"><div><span>🎓 К паре</span><strong id="taskLinkedClassText">—</strong></div><button class="text-btn" id="unlinkTaskClassBtn" type="button">Отвязать</button></div>
+        <div class="linked-class-note hidden" id="taskLinkedClassContext"><div><span>К ПАРЕ</span><strong id="taskLinkedClassText">—</strong></div><button class="text-btn" id="unlinkTaskClassBtn" type="button">Отвязать</button></div>
         <div class="schedule-note"><strong>Время</strong><small>Расставь задачу сам. Можно оставить без времени и назначить позже.</small></div>
         <div class="two-col" id="manualScheduleFields"><label>Дата <small class="field-note">необязательно</small><input id="taskScheduleDate" type="date" /></label><label>Время <small class="field-note">необязательно</small><input id="taskScheduleTime" type="time" step="900" /></label></div><p class="manual-hint" id="manualScheduleHint"></p><p class="logic-hint" id="taskLogicHint"></p>
         <label>Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Опционально"></textarea></label>
@@ -220,14 +218,14 @@
       <label>Номер группы<input id="universityGroupInput" type="text" maxlength="80" placeholder="Например, 24.03-ЭК-12" autocomplete="off" /></label>
       <div class="uni-sync-status" id="universitySyncStateCard"><span class="status-dot" id="universitySyncDot"></span><div><strong id="universitySyncState">Автосинхронизация готова</strong><small id="universitySyncDetail">После сохранения группа будет обновляться при открытии приложения и периодически онлайн.</small></div></div>
       <div class="stack-buttons">
-        <button class="primary-button wide" id="saveAndSyncUniversityBtn" type="button">🎓 Сохранить и загрузить</button>
-        <button class="secondary-button wide" id="syncUniversityNowBtn" type="button" data-action="refresh-schedule">↻ Обновить расписание</button>
-        <button class="secondary-button wide" id="openReaScheduleBtn" type="button">🌐 Открыть rasp.rea.ru</button>
+        <button class="primary-button wide" id="saveAndSyncUniversityBtn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5 12 4l8 5.5M6 10.5V19M10 10.5V19M14 10.5V19M18 10.5V19M3 20h18"/></svg><span>Сохранить и загрузить</span></button>
+        <button class="secondary-button wide" id="syncUniversityNowBtn" type="button" data-action="refresh-schedule"><svg class="ui-icon sync-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9A7 7 0 0 1 18 6.2L20 8M4 16l2 1.8A7 7 0 0 0 18.4 15"/></svg><span>Обновить расписание</span></button>
+        <button class="secondary-button wide" id="openReaScheduleBtn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Открыть rasp.rea.ru</span></button>
       </div>
       <details class="uni-fallback-details">
         <summary>Импорт .ics вручную</summary>
         <p>Резервный способ, если официальный портал временно недоступен.</p>
-        <label class="secondary-button wide file-action uni-file-action"><span>📥 Импортировать .ics</span><input type="file" id="universityIcsInput" accept=".ics,text/calendar,application/ics" /></label>
+        <label class="secondary-button wide file-action uni-file-action"><span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 17v3h16v-3"/></svg>Импортировать .ics</span><input type="file" id="universityIcsInput" accept=".ics,text/calendar,application/ics" /></label>
       </details>
       <div class="uni-import-help" id="universityImportStatus">Расписание ещё не подключено.</div>
       <div class="form-actions"><button class="danger-button" type="button" id="clearUniversityScheduleBtn">Удалить расписание</button><span></span><button class="secondary-button" type="button" id="cancelUniversitySetup">Закрыть</button></div>
@@ -239,7 +237,7 @@
       <div class="grabber"></div>
       <header class="sheet-header"><div><p class="eyebrow" id="universityEventKicker">ПАРА</p><h2 id="universityEventTitle">—</h2></div><button class="icon-btn ghost" id="closeUniversityEvent" type="button" aria-label="Закрыть">×</button></header>
       <div class="uni-event-details" id="universityEventDetails"></div>
-      <div class="stack-buttons"><button class="primary-button wide" id="addTaskFromUniversityEventBtn" type="button">＋ Поставить задачу к этой паре</button><button class="secondary-button wide" id="openReaFromEventBtn" type="button">🌐 Открыть расписание РЭУ</button></div>
+      <div class="stack-buttons"><button class="primary-button wide" id="addTaskFromUniversityEventBtn" type="button">＋ Поставить задачу к этой паре</button><button class="secondary-button wide" id="openReaFromEventBtn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Открыть расписание РЭУ</span></button></div>
     </section>
   </div>
 
@@ -284,6 +282,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=12.0.10" defer></script>
+  <script src="app.js?v=12.1.0" defer></script>
 </body>
 </html>

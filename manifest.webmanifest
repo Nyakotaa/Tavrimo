@@ -1,14 +1,14 @@
 {
-  "name": "Tavrimo — расписание РЭУ и планировщик",
+  "name": "Tavrimo — планировщик студенческой жизни",
   "short_name": "Tavrimo",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4f5f7",
-  "theme_color": "#f4f5f7",
-  "description": "Расписание РЭУ с автоматической синхронизацией + ручной планировщик задач, работающий офлайн.",
+  "background_color": "#151A17",
+  "theme_color": "#151A17",
+  "description": "Расписание университета, учебные задачи и личное планирование в одном PWA-приложении.",
   "id": "./tavrimo",
   "categories": [
     "productivity",

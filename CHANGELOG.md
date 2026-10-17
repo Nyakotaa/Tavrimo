@@ -1,3 +1,11 @@
+## 12.1.0 — Campus Editorial Redesign
+
+- Обновлена визуальная система, типографика и мобильная композиция экранов.
+- Добавлен центрированный текстовый логотип TAVRIMO.
+- Навигация и действия переведены на согласованные SVG-иконки.
+- Улучшена читаемость расписания, задач и элементов управления.
+- Сохранена существующая логика; известные вопросы синхронизации не считаются исправленными этим релизом.
+
 ## 12.0.10 — release validation alignment
 
 - Retained the REA search-first sync flow introduced in 12.0.9; no speculative changes were made to the live portal interaction.
