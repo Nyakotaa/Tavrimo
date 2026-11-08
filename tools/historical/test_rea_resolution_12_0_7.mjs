@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const src = fs.readFileSync(new URL('../sync-service/server.mjs', import.meta.url), 'utf8');
+assert.match(src, /async function tryDirectGroupUrl\(page, group\)/);
+assert.match(src, /\$\{UPSTREAM\}\?q=\$\{encodeURIComponent\(variant\)\}/);
+assert.match(src, /function clickExactGroupText\(page, group\)/);
+assert.match(src, /function clickFirstLikelyGroupResult\(page, group\)/);
+assert.match(src, /const renderedEvents = parseScheduleText\(bodyBeforeExport\)/);
+assert.match(src, /REA_RENDERED_PRIMARY/);
+assert.doesNotMatch(src, /if \(searched\) \{\s*await clickPortalRefresh/);
+const sample = `15.14Д-ГГ04/266 РАСПИСАНИЕ ЗАНЯТИЙ ПОНЕДЕЛЬНИК, 28.09.2026 1 пара 2 пара 11:50 13:20 Теория государства и права Практическое занятие 4 корпус - 103, пл. Основная 4 пара 14:00 15:30 Экономическая теория Практическое занятие 4 корпус - 302, пл. Основная ВТОРНИК, 29.09.2026 1 пара 08:30 10:00 Физическая культура и спорт Лекция 2 корпус - 137, пл. Основная 2 пара 10:10 11:40 История Практическое занятие 4 корпус - 205, пл. Основная`;
+assert.ok(/ПОНЕДЕЛЬНИК/.test(sample) && /11:50 13:20/.test(sample));
+console.log('REA resolution 12.0.7 tests passed.');

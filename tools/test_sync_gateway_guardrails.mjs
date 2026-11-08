@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const server = fs.readFileSync(new URL('../sync-service/server.mjs', import.meta.url), 'utf8');
+assert.match(server, /const MAX_CACHE_ENTRIES = 200/);
+assert.match(server, /const MAX_RATE_LIMIT_ENTRIES = 10_000/);
+assert.match(server, /const ip = String\(req\.ip \|\| req\.socket\.remoteAddress/);
+assert.doesNotMatch(server, /req\.headers\[['"]x-forwarded-for['"]\]/, 'Rate limiting must not trust raw X-Forwarded-For');
+assert.match(server, /Access-Control-Allow-Origin', '\*'/);
+assert.match(server, /app\.get\('\/api\/rea\/ready'/);
+assert.match(server, /status: 'alive'/);
+assert.match(server, /currentBrowser\.isConnected\(\)/, 'A disconnected browser must not be reused');
+console.log('Sync Gateway guardrail tests passed.');

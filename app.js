@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.1.0';
+  const APP_VERSION = '12.1.1';
   const SCHEMA_VERSION = 16;
   const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [
@@ -1372,16 +1372,41 @@
     downloadBackup(json, fileName);
   }
 
+  function parseBackupData(serialized) {
+    const raw = JSON.parse(String(serialized || ''));
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.tasks) || raw.tasks.length > 10_000) {
+      throw new Error('invalid backup');
+    }
+    const parsed = normalizeData(raw);
+    if (!parsed.tasks.length && raw.tasks.length) throw new Error('invalid tasks');
+    return parsed;
+  }
+
   function importData(file) {
     if (file.size > 2_000_000) { showToast('Резервная копия слишком большая.'); return; }
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const raw = JSON.parse(String(reader.result || ''));
-        if (!raw || typeof raw !== 'object' || !Array.isArray(raw.tasks) || raw.tasks.length > 10_000) throw new Error('invalid');
-        const parsed = normalizeData(raw);
-        if (!parsed.tasks.length && raw.tasks.length) throw new Error('invalid tasks');
-        data = parsed; saveData(); closeModal('settingsSheetBackdrop'); renderAll(); showToast('Данные импортированы.');
+        const parsed = parseBackupData(String(reader.result || ''));
+        const taskCount = parsed.tasks.length;
+        const accepted = confirm(
+          `Импорт заменит текущие задачи, настройки, статистику и локальное расписание. ` +
+          `Перед продолжением сохрани текущие данные через «Настройки → Экспортировать». ` +
+          `В выбранной копии задач: ${taskCount}. Продолжить?`
+        );
+        if (!accepted) { showToast('Импорт отменён. Текущие данные сохранены.'); return; }
+
+        // Keep the current in-memory state if LocalStorage rejects the replacement (for example, quota exceeded).
+        const previousData = data;
+        data = parsed;
+        if (!saveData()) {
+          data = previousData;
+          renderAll();
+          return;
+        }
+        closeModal('settingsSheetBackdrop');
+        renderAll();
+        showToast('Данные импортированы.');
       } catch {
         showToast('Не удалось прочитать эту резервную копию.');
       }
@@ -1692,6 +1717,7 @@
     getPlanHealth,
     parseUniversityIcs,
     parseIcsDateTime,
+    parseBackupData,
     normalizeUniversity,
     extractGroupCode,
     universityConflict,

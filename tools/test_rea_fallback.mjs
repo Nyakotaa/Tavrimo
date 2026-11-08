@@ -36,5 +36,7 @@ assert.match(server, /11:50.*13:20/);
 assert.match(server, /const url = `\$\{UPSTREAM\}\?q=\$\{encodeURIComponent\(variant\)\}`/);
 assert.match(server, /REA_DIRECT_OK/);
 assert.match(server, /REA_RENDERED_WEEK_FALLBACK/);
-assert.match(server, /REA_SYNC_FALLBACK/);
+assert.match(server, /REA_SYNC_PARTIAL_REJECTED/);
+assert.match(server, /Последнее сохранённое расписание не заменено/);
+assert.doesNotMatch(server, /return scheduleEventsToIcs\(group, (?:events|renderedEvents)\)/, 'A visible one-week timetable must never be returned as a full calendar');
 console.log('REA fallback parser static tests passed.');

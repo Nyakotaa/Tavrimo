@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo Campus Editorial Redesign",
-  "version": "12.1.0",
-  "release": "12.1.0",
+  "version": "12.1.1",
+  "release": "12.1.1",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -27,10 +27,17 @@
     "canonical timetable page retry",
     "expanded and login-safe search field detection",
     "REA search diagnostics",
-    "CI validation aligned with current PWA icon and current release"
+    "CI validation aligned with current PWA icon and current release",
+    "backup import confirmation before replacing local data",
+    "transactional in-memory rollback when LocalStorage persistence fails",
+    "bounded Sync Gateway rate-limit and timetable caches",
+    "rate limiting based on trusted Express client IP",
+    "separate service liveness and Chromium readiness endpoints",
+    "reconnect disconnected Chromium browser on next request",
+    "reject visible-week-only timetable instead of overwriting saved full calendar"
   ],
   "source": "https://rasp.rea.ru/",
   "notes": "Retains the 12.0.9 search-first REA sync code. CI and regression tests now target the current release and use future dates for scheduling checks. Live Render and portal sync still require deployment-level verification.",
-  "status": "static-checks-passed-live-sync-unverified",
-  "summary": "Редизайн интерфейса Tavrimo: графитово-зелёная палитра, центрированный логотип, читаемая временная шкала и согласованная система компонентов."
+  "status": "reliability-hardening-static-checks-passed-live-sync-unverified",
+  "summary": "Релиз надёжности: защищённый импорт резервных копий, ограничение памяти Sync Gateway, проверка IP лимита и отказ от сохранения неполного недельного расписания как полного календаря."
 }

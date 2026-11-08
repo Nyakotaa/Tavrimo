@@ -151,7 +151,7 @@ body.modal-open{overflow:hidden}
 .compact-action.is-error{border-color:rgba(216,78,90,.28);color:var(--danger);background:var(--danger-soft)}
 
 
-/* Tavrimo 12.1.0 — Campus Utility / Editorial Planner design system */
+/* Tavrimo 12.1.1 — Campus Utility / Editorial Planner design system */
 html, body { background:var(--bg); color:var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .app-shell { background:var(--bg); }

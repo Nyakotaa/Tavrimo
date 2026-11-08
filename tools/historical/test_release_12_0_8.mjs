@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const server = fs.readFileSync(new URL('../sync-service/server.mjs', import.meta.url), 'utf8');
+const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const downloadStart = server.indexOf('async function downloadOfficialIcs(group)');
+const downloadEnd = server.indexOf("app.get('/api/rea/health'", downloadStart);
+const block = server.slice(downloadStart, downloadEnd);
+assert.ok(block.indexOf('const renderedEvents = parseScheduleText(bodyBeforeExport)') < block.indexOf('const rangeLabels = page.locator'), 'current week must be captured before all-time export attempt');
+assert.ok(block.indexOf('const rangeLabels = page.locator') < block.indexOf('if (renderedEvents.length) {\n      console.warn(`[REA_SYNC_WEEK_ONLY]'), 'all-time export attempt must happen before week-only fallback');
+assert.ok(block.includes('За всё время'), 'all-time range selector must remain');
+assert.ok(index.includes('app.js?v=12.0.8') && index.includes('style.css?v=12.0.8'), 'asset cache busting');
+assert.ok(sw.includes('tavrimo-v12.0.8-rea-all-time-calendar-export'), 'service worker cache version');
+assert.ok(app.includes("const APP_VERSION = '12.0.8'"), 'app version');
+console.log('Tavrimo 12.0.8 all-time calendar export regression tests: PASS');

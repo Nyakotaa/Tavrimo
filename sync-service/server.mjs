@@ -13,14 +13,17 @@ const UPSTREAM = 'https://rasp.rea.ru/';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const REQUEST_LIMIT_WINDOW = 60_000;
 const REQUEST_LIMIT = 20;
+const MAX_RATE_LIMIT_ENTRIES = 10_000;
+const MAX_CACHE_ENTRIES = 200;
+let lastRateLimitPruneAt = 0;
 
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  // Public, read-only timetable API: no cookies or credentials are accepted.
+  // A wildcard origin is intentional for GitHub Pages and other static PWA hosts.
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, If-None-Match');
   res.setHeader('Access-Control-Expose-Headers', 'ETag');
@@ -43,17 +46,56 @@ function allowedGroup(group) {
   return value.length >= 2 && value.length <= 80 && /^[0-9A-Za-zА-Яа-яЁё._/\\-\s]+$/.test(value);
 }
 
+function pruneRateLimitWindows(now) {
+  if (now - lastRateLimitPruneAt < REQUEST_LIMIT_WINDOW && ipWindows.size < MAX_RATE_LIMIT_ENTRIES) return;
+  for (const [ip, entry] of ipWindows) {
+    if (now - entry.start > REQUEST_LIMIT_WINDOW * 2) ipWindows.delete(ip);
+  }
+  while (ipWindows.size >= MAX_RATE_LIMIT_ENTRIES) {
+    const oldestIp = ipWindows.keys().next().value;
+    if (!oldestIp) break;
+    ipWindows.delete(oldestIp);
+  }
+  lastRateLimitPruneAt = now;
+}
+
 function rateLimit(req, res, next) {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+  // Express req.ip honours the configured trusted proxy chain; raw X-Forwarded-For is client-spoofable.
+  const ip = String(req.ip || req.socket.remoteAddress || 'unknown');
   const now = Date.now();
+  pruneRateLimitWindows(now);
   const current = ipWindows.get(ip) || { start: now, count: 0 };
   if (now - current.start > REQUEST_LIMIT_WINDOW) { current.start = now; current.count = 0; }
-  current.count += 1; ipWindows.set(ip, current);
+  current.count += 1;
+  ipWindows.delete(ip);
+  ipWindows.set(ip, current);
   if (current.count > REQUEST_LIMIT) return res.status(429).json({ error: 'Слишком много запросов. Попробуйте позже.' });
   next();
 }
 
+function rememberCacheEntry(key, entry) {
+  const now = Date.now();
+  for (const [cachedKey, cachedValue] of cache) {
+    if (now - cachedValue.fetchedAt > CACHE_TTL_MS) cache.delete(cachedKey);
+  }
+  cache.delete(key);
+  cache.set(key, entry);
+  while (cache.size > MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value);
+}
+
 async function getBrowser() {
+  if (browserPromise) {
+    const currentPromise = browserPromise;
+    try {
+      const currentBrowser = await currentPromise;
+      if (currentBrowser.isConnected()) return currentBrowser;
+      if (browserPromise === currentPromise) browserPromise = null;
+    } catch (error) {
+      if (browserPromise === currentPromise) browserPromise = null;
+      // A failed launch is retried once below; the original error is surfaced if retry also fails.
+    }
+  }
+
   if (!browserPromise) {
     browserPromise = chromium.launch({
       headless: true,
@@ -69,7 +111,12 @@ async function getBrowser() {
       ]
     }).catch((error) => { browserPromise = null; throw error; });
   }
-  return browserPromise;
+  const browser = await browserPromise;
+  if (!browser.isConnected()) {
+    browserPromise = null;
+    throw new Error('Chromium disconnected during startup.');
+  }
+  return browser;
 }
 
 async function clickIfVisible(locator) {
@@ -837,13 +884,10 @@ async function downloadOfficialIcs(group) {
 
     const visibleText = await page.locator('body').innerText().catch(() => '');
     const events = parseScheduleText(visibleText);
-    if (events.length) {
-      console.info(`[REA_SYNC_FALLBACK] group=${group} parsed=${events.length} events from rendered timetable; all-time export unavailable`);
-      return scheduleEventsToIcs(group, events);
-    }
-    if (renderedEvents.length) {
-      console.warn(`[REA_SYNC_WEEK_ONLY] group=${group} parsed=${renderedEvents.length}; portal all-time export was not available`);
-      return scheduleEventsToIcs(group, renderedEvents);
+    const partialCount = Math.max(events.length, renderedEvents.length);
+    if (partialCount) {
+      console.warn(`[REA_SYNC_PARTIAL_REJECTED] group=${group} parsed=${partialCount}; all-time export unavailable; cached full calendar will remain unchanged`);
+      throw new Error(`Не удалось получить полный экспорт расписания «За всё время». Портал показал только текущую неделю (${partialCount} занятий). Последнее сохранённое расписание не заменено; попробуйте обновить позже.`);
     }
 
     const title = await page.title().catch(() => '');
@@ -855,18 +899,31 @@ async function downloadOfficialIcs(group) {
 }
 
 app.get('/api/rea/health', (_req, res) => {
+  // Liveness only: Render must not restart the service just because Chromium has not been launched yet.
   const executablePath = chromium.executablePath();
   const executableExists = fs.existsSync(executablePath);
-  const ok = executableExists;
-  res.status(ok ? 200 : 503).json({
-    ok,
+  res.status(200).json({
+    ok: true,
+    status: 'alive',
     source: UPSTREAM,
     cacheTtlMinutes: CACHE_TTL_MS / 60000,
     runtime: 'playwright',
-    browserReady: Boolean(browserPromise),
-    executableExists,
-    executablePath
+    browserStarted: Boolean(browserPromise),
+    browserInstalled: executableExists
   });
+});
+
+app.get('/api/rea/ready', async (_req, res) => {
+  // Readiness is a separate active check: launch Chromium and verify that a browser context can be created.
+  try {
+    const browser = await getBrowser();
+    if (!browser.isConnected()) throw new Error('Chromium disconnected.');
+    const context = await browser.newContext();
+    await context.close();
+    return res.status(200).json({ ready: true, browserReady: true, source: UPSTREAM });
+  } catch (error) {
+    return res.status(503).json({ ready: false, browserReady: false, error: String(error?.message || 'Chromium is unavailable.') });
+  }
 });
 
 app.get('/api/rea/schedule', rateLimit, async (req, res) => {
@@ -879,6 +936,8 @@ app.get('/api/rea/schedule', rateLimit, async (req, res) => {
   res.set('X-Tavrimo-Refresh-Mode', force ? 'force' : 'normal');
   const cached = cache.get(key);
   if (!force && cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+    // Refresh insertion order so frequently used groups stay in the bounded cache.
+    cache.delete(key); cache.set(key, cached);
     if (req.headers['if-none-match'] === cached.etag) return res.status(304).end();
     res.set('ETag', cached.etag);
     return res.json({ ics: cached.ics, hash: cached.etag, fetchedAt: new Date(cached.fetchedAt).toISOString(), source: UPSTREAM });
@@ -891,7 +950,7 @@ app.get('/api/rea/schedule', rateLimit, async (req, res) => {
       if (!/^BEGIN:VCALENDAR/i.test(ics.trim())) throw new Error('Получен ответ не в формате iCalendar.');
       const etag = `"${hash(ics)}"`;
       const fetchedAt = Date.now();
-      cache.set(key, { ics, etag, fetchedAt });
+      rememberCacheEntry(key, { ics, etag, fetchedAt });
       return { ics, etag, fetchedAt };
     })();
     if (!existing) inflightByGroup.set(key, fetchPromise);
