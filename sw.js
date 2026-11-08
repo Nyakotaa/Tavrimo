@@ -1,4 +1,4 @@
-const VERSION = 'tavrimo-v12.1.1-reliability';
+const VERSION = 'tavrimo-v12.1.2-rea-403-diagnostics';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './404.html',
   './assets/icons/apple-touch-icon-v17.png', './assets/icons/icon-180.png',

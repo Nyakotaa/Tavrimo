@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo Campus Editorial Redesign",
-  "version": "12.1.1",
-  "release": "12.1.1",
+  "version": "12.1.2",
+  "release": "12.1.2",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -34,10 +34,14 @@
     "rate limiting based on trusted Express client IP",
     "separate service liveness and Chromium readiness endpoints",
     "reconnect disconnected Chromium browser on next request",
-    "reject visible-week-only timetable instead of overwriting saved full calendar"
+    "reject visible-week-only timetable instead of overwriting saved full calendar",
+    "classify upstream rasp.rea.ru HTTP 403 separately from missing search controls",
+    "stop browser automation immediately when the official portal denies the page request",
+    "apply a bounded five-minute cooldown after upstream HTTP 403 to avoid repeated denied requests",
+    "show a clear client-side explanation and preserve existing timetable on upstream denial"
   ],
   "source": "https://rasp.rea.ru/",
   "notes": "Retains the 12.0.9 search-first REA sync code. CI and regression tests now target the current release and use future dates for scheduling checks. Live Render and portal sync still require deployment-level verification.",
-  "status": "reliability-hardening-static-checks-passed-live-sync-unverified",
-  "summary": "Релиз надёжности: защищённый импорт резервных копий, ограничение памяти Sync Gateway, проверка IP лимита и отказ от сохранения неполного недельного расписания как полного календаря."
+  "status": "local-403-diagnostics-passed-live-portal-access-unverified",
+  "summary": "Диагностический релиз синхронизации: распознаёт HTTP 403 от rasp.rea.ru, прекращает бесполезные повторы, временно ограничивает повторные запросы и сохраняет последнее загруженное расписание."
 }

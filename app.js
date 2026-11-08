@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.1.1';
+  const APP_VERSION = '12.1.2';
   const SCHEMA_VERSION = 16;
   const STORAGE_KEY = 'tavrimo-planner-v16';
   const LEGACY_KEYS = [
@@ -930,8 +930,13 @@
           return { ok: true, changed: false };
         }
         if (!response.ok) {
+          let payload = null;
+          try { payload = await response.json(); } catch {}
+          if (payload?.code === 'REA_UPSTREAM_FORBIDDEN') {
+            throw new Error('Портал РЭУ отклонил автоматический запрос (HTTP 403). Это не ошибка номера группы. Сохранённые данные расписания не изменены; временно используйте импорт официального .ics.');
+          }
           let detail = `Сервер синхронизации ответил ${response.status}`;
-          try { const payload = await response.json(); if (payload?.error) detail += ` · ${payload.error}`; } catch {}
+          if (payload?.error) detail += ` · ${payload.error}`;
           throw new Error(detail);
         }
         const type = response.headers.get('content-type') || '';

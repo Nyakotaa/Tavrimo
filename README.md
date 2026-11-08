@@ -1,4 +1,4 @@
-# Tavrimo 12.1.1 — Reliability Hardening
+# Tavrimo 12.1.2 — Reliability Hardening
 
 Релиз исправляет безопасность импорта резервных копий и устойчивость Sync Gateway. См. `RELEASE_NOTES_12.1.1_RU.md`.
 

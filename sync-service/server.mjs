@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { createReaHttpError } from './rea-http-errors.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,8 @@ const REQUEST_LIMIT_WINDOW = 60_000;
 const REQUEST_LIMIT = 20;
 const MAX_RATE_LIMIT_ENTRIES = 10_000;
 const MAX_CACHE_ENTRIES = 200;
+const REA_FORBIDDEN_COOLDOWN_MS = 5 * 60 * 1000;
+let reaForbiddenUntil = 0;
 let lastRateLimitPruneAt = 0;
 
 const app = express();
@@ -527,6 +530,19 @@ async function findGroupInResults(page, group) {
 }
 
 
+async function throwIfReaHttpError(page, response, stage) {
+  let status = Number(response?.status?.() || 0);
+  // Some nginx denial pages are rendered as a normal document response. Detect the
+  // explicit denial page too, so it is not misreported as a missing search selector.
+  if (status !== 403) {
+    const title = await page.title().catch(() => '');
+    const body = cleanText(await page.locator('body').innerText().catch(() => '')).slice(0, 500);
+    if (/403\s+Forbidden/i.test(`${title} ${body}`) && /nginx/i.test(`${title} ${body}`)) status = 403;
+  }
+  const error = createReaHttpError(status, response?.url?.() || page.url(), stage);
+  if (error) throw error;
+}
+
 async function tryDirectGroupUrl(page, group) {
   const raw = String(group || '').trim();
   const variants = [
@@ -538,7 +554,8 @@ async function tryDirectGroupUrl(page, group) {
   for (const variant of [...new Set(variants)].slice(0, 4)) {
     const url = `${UPSTREAM}?q=${encodeURIComponent(variant)}`;
     try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await throwIfReaHttpError(page, response, 'открытии ссылки поиска группы');
       await page.waitForLoadState('networkidle', { timeout: 12_000 }).catch(() => {});
       await page.waitForTimeout(1_000);
       const directBody = cleanText(await page.locator('body').innerText().catch(() => ''));
@@ -553,6 +570,7 @@ async function tryDirectGroupUrl(page, group) {
         return true;
       }
     } catch (error) {
+      if (error?.code === 'REA_UPSTREAM_FORBIDDEN') throw error;
       console.warn(`[REA_DIRECT_FAIL] group=${group} variant=${variant} error=${String(error?.message || error)}`);
     }
   }
@@ -705,7 +723,8 @@ async function searchForGroup(page, group) {
   // the canonical timetable entry point once before deciding the search field is missing.
   if (!input) {
     console.warn(`[REA_SEARCH_INPUT_RETRY] group=${group} url=${page.url()}`);
-    await page.goto(UPSTREAM, { waitUntil: 'domcontentloaded', timeout: 45_000 }).catch(() => {});
+    const retryResponse = await page.goto(UPSTREAM, { waitUntil: 'domcontentloaded', timeout: 45_000 }).catch(() => null);
+    await throwIfReaHttpError(page, retryResponse, 'повторном открытии портала');
     await page.waitForLoadState('networkidle', { timeout: 12_000 }).catch(() => {});
     await page.waitForTimeout(500);
     await selectGroupTab(page);
@@ -807,7 +826,8 @@ async function downloadOfficialIcs(group) {
   page.on('response', captureResponse);
 
   try {
-    await page.goto(UPSTREAM, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    const landingResponse = await page.goto(UPSTREAM, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await throwIfReaHttpError(page, landingResponse, 'открытии главной страницы портала');
     await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
 
     // Try the requested group using several strategies. Do not click the portal's own
@@ -942,6 +962,16 @@ app.get('/api/rea/schedule', rateLimit, async (req, res) => {
     res.set('ETag', cached.etag);
     return res.json({ ics: cached.ics, hash: cached.etag, fetchedAt: new Date(cached.fetchedAt).toISOString(), source: UPSTREAM });
   }
+  if (reaForbiddenUntil > now) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((reaForbiddenUntil - now) / 1000));
+    res.set('Retry-After', String(retryAfterSeconds));
+    return res.status(503).json({
+      error: 'Портал РЭУ ранее отклонил автоматический запрос (HTTP 403). Повторная проверка временно приостановлена; последнее сохранённое расписание в Tavrimo не изменяется.',
+      code: 'REA_UPSTREAM_FORBIDDEN',
+      upstreamStatus: 403,
+      retryAfterSeconds
+    });
+  }
 
   try {
     const existing = inflightByGroup.get(key);
@@ -961,11 +991,21 @@ app.get('/api/rea/schedule', rateLimit, async (req, res) => {
     return res.json({ ics: fresh.ics, hash: fresh.etag, fetchedAt: new Date(fresh.fetchedAt).toISOString(), source: UPSTREAM });
   } catch (error) {
     if (inflightByGroup.get(key)) inflightByGroup.delete(key);
-    console.error(`[REA_SYNC_502] group=${group} error=${String(error?.stack || error?.message || error)}`);
-    return res.status(502).json({
+    const isForbidden = error?.code === 'REA_UPSTREAM_FORBIDDEN';
+    if (isForbidden) reaForbiddenUntil = Date.now() + REA_FORBIDDEN_COOLDOWN_MS;
+    const logTag = isForbidden ? 'REA_UPSTREAM_FORBIDDEN' : 'REA_SYNC_502';
+    console.error(`[${logTag}] group=${group} error=${String(error?.stack || error?.message || error)}`);
+    const payload = {
       error: String(error?.message || 'Не удалось получить расписание РЭУ.'),
-      code: 'REA_UPSTREAM_UNAVAILABLE'
-    });
+      code: error?.code || 'REA_UPSTREAM_UNAVAILABLE'
+    };
+    if (isForbidden) {
+      const retryAfterSeconds = Math.ceil(REA_FORBIDDEN_COOLDOWN_MS / 1000);
+      res.set('Retry-After', String(retryAfterSeconds));
+      payload.upstreamStatus = 403;
+      payload.retryAfterSeconds = retryAfterSeconds;
+    }
+    return res.status(502).json(payload);
   }
 });
 

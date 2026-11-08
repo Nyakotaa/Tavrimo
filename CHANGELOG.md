@@ -1,3 +1,11 @@
+## 12.1.2 — REA 403 diagnostics and safe retry behaviour
+
+- HTTP 403 from the official rasp.rea.ru page is now detected from the main navigation response before DOM search begins.
+- The gateway stops immediately instead of retrying the root page and direct `?q=` URLs after an explicit denial.
+- A five-minute in-memory cooldown prevents repeated requests to a source that has just returned HTTP 403; `Retry-After` is included in the response.
+- Tavrimo explains that the denial is from the upstream portal, not an invalid group number, and that the previously saved timetable remains unchanged.
+- Added focused regression coverage for upstream HTTP status classification and the client-facing message.
+
 ## 12.1.1 — Reliability hardening
 
 - Импорт резервной копии теперь требует явного подтверждения перед заменой текущих данных.
