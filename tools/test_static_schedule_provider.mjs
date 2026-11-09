@@ -25,13 +25,14 @@ assert.ok(t, 'QA hooks must be available');
 const manifest = t.normalizeScheduleSnapshotManifest({
   schemaVersion: 1,
   snapshots: [
-    { groupCode: '15.14Д-ГГ04/266', file: 'data/schedules/rea-group.ics', revision: 'r1', capturedAt: '2026-11-09T12:00:00+03:00', source: 'Vuzio · календарный снимок', minimumEvents: 2 },
+    { groupCode: '15.14Д-ГГ04/266', aliases: ['15.14Д-ГГ04/26б'], file: 'data/schedules/rea-group.ics', revision: 'r1', capturedAt: '2026-11-09T12:00:00+03:00', source: 'Vuzio · календарный снимок', minimumEvents: 2 },
     { groupCode: '24.01/01', file: '../private.ics', revision: 'bad', capturedAt: '2026-11-09T12:00:00+03:00' },
     { groupCode: '15.14Д-ГГ04/266', file: 'data/schedules/duplicate.ics', revision: 'r2', capturedAt: '2026-11-09T12:00:00+03:00' }
   ]
 });
 assert.equal(manifest.snapshots.length, 1, 'Manifest must reject traversal and duplicate group mappings');
 assert.equal(t.findScheduleSnapshot(manifest, ' 15.14д-ГГ04/266 '), manifest.snapshots[0], 'Group matching should be case/whitespace insensitive');
+assert.equal(t.findScheduleSnapshot(manifest, '15.14Д-ГГ04/26б'), manifest.snapshots[0], 'Explicit aliases should map a known spelling variant to the same calendar');
 assert.equal(t.findScheduleSnapshot(manifest, '15.14Д-ГГ04/999'), null, 'Unknown group must not receive another group’s file');
 
 const ics = [
@@ -68,23 +69,28 @@ assert.throws(() => t.parseStaticScheduleSnapshot(ics.replace('UID:rea-2', 'UID:
 assert.throws(() => t.parseStaticScheduleSnapshot(ics.replace('DTSTART;TZID=Europe/Moscow:20261111T101000', 'DTSTART;VALUE=DATE:20261111'), '15.14Д-ГГ04/266', manifest.snapshots[0]), /не все занятия/i, 'Unsupported all-day lessons must prevent partial import');
 
 const calls = [];
+const externalManifest = { schemaVersion: 1, snapshots: [{
+  groupCode: '24.01/01', file: 'data/schedules/rea-group.ics', revision: 'r1',
+  capturedAt: '2026-11-09T12:00:00+03:00', source: 'Vuzio · календарный снимок',
+  minimumEvents: 2, calendarNameIncludes: 'РЭУ · 15.14Д-ГГ04/266'
+}] };
 const fetchImpl = async (url, options) => {
   calls.push({ url: String(url), options });
   if (String(url).endsWith('/data/schedules/manifest.json')) {
-    return { ok: true, status: 200, json: async () => ({ schemaVersion: 1, snapshots: [{ ...manifest.snapshots[0], calendarNameIncludes: '15.14Д-ГГ04/266' }] }) };
+    return { ok: true, status: 200, json: async () => externalManifest };
   }
   if (String(url).includes('/data/schedules/rea-group.ics?v=r1')) {
     return { ok: true, status: 200, text: async () => ics };
   }
   return { ok: false, status: 404 };
 };
-const loaded = await t.loadStaticScheduleSnapshot('15.14Д-ГГ04/266', { fetchImpl, baseHref: 'https://example.github.io/tavrimo/' });
+const loaded = await t.loadStaticScheduleSnapshot('24.01/01', { fetchImpl, baseHref: 'https://example.github.io/tavrimo/' });
 assert.equal(loaded.found, true);
 assert.equal(loaded.parsed.events.length, 2);
 assert.equal(calls[0].url, 'https://example.github.io/tavrimo/data/schedules/manifest.json', 'Asset URLs must respect GitHub Pages project base path');
 assert.equal(calls[1].url, 'https://example.github.io/tavrimo/data/schedules/rea-group.ics?v=r1', 'Revision must be included in snapshot URL for cache invalidation');
 
-const missing = await t.loadStaticScheduleSnapshot('24.01/01', { fetchImpl, baseHref: 'https://example.github.io/tavrimo/' });
+const missing = await t.loadStaticScheduleSnapshot('24.01/02', { fetchImpl, baseHref: 'https://example.github.io/tavrimo/' });
 assert.equal(missing.found, false, 'Unmapped group must fall back to the existing live provider');
 
 const normalizedSnapshot = t.normalizeUniversity({ groupCode: '15.14Д-ГГ04/266', source: 'Vuzio', syncMode: 'snapshot', snapshotCapturedAt: '2026-11-09T12:00:00+03:00', snapshotRevision: 'r1', events: parsed.events });

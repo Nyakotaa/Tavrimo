@@ -1,4 +1,4 @@
-const VERSION = 'tavrimo-v12.1.3-static-schedule-provider-vuzio-20261109';
+const VERSION = 'tavrimo-v12.1.5-ics-settings-import-20261109';
 const SHELL = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './404.html', './data/schedules/manifest.json', './data/schedules/rea-15-14d-gg04-266.ics?v=vuzio-20261109-071932z-46-events',
   './assets/icons/apple-touch-icon-v17.png', './assets/icons/icon-180.png',

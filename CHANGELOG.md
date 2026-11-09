@@ -1,6 +1,23 @@
-## QA maintenance — 9 November 2026 (no app feature/version change)
+## 12.1.5 — ICS import and demo group matching hotfix (9 November 2026)
 
-- Added a single local regression runner: `node tools/run_regression.mjs` (11 current tests).
+- Fixed Settings → Import so the file picker accepts both `.json` backups and `.ics` calendars, routing each format to its own importer.
+- Added explicit Latin-keyboard/Cyrillic normalization for group identifiers so the built-in `15.14Д-ГГ04/266` snapshot is found for common typed variants.
+- Manual ICS imports are now treated as local schedules and no longer trigger automatic retries against the blocked REA portal.
+- Improved ICS import feedback, group-name consistency checks, UTF-8 reading, and modal cleanup.
+- Bumped the application and Service Worker cache version to 12.1.5 to prevent stale 12.1.4 assets from continuing to run.
+
+## 12.1.4 — bundled demo timetable hotfix (9 November 2026)
+
+- Fixed the demo group's HTTP 503/Offline symptom: its 46-event Vuzio ICS is embedded in `app.js`, so the known group is rendered without requesting Sync Gateway or static assets.
+- The local snapshot is now resolved before the previous live-sync cooldown and is initialized even when `navigator.onLine` reports offline.
+- Added the explicit `15.14Д-ГГ04/26б` alias found in the calendar title, alongside the student's `15.14Д-ГГ04/266` group code.
+- Kept the existing live Sync Gateway path for all other groups.
+- Added an integration regression that forces the gateway to return HTTP 503 and verifies 46 lessons load with zero network calls.
+- Current regression suite: 14/14 tests.
+
+## QA maintenance — 9 November 2026
+
+- Added a single local regression runner: `node tools/run_regression.mjs` (14 current tests).
 - Added a cross-file version consistency check for app.js, HTML cache-busting URLs, Service Worker, VERSION and release manifest.
 - Moved the obsolete 12.1.1 release assertion into `tools/historical/`; current test runs no longer include stale version expectations.
 - Added `npm test` to the Sync Gateway package as a shortcut to the same regression runner.

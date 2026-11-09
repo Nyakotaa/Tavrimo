@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.1.3';
+  const APP_VERSION = '12.1.5';
   const SCHEMA_VERSION = 17;
   const STORAGE_KEY = 'tavrimo-planner-v17';
   const LEGACY_KEYS = [
@@ -335,8 +335,22 @@
     return { calendarName, events };
   }
 
+  // Built-in fallback for the demo group. This copy is intentional: the group must work
+  // even when static asset paths or the Sync Gateway are unavailable on the hosting platform.
+  const BUILTIN_SCHEDULE_SNAPSHOT = Object.freeze({"groupCode":"15.14Д-ГГ04/266","aliases":["15.14Д-ГГ04/26б"],"file":"data/schedules/rea-15-14d-gg04-266.ics","revision":"vuzio-20261109-071932z-46-events","capturedAt":"2026-11-09T10:19:32+03:00","source":"Vuzio · календарный снимок","calendarNameIncludes":"Расписание 15.14Д-ГГ04/26б","minimumEvents":46,"coverageStart":"2026-11-09","coverageEnd":"2026-11-23"});
+  const BUILTIN_SCHEDULE_ICS = "BEGIN:VCALENDAR\nPRODID:-//Vuzio//RANEPA schedule//RU\nVERSION:2.0\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nX-WR-CALNAME:Расписание 15.14Д-ГГ04/26б\nX-WR-TIMEZONE:Europe/Moscow\nREFRESH-INTERVAL;VALUE=DURATION:PT4H\nX-PUBLISHED-TTL:PT4H\nBEGIN:VEVENT\nUID:6bbda23682db6bc772fa577a@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T053000Z\nDTEND:20261109T070000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:436e3a96f0dca416f91a7b1e@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T071000Z\nDTEND:20261109T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:5b451ae2f37ed567b9ed3efa@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T085000Z\nDTEND:20261109T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:bd12338b053cf993c492a0d5@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T110000Z\nDTEND:20261109T123000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:811b8f3da8e36811732ba482@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261110T071000Z\nDTEND:20261110T084000Z\nSEQUENCE:0\nSUMMARY:Иностранный язык\nLOCATION:104 · 4 корпус\nDESCRIPTION:Практическое занятие\\n104 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:4cdaf378747fae9c7d6b2b2f@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261110T085000Z\nDTEND:20261110T102000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:305* · 4 корпус\nDESCRIPTION:Практическое занятие\\n305* · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:0594af2e39377632da193b0d@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261110T110000Z\nDTEND:20261110T123000Z\nSEQUENCE:0\nSUMMARY:Экономическая теория\nLOCATION:401 · 4 корпус\nDESCRIPTION:Практическое занятие\\n401 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:6012cae2400963f326f1dac7@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261111T071000Z\nDTEND:20261111T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:c581269fcac872bd6d1c6bd2@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261111T110000Z\nDTEND:20261111T123000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:aa86adc17446a46553ddcb77@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261111T124000Z\nDTEND:20261111T141000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:405 · 4 корпус\nDESCRIPTION:Практическое занятие\\n405 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:310be8deb4b22a2bea705d46@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T053000Z\nDTEND:20261112T070000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:304 · 4 корпус\nDESCRIPTION:Практическое занятие\\n304 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:25c1efca92b77e9b3506c200@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T085000Z\nDTEND:20261112T102000Z\nSEQUENCE:0\nSUMMARY:Тренинг профессионального и личност\n ного роста\nLOCATION:405 · 4 корпус\nDESCRIPTION:Практическое занятие\\n405 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:d6180665dcc28e63593b9434@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T110000Z\nDTEND:20261112T123000Z\nSEQUENCE:0\nSUMMARY:Технологии командообразования\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:d5b67312cc48bb695811f7ef@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T124000Z\nDTEND:20261112T141000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:404 · 4 корпус\nDESCRIPTION:Практическое занятие\\n404 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:39d80b5181828e054f2a2e09@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261113T071000Z\nDTEND:20261113T084000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:507*** · 6 корпус\nDESCRIPTION:Практическое занятие\\n507*** · 6 корпу\n с\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:cfbc38fa014809c7edaaf264@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261113T110000Z\nDTEND:20261113T123000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:103 · 4 корпус\nDESCRIPTION:Практическое занятие\\n103 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:20d755b24a3a4ecdcacf41f9@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261113T124000Z\nDTEND:20261113T141000Z\nSEQUENCE:0\nSUMMARY:Иностранный язык\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:0c13b8265a012a954af397f7@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261114T053000Z\nDTEND:20261114T070000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:306 · 4 корпус\nDESCRIPTION:Практическое занятие\\n306 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:355db9728fef00cf06aa741a@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261114T071000Z\nDTEND:20261114T084000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:b1991d0059e0835538ad679f@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261114T085000Z\nDTEND:20261114T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:80ae5be4f8bad222b68af35c@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T071000Z\nDTEND:20261116T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:80ae5be4f8bad222b68af35c-1@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T071000Z\nDTEND:20261116T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Внуков\n а Е. Ю.\nLOCATION:с/з №4 · 4 корпус\nDESCRIPTION:Внукова Елена Юрьевна\\nПрактическ\n ое занятие\\nс/з №4 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:69a7234ec4638524ea77a611@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T085000Z\nDTEND:20261116T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:7310e41e2575bcadf4bea041@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T110000Z\nDTEND:20261116T123000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:d915d94088b51f5bedd5fef0@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T053000Z\nDTEND:20261117T070000Z\nSEQUENCE:0\nSUMMARY:Теория государства и права\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:01cced39f492fe6595566600@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T071000Z\nDTEND:20261117T084000Z\nSEQUENCE:0\nSUMMARY:Теория государства и права\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:a8d79b6f6a87c072cb86ae81@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T110000Z\nDTEND:20261117T123000Z\nSEQUENCE:0\nSUMMARY:Экономическая теория\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:802b793d54310572fda51d7d@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T124000Z\nDTEND:20261117T141000Z\nSEQUENCE:0\nSUMMARY:Экономическая теория\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:fbdc9f6777e36fefb97e1223@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T053000Z\nDTEND:20261118T070000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Внуков\n а Е. Ю.\nLOCATION:с/з №4 · 4 корпус\nDESCRIPTION:Внукова Елена Юрьевна\\nПрактическ\n ое занятие\\nс/з №4 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:8f91c68d9aed6e8455f27fe1@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T071000Z\nDTEND:20261118T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Внуков\n а Е. Ю.\nLOCATION:с/з №4 · 4 корпус\nDESCRIPTION:Внукова Елена Юрьевна\\nПрактическ\n ое занятие\\nс/з №4 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:3272b1b47fb21e20eb6f4faa@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T085000Z\nDTEND:20261118T102000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:da3a31a608be05bb5a40f3e9@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T110000Z\nDTEND:20261118T123000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:ef7646852dc5801cf6af39bf@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261119T053000Z\nDTEND:20261119T070000Z\nSEQUENCE:0\nSUMMARY:Картины мира\nLOCATION:401 · 4 корпус\nDESCRIPTION:Практическое занятие\\n401 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:9f573130b5b4205257e49818@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261119T085000Z\nDTEND:20261119T102000Z\nSEQUENCE:0\nSUMMARY:Тренинг профессионального и личност\n ного роста\nLOCATION:404 · 4 корпус\nDESCRIPTION:Практическое занятие\\n404 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:3c62da827463f5239358e184@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261119T110000Z\nDTEND:20261119T123000Z\nSEQUENCE:0\nSUMMARY:Технологии командообразования\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:7ee27cd3f2d9923a51c321eb@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261120T053000Z\nDTEND:20261120T070000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:5a294715a5b73f97c515f8f0@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261120T071000Z\nDTEND:20261120T084000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:ba6b4c2448f6c661f8d3be46@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261120T085000Z\nDTEND:20261120T102000Z\nSEQUENCE:0\nSUMMARY:Иностранный язык\nLOCATION:404 · 4 корпус\nDESCRIPTION:Практическое занятие\\n404 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:f003aa3f9be673ddfa399f65@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T053000Z\nDTEND:20261121T070000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:a92892d4c9966b633d4465f4@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T071000Z\nDTEND:20261121T084000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:f031659a0ec4318f44b5db21@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T085000Z\nDTEND:20261121T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:3521046276d4d9aa068fd515@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T110000Z\nDTEND:20261121T123000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:549739a2db743e2ee285e9f5@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T071000Z\nDTEND:20261123T084000Z\nSEQUENCE:0\nSUMMARY:Теория государства и права\nLOCATION:403 · 4 корпус\nDESCRIPTION:Практическое занятие\\n403 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:bdec5a7581bf14dead501858@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T085000Z\nDTEND:20261123T102000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:9a0145579e1c13bd68cc4587@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T110000Z\nDTEND:20261123T123000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:1fe0f079923eaa0be4cf84e2@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T124000Z\nDTEND:20261123T141000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nEND:VCALENDAR\n";
+
   function normalizeScheduleSnapshotGroup(value) {
-    return String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/g, '');
+    const text = String(value || '').normalize('NFKC').trim().toLocaleLowerCase('ru-RU')
+      .replace(/ё/g, 'е')
+      .replace(/[\u2010-\u2015\u2212]/g, '-')
+      .replace(/[\u200b-\u200d\ufeff]/g, '')
+      .replace(/\s+/g, '');
+    // Group codes are often typed with an English keyboard even when the official
+    // timetable uses Cyrillic letters. Canonicalize unambiguous transliteration
+    // and visual lookalikes so the bundled group is still recognized.
+    const latinToCyrillic = { a: 'а', b: 'б', c: 'с', d: 'д', e: 'е', g: 'г', h: 'н', k: 'к', m: 'м', o: 'о', p: 'р', t: 'т', x: 'х', y: 'у' };
+    return text.replace(/[a-z]/g, (letter) => latinToCyrillic[letter] || letter);
   }
 
   function normalizeScheduleSnapshotManifest(raw) {
@@ -349,16 +363,22 @@
       if (!item || typeof item !== 'object') continue;
       const groupCode = String(item.groupCode || '').trim().slice(0, 80);
       const groupKey = normalizeScheduleSnapshotGroup(groupCode);
+      const aliases = Array.isArray(item.aliases)
+        ? [...new Set(item.aliases.map((alias) => String(alias || '').trim().slice(0, 80)).filter(Boolean))].slice(0, 8)
+        : [];
+      const groupKeys = [...new Set([groupKey, ...aliases.map(normalizeScheduleSnapshotGroup)].filter(Boolean))];
       const file = String(item.file || '').trim();
       const revision = String(item.revision || '').trim().slice(0, 80);
       const capturedAt = safeIso(item.capturedAt, null);
       // Allow only a simple file name inside data/schedules. No user input is ever used as a path.
       const safeFile = /^data\/schedules\/[A-Za-z0-9._-]+\.ics$/i.test(file) && !file.includes('..');
-      if (!groupCode || !groupKey || seenGroups.has(groupKey) || !safeFile || !revision || !capturedAt) continue;
-      seenGroups.add(groupKey);
+      if (!groupCode || !groupKey || groupKeys.some((key) => seenGroups.has(key)) || !safeFile || !revision || !capturedAt) continue;
+      groupKeys.forEach((key) => seenGroups.add(key));
       snapshots.push({
         groupCode,
         groupKey,
+        aliases,
+        aliasKeys: groupKeys.slice(1),
         file,
         revision,
         capturedAt,
@@ -374,7 +394,18 @@
 
   function findScheduleSnapshot(manifest, groupCode) {
     const target = normalizeScheduleSnapshotGroup(groupCode);
-    return (Array.isArray(manifest?.snapshots) ? manifest.snapshots : []).find((item) => item.groupKey === target) || null;
+    return (Array.isArray(manifest?.snapshots) ? manifest.snapshots : [])
+      .find((item) => item.groupKey === target || (Array.isArray(item.aliasKeys) && item.aliasKeys.includes(target))) || null;
+  }
+
+  function scheduleGroupsMatch(first, second) {
+    const a = normalizeScheduleSnapshotGroup(first);
+    const b = normalizeScheduleSnapshotGroup(second);
+    if (a && a === b) return true;
+    const manifest = normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] });
+    const left = findScheduleSnapshot(manifest, first);
+    const right = findScheduleSnapshot(manifest, second);
+    return Boolean(left && right && left.groupKey === right.groupKey);
   }
 
   function inspectScheduleIcsCompatibility(text) {
@@ -443,6 +474,15 @@
   }
 
   async function loadStaticScheduleSnapshot(groupCode, { fetchImpl = fetch, baseHref = document.baseURI || window.location.href, signal } = {}) {
+    // Resolve the bundled demo snapshot before any fetch. This keeps the demo group usable
+    // even when the manifest/ICS static URLs are not published correctly or the Sync Gateway is down.
+    const builtInManifest = normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] });
+    const builtInEntry = findScheduleSnapshot(builtInManifest, groupCode);
+    if (builtInEntry) {
+      const parsed = parseStaticScheduleSnapshot(BUILTIN_SCHEDULE_ICS, groupCode, builtInEntry);
+      return { found: true, entry: builtInEntry, parsed, bundled: true };
+    }
+
     const manifestPath = String(globalThis.TAVRIMO_CONFIG?.scheduleSnapshotManifest || 'data/schedules/manifest.json');
     const manifestUrl = new URL(manifestPath, baseHref);
     const manifestResponse = await fetchImpl(manifestUrl.toString(), { method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' }, signal });
@@ -941,6 +981,7 @@
     if (!group) detail.textContent = 'Укажи группу — расписание загрузится автоматически.';
     else if (data.university.syncError) detail.textContent = `Не удалось обновить · ${data.university.syncError}`;
     else if (data.university.syncMode === 'snapshot') detail.textContent = `Демо-снимок · ${data.university.events.length} занятий · ${formatImportedAt(data.university.snapshotCapturedAt || data.university.importedAt).replace(/^Обновлено\s*/i,'')}`;
+    else if (data.university.syncMode === 'manual' && data.university.events.length) detail.textContent = `Локальный ICS · ${data.university.events.length} занятий · работает без сервера`;
     else if (data.university.lastSyncAt) detail.textContent = `Синхронизировано ${formatImportedAt(data.university.lastSyncAt).replace(/^Обновлено\s*/i,'')}`;
     else if (data.university.events.length) detail.textContent = `${data.university.events.length} занятий · синхронизация включена`;
     else detail.textContent = 'Синхронизация включена · проверяем расписание онлайн';
@@ -949,8 +990,9 @@
       button.removeAttribute('aria-disabled');
       button.setAttribute('aria-busy', String(Boolean(universitySyncInFlight)));
       const failed = Boolean(data.university.syncError) && !universitySyncInFlight;
-      const buttonText = $('#homeSyncBtnText'); if (buttonText) buttonText.textContent = universitySyncInFlight ? 'Обновляю…' : (failed ? 'Повторить' : 'Обновить'); else button.textContent = universitySyncInFlight ? 'Обновляю…' : (failed ? '↻ Повторить' : '↻ Обновить');
-      button.title = failed ? 'Повторить синхронизацию расписания' : 'Принудительно проверить расписание РЭУ';
+      const localIcs = data.university.syncMode === 'manual' && data.university.events.length > 0;
+      const buttonText = $('#homeSyncBtnText'); if (buttonText) buttonText.textContent = universitySyncInFlight ? 'Обновляю…' : localIcs ? 'Импорт ICS' : (failed ? 'Повторить' : 'Обновить'); else button.textContent = universitySyncInFlight ? 'Обновляю…' : localIcs ? 'Импорт ICS' : (failed ? '↻ Повторить' : '↻ Обновить');
+      button.title = localIcs ? 'Выбрать новый ICS-файл для обновления расписания' : failed ? 'Повторить синхронизацию расписания' : 'Принудительно проверить расписание РЭУ';
       button.classList.toggle('is-busy', Boolean(universitySyncInFlight));
       button.classList.toggle('is-error', failed);
     }
@@ -1025,10 +1067,26 @@
     // navigator.onLine is only a hint in Safari/PWA (VPNs, captive portals and some
     // network stacks can report it incorrectly). A manual refresh should try the request
     // instead of becoming a no-op because of a stale online flag.
-    const lastMarker = data.university.syncMode === 'snapshot' ? data.university.lastSnapshotCheckAt : data.university.lastSyncAt;
-    const last = lastMarker ? Date.parse(lastMarker) : 0;
     const interval = syncConfigNumber('syncIntervalMinutes', 15, 5) * 60 * 1000;
-    if (!force && last && Date.now() - last < interval && data.university.events.length) return { ok: true, skipped: true };
+    const builtInSnapshot = findScheduleSnapshot(
+      normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] }),
+      group
+    );
+    // A manually imported calendar is a local source, not an instruction to retry
+    // the blocked official portal on every startup / tab focus / timer tick.
+    if (data.university.syncMode === 'manual' && data.university.events.length) {
+      const detail = `Локальный ICS · ${data.university.events.length} занятий. Для обновления импортируй новый файл календаря.`;
+      if (data.university.syncError) { data.university.syncError = ''; saveData(); }
+      setUniversitySyncState('Используется импортированный календарь', detail);
+      updateHomeSyncUI();
+      if (!silent) showToast('Используется локальный календарь. Для обновления импортируй новый .ics.');
+      return { ok: true, local: true, skipped: true };
+    }
+    const lastMarker = builtInSnapshot
+      ? (data.university.syncMode === 'snapshot' ? data.university.lastSnapshotCheckAt : '')
+      : (data.university.syncMode === 'snapshot' ? data.university.lastSnapshotCheckAt : data.university.lastSyncAt);
+    const last = lastMarker ? Date.parse(lastMarker) : 0;
+    if (!force && !data.university.syncError && last && Date.now() - last < interval && data.university.events.length) return { ok: true, skipped: true, snapshot: Boolean(builtInSnapshot) };
 
     // A manual refresh must always do something. If a silent startup/visibility refresh is
     // already running, cancel that request and start a fresh one instead of silently ignoring
@@ -1048,7 +1106,10 @@
     const token = ++universitySyncToken;
     const timeout = setTimeout(() => controller.abort(), syncConfigNumber('requestTimeoutMs', 60000, 5000));
     universitySyncInFlight = (async () => {
-      setUniversitySyncState('Обновляю расписание…', `Группа ${group} · обращаемся к серверу синхронизации`);
+      setUniversitySyncState(
+        builtInSnapshot ? 'Загружаю расписание группы…' : 'Обновляю расписание…',
+        builtInSnapshot ? `Группа ${group} · встроенный календарь Tavrimo` : `Группа ${group} · обращаемся к серверу синхронизации`
+      );
       updateHomeSyncUI();
       try {
         const snapshot = await loadStaticScheduleSnapshot(group, { signal: controller.signal });
@@ -1191,11 +1252,12 @@
     const explicitRemote = /^https?:\/\//i.test(configuredEndpoint);
     const sameOriginAssumption = configuredEndpoint.startsWith('/');
     const isSnapshot = data.university.syncMode === 'snapshot';
+    const isManualIcs = data.university.syncMode === 'manual' && data.university.events.length > 0;
     const status = data.university.events.length ? `${data.university.events.length} занятий · ${formatImportedAt(isSnapshot ? (data.university.snapshotCapturedAt || data.university.importedAt) : (data.university.lastSyncAt || data.university.importedAt))}` : 'Расписание ещё не загружено.';
-    const gatewayHint = isSnapshot ? `Демонстрационный снимок (${data.university.source || 'локальный ICS'}). Сам файл не обновляется автоматически.` : explicitRemote ? 'Подключён удалённый Sync Gateway.' : sameOriginAssumption ? 'Для автообновления сервер должен обслуживать /api/rea/schedule.' : 'Для автообновления нужен Sync Gateway.';
+    const gatewayHint = isSnapshot ? `Демонстрационный снимок (${data.university.source || 'локальный ICS'}). Сам файл не обновляется автоматически.` : isManualIcs ? 'Используется импортированный календарь. Для обновления выбери новый файл .ics.' : explicitRemote ? 'Подключён удалённый Sync Gateway.' : sameOriginAssumption ? 'Для автообновления сервер должен обслуживать /api/rea/schedule.' : 'Для автообновления нужен Sync Gateway.';
     $('#universityImportStatus').textContent = data.university.syncError ? `Ошибка: ${data.university.syncError} Последние сохранённые занятия не удалены.` : `${status} ${gatewayHint}`;
-    setUniversitySyncState(data.university.syncError ? 'Ошибка синхронизации' : isSnapshot ? 'Демонстрационный снимок' : 'Автосинхронизация включена', data.university.syncError ? 'Сохранённое расписание оставлено без изменений.' : isSnapshot ? `${data.university.source || 'Локальный ICS'} · снимок от ${formatImportedAt(data.university.snapshotCapturedAt || data.university.importedAt).replace(/^Обновлено\s*/i, '')}.` : 'Tavrimo проверяет доступный источник при запуске, возвращении в приложение и периодически онлайн.');
-    const refreshNow = $('#syncUniversityNowBtn'); if (refreshNow) { refreshNow.disabled = false; refreshNow.textContent = data.university.syncError ? '↻ Повторить обновление' : isSnapshot ? '↻ Проверить файл' : '↻ Обновить расписание'; }
+    setUniversitySyncState(data.university.syncError ? 'Ошибка синхронизации' : isSnapshot ? 'Демонстрационный снимок' : isManualIcs ? 'Локальный ICS' : 'Автосинхронизация включена', data.university.syncError ? 'Сохранённое расписание оставлено без изменений.' : isSnapshot ? `${data.university.source || 'Локальный ICS'} · снимок от ${formatImportedAt(data.university.snapshotCapturedAt || data.university.importedAt).replace(/^Обновлено\s*/i, '')}.` : 'Tavrimo проверяет доступный источник при запуске, возвращении в приложение и периодически онлайн.');
+    const refreshNow = $('#syncUniversityNowBtn'); if (refreshNow) { refreshNow.disabled = false; refreshNow.textContent = data.university.syncError ? '↻ Повторить обновление' : isSnapshot ? '↻ Проверить файл' : isManualIcs ? '↻ Выбрать новый ICS' : '↻ Обновить расписание'; }
     $('#clearUniversityScheduleBtn')?.toggleAttribute('disabled', !data.university.events.length);
     openModal('universitySetupBackdrop');
     setTimeout(() => $('#universityGroupInput').focus(), 100);
@@ -1206,21 +1268,51 @@
     if (!popup) showToast('Safari заблокировал новое окно. Открой rasp.rea.ru вручную.');
   }
 
+  function isIcsScheduleFile(file) {
+    const name = String(file?.name || '').toLowerCase();
+    const type = String(file?.type || '').toLowerCase();
+    return name.endsWith('.ics') || type === 'text/calendar' || type === 'application/ics' || type === 'application/calendar+json';
+  }
+
+  function handleSettingsImportFile(file) {
+    if (!file) return;
+    if (isIcsScheduleFile(file)) importUniversityIcs(file);
+    else importData(file);
+  }
+
   function importUniversityIcs(file) {
     if (file.size > 5_000_000) { showToast('Файл расписания слишком большой.'); return; }
     const reader = new FileReader();
     reader.onload = () => {
       try {
         const result = parseUniversityIcs(String(reader.result || ''));
-        if (!result.events.length) throw new Error('empty');
-        const normalizedEvents = normalizeUniversity(result).events;
-        const changes = applyUniversitySchedule({ groupCode: data.university.groupCode, groupName: data.university.groupName, importedAt: new Date().toISOString(), lastSyncAt: null, lastSnapshotCheckAt: null, snapshotCapturedAt: null, snapshotRevision: '', syncHash: '', syncError: '', syncMode: 'manual', source: 'Локальный ICS', events: normalizedEvents });
-        data.university.syncMode = 'manual'; saveData(); closeModal('universitySetupBackdrop'); calendarMode = 'university'; renderAll();
-        showToast(changes.conflicts ? `Расписание импортировано. ${changes.conflicts} задач перенесено во входящие.` : `Расписание импортировано: ${normalizedEvents.length} занятий.`);
-      } catch { showToast('Не удалось прочитать .ics. Экспортируй календарь заново из расписания РЭУ.'); }
+        if (!result.events.length) throw new Error('В файле .ics не найдено ни одного занятия.');
+        const declaredName = String(result.calendarName || '').trim();
+        const declaredGroup = declaredName.replace(/^(?:расписание|schedule)\s*/i, '').trim();
+        const currentGroup = String(data.university.groupCode || '').trim();
+        if (currentGroup && declaredGroup && !scheduleGroupsMatch(currentGroup, declaredGroup)) {
+          throw new Error(`Этот календарь относится к группе «${declaredGroup}», а в Tavrimo выбрана «${currentGroup}». Сначала выбери соответствующую группу.`);
+        }
+        const declaredSnapshot = declaredGroup ? findScheduleSnapshot(normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] }), declaredGroup) : null;
+        const groupCode = currentGroup || declaredSnapshot?.groupCode || declaredGroup || '';
+        if (!groupCode) throw new Error('Сначала укажи группу, затем импортируй её календарь .ics.');
+        const normalizedEvents = normalizeUniversity({ groupCode, events: result.events }).events;
+        if (!normalizedEvents.length) throw new Error('Занятия в календаре не удалось распознать. Старое расписание сохранено.');
+        const changes = applyUniversitySchedule({ groupCode, groupName: groupCode, importedAt: new Date().toISOString(), lastSyncAt: null, lastSnapshotCheckAt: null, snapshotCapturedAt: null, snapshotRevision: '', syncHash: '', syncError: '', syncMode: 'manual', source: 'Локальный ICS', events: normalizedEvents });
+        data.university.syncMode = 'manual';
+        data.university.syncError = '';
+        saveData();
+        closeModal('universitySetupBackdrop');
+        closeModal('settingsSheetBackdrop');
+        calendarMode = 'university';
+        renderAll();
+        showToast(changes.conflicts ? `Расписание импортировано: ${normalizedEvents.length} занятий. ${changes.conflicts} задач перенесено во входящие.` : `Расписание импортировано: ${normalizedEvents.length} занятий.`);
+      } catch (error) {
+        showToast(error?.message || 'Не удалось прочитать .ics. Проверь файл календаря.');
+      }
     };
     reader.onerror = () => showToast('Не удалось прочитать файл расписания.');
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
   }
 
   function openUniversityEvent(id) {
@@ -1634,6 +1726,12 @@
       event.preventDefault();
       event.stopPropagation();
       if (!data.university.groupCode) { openUniversitySetup(); return; }
+      if (data.university.syncMode === 'manual' && data.university.events.length) {
+        openUniversitySetup();
+        const fallback = $('.uni-fallback-details'); if (fallback) fallback.open = true;
+        showToast('Выбери новый файл .ics в разделе ручного импорта.');
+        return;
+      }
       void syncUniversitySchedule({ force: true, silent: false });
     };
     $('#homeSyncBtn')?.addEventListener('click', runManualUniversityRefresh);
@@ -1744,7 +1842,7 @@
       showToast('Настройки сохранены. Проверь слоты, если изменились рабочие часы.');
     });
 
-    $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importData(file); event.target.value = ''; });
+    $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) handleSettingsImportFile(file); event.target.value = ''; });
     $('#resetBtn').onclick = () => { if (confirm('Удалить все задачи, расписание и статистику?')) resetAllData(); };
     window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: true, silent: true }); scheduleUniversityAutoSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
     window.addEventListener('scroll', () => $('#topbar').classList.toggle('scrolled', window.scrollY > 4), { passive: true });
@@ -1877,7 +1975,14 @@
   function boot() {
     repairAndPersist(); $('#appVersionLabel').textContent = `v${APP_VERSION}`; bindEvents(); renderAll(); updateFocusUI(); registerServiceWorker();
     scheduleUniversityAutoSync();
-    if (data.university.groupCode && navigator.onLine) setTimeout(() => syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync), 700);
+    const hasBundledSchedule = Boolean(data.university.groupCode && findScheduleSnapshot(
+      normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] }),
+      data.university.groupCode
+    ));
+    // A bundled schedule is local app data, so initialize it even when the browser reports offline.
+    if (data.university.groupCode && (navigator.onLine || hasBundledSchedule)) {
+      setTimeout(() => syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync), 250);
+    }
     setTimeout(() => startOnboarding(false), 480);
   }
 
@@ -1898,12 +2003,16 @@
     dayLoad,
     getPlanHealth,
     parseUniversityIcs,
+    isIcsScheduleFile,
+    handleSettingsImportFile,
     parseIcsDateTime,
     normalizeScheduleSnapshotManifest,
     findScheduleSnapshot,
+    scheduleGroupsMatch,
     inspectScheduleIcsCompatibility,
     parseStaticScheduleSnapshot,
     loadStaticScheduleSnapshot,
+    syncUniversitySchedule,
     parseBackupData,
     normalizeUniversity,
     extractGroupCode,

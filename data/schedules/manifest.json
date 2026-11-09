@@ -10,7 +10,10 @@
       "calendarNameIncludes": "Расписание 15.14Д-ГГ04/26б",
       "minimumEvents": 46,
       "coverageStart": "2026-11-09",
-      "coverageEnd": "2026-11-23"
+      "coverageEnd": "2026-11-23",
+      "aliases": [
+        "15.14Д-ГГ04/26б"
+      ]
     }
   ]
 }

@@ -58,18 +58,20 @@ assert.deepEqual(new Set(parallelSports.map((event) => event.teacher)), new Set(
 assert.equal(new Set(parsed.events.map((event) => event.uid)).size, 46, 'UID values must remain unique');
 assert.equal(parsed.events[parsed.events.length - 1].date, '2026-11-23');
 
-// Exercise the same fetch path used by the app, including GitHub Pages base path.
+// The known demo group must load from the app bundle without any network fetch.
+let networkCalls = 0;
+const noNetworkFetch = async () => { networkCalls += 1; throw new Error('network must not be used for the built-in demo group'); };
 const loaded = await t.loadStaticScheduleSnapshot('15.14Д-ГГ04/266', {
-  baseHref: 'https://example.github.io/tavrimo/',
-  fetchImpl: async (url) => {
-    const href = String(url);
-    if (href.endsWith('/data/schedules/manifest.json')) return { ok: true, status: 200, json: async () => manifestRaw };
-    if (href.includes('/data/schedules/rea-15-14d-gg04-266.ics?v=vuzio-20261109-071932z-46-events')) return { ok: true, status: 200, text: async () => ics };
-    return { ok: false, status: 404 };
-  }
+  baseHref: 'https://example.github.io/tavrimo/', fetchImpl: noNetworkFetch
 });
 assert.equal(loaded.found, true);
+assert.equal(loaded.bundled, true, 'The demo ICS must be bundled directly in app.js');
 assert.equal(loaded.parsed.events.length, 46);
+assert.equal(networkCalls, 0, 'Built-in demo group must not request a remote manifest or ICS file');
+const aliasLoaded = await t.loadStaticScheduleSnapshot('15.14Д-ГГ04/26б', { fetchImpl: noNetworkFetch });
+assert.equal(aliasLoaded.found, true, 'The Vuzio X-WR-CALNAME spelling must resolve to the same group snapshot');
+assert.equal(aliasLoaded.parsed.events.length, 46);
+assert.equal(networkCalls, 0, 'Alias must also load without network');
 
 assert.throws(() => t.parseStaticScheduleSnapshot(ics.replace('DTSTART:20261109T053000Z', 'DTSTART;VALUE=DATE:20261109'), entry.groupCode, entry), /не все занятия/i, 'Partial parsing must fail closed');
 assert.throws(() => t.parseStaticScheduleSnapshot(ics.replace('UID:6bbda23682db6bc772fa577a@schedule.mrdis.one', 'UID:6bbda23682db6bc772fa577a@schedule.mrdis.one\r\nRRULE:FREQ=WEEKLY'), entry.groupCode, entry), /неподдерживаемые конструкции/i, 'Unsupported recurrence must fail closed');
