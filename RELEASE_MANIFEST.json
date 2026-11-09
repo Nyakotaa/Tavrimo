@@ -1,7 +1,7 @@
 {
   "name": "Tavrimo Campus Editorial Redesign",
-  "version": "12.1.2",
-  "release": "12.1.2",
+  "version": "12.1.3",
+  "release": "12.1.3",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -38,10 +38,17 @@
     "classify upstream rasp.rea.ru HTTP 403 separately from missing search controls",
     "stop browser automation immediately when the official portal denies the page request",
     "apply a bounded five-minute cooldown after upstream HTTP 403 to avoid repeated denied requests",
-    "show a clear client-side explanation and preserve existing timetable on upstream denial"
+    "show a clear client-side explanation and preserve existing timetable on upstream denial",
+    "explicit group-to-file static iCalendar snapshot registry",
+    "automatic same-origin static ICS loading before official live sync",
+    "strict iCalendar compatibility and completeness checks for static snapshots",
+    "separate snapshot capture timestamp and local recheck timestamp",
+    "offline-compatible snapshot asset caching with revisioned URLs",
+    "static snapshot source label prevents presentation as live synchronization",
+    "real Vuzio calendar snapshot bundled for REU demo group 15.14Д-ГГ04/266 (46 events, 2026-11-09 through 2026-11-23)"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "Retains the 12.0.9 search-first REA sync code. CI and regression tests now target the current release and use future dates for scheduling checks. Live Render and portal sync still require deployment-level verification.",
-  "status": "local-403-diagnostics-passed-live-portal-access-unverified",
-  "summary": "Диагностический релиз синхронизации: распознаёт HTTP 403 от rasp.rea.ru, прекращает бесполезные повторы, временно ограничивает повторные запросы и сохраняет последнее загруженное расписание."
+  "notes": "Текущий пакет содержит статический Vuzio ICS-снимок для одной группы на 9–23 ноября 2026 года. Это временный источник для демонстрации; live-синхронизация rasp.rea.ru через Sync Gateway остаётся непроверенной из-за upstream HTTP 403.",
+  "status": "demo-snapshot-included-live-sync-unverified",
+  "summary": "Добавлен локальный ICS-снимок Vuzio на 46 занятий для демонстрационной группы; сохранены прежний live provider для остальных групп и существующий календарь."
 }

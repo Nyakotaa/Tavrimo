@@ -11,10 +11,10 @@
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <script src="config.js?v=12.1.2" defer></script>
+  <script src="config.js?v=12.1.3" defer></script>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v17.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
-  <link rel="stylesheet" href="style.css?v=12.1.2" />
+  <link rel="stylesheet" href="style.css?v=12.1.3" />
   <title>Tavrimo — планирование студенческой жизни</title>
 </head>
 <body>
@@ -158,7 +158,7 @@
             <span class="feature-icon gray" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.1.2</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.1.3</span></div>
       </section>
     </main>
 
@@ -214,7 +214,7 @@
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="universitySetupTitle">
       <div class="grabber"></div>
       <header class="sheet-header"><div><p class="eyebrow">РЭУ ИМ. Г. В. ПЛЕХАНОВА</p><h2 id="universitySetupTitle">Моя группа</h2></div><button class="icon-btn ghost" id="closeUniversitySetup" type="button" aria-label="Закрыть">×</button></header>
-      <p class="sheet-lead">Введи номер своей группы. Tavrimo сам получит актуальное расписание из официального портала РЭУ и будет проверять его изменения.</p>
+      <p class="sheet-lead">Введи номер своей группы. Tavrimo загрузит расписание выбранной группы из доступного источника и сохранит его для работы без интернета.</p>
       <label>Номер группы<input id="universityGroupInput" type="text" maxlength="80" placeholder="Например, 24.03-ЭК-12" autocomplete="off" /></label>
       <div class="uni-sync-status" id="universitySyncStateCard"><span class="status-dot" id="universitySyncDot"></span><div><strong id="universitySyncState">Автосинхронизация готова</strong><small id="universitySyncDetail">После сохранения группа будет обновляться при открытии приложения и периодически онлайн.</small></div></div>
       <div class="stack-buttons">
@@ -282,6 +282,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=12.1.2" defer></script>
+  <script src="app.js?v=12.1.3" defer></script>
 </body>
 </html>

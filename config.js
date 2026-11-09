@@ -12,6 +12,7 @@
   window.TAVRIMO_CONFIG = Object.assign({
     syncEndpoint: defaultSyncEndpoint,
     syncIntervalMinutes: 15,
-    requestTimeoutMs: 60000
+    requestTimeoutMs: 60000,
+    scheduleSnapshotManifest: 'data/schedules/manifest.json'
   }, window.TAVRIMO_CONFIG || {});
 })();

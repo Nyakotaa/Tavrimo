@@ -6,6 +6,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tests = [
   'test_manual_scheduling.mjs',
   'test_university_schedule.mjs',
+  'test_static_schedule_provider.mjs',
+  'test_vuzio_real_snapshot.mjs',
   'test_onboarding.mjs',
   'test_rea_fallback.mjs',
   'test_rea_text_fallback.mjs',
@@ -13,7 +15,7 @@ const tests = [
   'test_backup_import_safety.mjs',
   'test_sync_gateway_guardrails.mjs',
   'test_rea_upstream_error_handling.mjs',
-  'test_release_12_1_2.mjs',
+  'test_release_12_1_3.mjs',
   'test_release_version_consistency.mjs'
 ];
 

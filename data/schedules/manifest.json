@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "snapshots": [
+    {
+      "groupCode": "15.14Д-ГГ04/266",
+      "file": "data/schedules/rea-15-14d-gg04-266.ics",
+      "revision": "vuzio-20261109-071932z-46-events",
+      "capturedAt": "2026-11-09T10:19:32+03:00",
+      "source": "Vuzio · календарный снимок",
+      "calendarNameIncludes": "Расписание 15.14Д-ГГ04/26б",
+      "minimumEvents": 46,
+      "coverageStart": "2026-11-09",
+      "coverageEnd": "2026-11-23"
+    }
+  ]
+}

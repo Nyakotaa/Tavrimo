@@ -61,6 +61,13 @@
 
 # Changelog
 
+## 12.1.3 — Static schedule provider (9 Nov 2026)
+- Added a group allowlist for repository-hosted iCalendar snapshots.
+- Static snapshots are loaded before the existing Sync Gateway; groups without a file retain the original live-sync path.
+- Added strict compatibility/completeness checks and truthful snapshot source metadata.
+- Added revisioned asset URLs and Service Worker caching; no real ICS data is bundled until the source file is verified.
+
+
 ## 12.0.5
 - Исправлен ручной refresh расписания: он больше не теряется из-за фоновой синхронизации.
 - Добавлена явная offline-обратная связь.
