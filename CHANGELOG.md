@@ -1,3 +1,11 @@
+## QA maintenance — 9 November 2026 (no app feature/version change)
+
+- Added a single local regression runner: `node tools/run_regression.mjs` (11 current tests).
+- Added a cross-file version consistency check for app.js, HTML cache-busting URLs, Service Worker, VERSION and release manifest.
+- Moved the obsolete 12.1.1 release assertion into `tools/historical/`; current test runs no longer include stale version expectations.
+- Added `npm test` to the Sync Gateway package as a shortcut to the same regression runner.
+- No user-facing functionality or visual design changed.
+
 ## 12.1.2 — REA 403 diagnostics and safe retry behaviour
 
 - HTTP 403 from the official rasp.rea.ru page is now detected from the main navigation response before DOM search begins.

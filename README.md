@@ -1,6 +1,8 @@
-# Tavrimo 12.1.2 — Reliability Hardening
+# Tavrimo 12.1.2 — REA 403 diagnostics
 
-Релиз исправляет безопасность импорта резервных копий и устойчивость Sync Gateway. См. `RELEASE_NOTES_12.1.1_RU.md`.
+Диагностический выпуск для безопасной обработки отказа `403 Forbidden` со стороны `rasp.rea.ru`. Предыдущая версия 12.1.1 укрепила импорт резервных копий и Sync Gateway; подробности — в `RELEASE_NOTES_12.1.1_RU.md` и `RELEASE_NOTES_12.1.2_RU.md`.
+
+Запуск актуального локального регрессионного набора: `node tools/run_regression.mjs`. Исторические тесты предыдущих версий находятся в `tools/historical/` и не входят в текущий набор.
 
 ## 12.0.7 — REA Sync resolution hotfix
 

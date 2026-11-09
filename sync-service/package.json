@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs"
+    "check": "node --check server.mjs",
+    "test": "node ../tools/run_regression.mjs"
   },
   "dependencies": {
     "express": "^5.1.0",
