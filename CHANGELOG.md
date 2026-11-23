@@ -1,3 +1,14 @@
+## 12.3.0 — Multi-calendars & personal greeting (2026-11-24)
+
+- Added a separate external calendar library so imported personal calendars coexist with the REA timetable instead of replacing it.
+- Added multi-file `.ics` imports and read-only Google Calendar, Outlook and iCloud iCalendar feed subscriptions.
+- Added a restricted HTTPS Sync Gateway proxy with provider host allowlisting, redirect re-validation, request timeout, 2 MB response cap and no URL/body logging or server-side persistence.
+- Added external calendar events to Today, weekly agenda, workload estimates and manual task conflict validation; transparent events remain non-blocking.
+- Added recurring iCalendar expansion for daily, weekly, monthly and yearly rules, plus all-day and multi-day event support.
+- Added a locally stored display name and a time-of-day greeting on Today (morning/day/evening/night).
+- Preserved REA ICS import behavior, local schema v17, tasks and JSON backup compatibility.
+- Feed subscriptions are read-only ICS, not OAuth sign-in or two-way calendar editing.
+
 # Changelog
 
 ## 12.2.0 — Spotify-inspired Dark UI (2026-11-24)

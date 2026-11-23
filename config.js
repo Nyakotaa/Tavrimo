@@ -9,8 +9,13 @@
   const defaultSyncEndpoint = isGitHubPages
     ? 'https://tavrimo-rea-sync.onrender.com/api/rea/schedule'
     : '/api/rea/schedule';
+  const defaultCalendarFeedEndpoint = isGitHubPages
+    ? 'https://tavrimo-rea-sync.onrender.com/api/calendar/feed'
+    : '/api/calendar/feed';
   window.TAVRIMO_CONFIG = Object.assign({
     syncEndpoint: defaultSyncEndpoint,
+    calendarFeedEndpoint: defaultCalendarFeedEndpoint,
+    calendarFeedRefreshMinutes: 30,
     syncIntervalMinutes: 15,
     requestTimeoutMs: 60000,
     scheduleSnapshotManifest: 'data/schedules/manifest.json'

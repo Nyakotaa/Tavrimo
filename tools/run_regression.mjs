@@ -18,7 +18,9 @@ const tests = [
   'test_sync_gateway_guardrails.mjs',
   'test_rea_upstream_error_handling.mjs',
   'test_vuzio_mm05_snapshot.mjs',
-  'test_release_12_2_0.mjs',
+  'test_external_calendar_features.mjs',
+  'test_calendar_feed_security.mjs',
+  'test_release_12_3_0.mjs',
   'test_release_version_consistency.mjs'
 ];
 
