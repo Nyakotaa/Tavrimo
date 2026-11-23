@@ -14,6 +14,20 @@
       "aliases": [
         "15.14Д-ГГ04/26б"
       ]
+    },
+    {
+      "groupCode": "15.14Д-ММ05/26б",
+      "file": "data/schedules/rea-15-14d-mm05-26b.ics",
+      "revision": "vuzio-20261116-132120z-48-events",
+      "capturedAt": "2026-11-16T13:21:20Z",
+      "source": "Vuzio · календарный снимок",
+      "calendarNameIncludes": "Расписание 15.14Д-ММ05/26б",
+      "minimumEvents": 48,
+      "coverageStart": "2026-11-16",
+      "coverageEnd": "2026-11-30",
+      "aliases": [
+        "15.14D-MM05/26b"
+      ]
     }
   ]
 }

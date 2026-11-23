@@ -6,8 +6,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#151A17",
-  "theme_color": "#151A17",
+  "background_color": "#121212",
+  "theme_color": "#121212",
   "description": "Расписание университета, учебные задачи и личное планирование в одном PWA-приложении.",
   "id": "./tavrimo",
   "categories": [

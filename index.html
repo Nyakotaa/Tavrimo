@@ -1,20 +1,20 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#F1F0E8" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#151A17" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#121212" />
   <meta name="description" content="Tavrimo — расписание университета и персональный планировщик студента." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <script src="config.js?v=12.1.5" defer></script>
+  <script src="config.js?v=12.2.0" defer></script>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v17.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
-  <link rel="stylesheet" href="style.css?v=12.1.5" />
+  <link rel="stylesheet" href="style.css?v=12.2.0" />
+  <link rel="stylesheet" href="spotify-dark.css?v=12.2.0" />
   <title>Tavrimo — планирование студенческой жизни</title>
 </head>
 <body>
@@ -22,8 +22,8 @@
     <header class="topbar" id="topbar">
       <span class="topbar-spacer" aria-hidden="true"></span>
       <div class="brand-lockup" aria-label="Tavrimo">
+        <img class="brand-logo" src="assets/branding/tavrimo-cup-mark.png" alt="" width="32" height="32" />
         <span class="brand-wordmark">TAVRIMO</span>
-        <span class="brand-mark-line" aria-hidden="true"></span>
       </div>
       <span class="topbar-context" id="headerContext">Сегодня</span>
     </header>
@@ -158,7 +158,7 @@
             <span class="feature-icon gray" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.1.5</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.2.0</span></div>
       </section>
     </main>
 
@@ -215,7 +215,8 @@
       <div class="grabber"></div>
       <header class="sheet-header"><div><p class="eyebrow">РЭУ ИМ. Г. В. ПЛЕХАНОВА</p><h2 id="universitySetupTitle">Моя группа</h2></div><button class="icon-btn ghost" id="closeUniversitySetup" type="button" aria-label="Закрыть">×</button></header>
       <p class="sheet-lead">Введи номер своей группы. Tavrimo загрузит расписание выбранной группы из доступного источника и сохранит его для работы без интернета.</p>
-      <label>Номер группы<input id="universityGroupInput" type="text" maxlength="80" placeholder="Например, 24.03-ЭК-12" autocomplete="off" /></label>
+      <label>Номер группы<input id="universityGroupInput" type="text" maxlength="80" placeholder="Начни вводить название группы" autocomplete="off" list="universityGroupSuggestions" /><datalist id="universityGroupSuggestions"></datalist></label>
+      <p class="uni-import-help">Для групп с готовым календарём появятся подсказки. Остальные группы можно вводить вручную, если для них доступна синхронизация.</p>
       <div class="uni-sync-status" id="universitySyncStateCard"><span class="status-dot" id="universitySyncDot"></span><div><strong id="universitySyncState">Автосинхронизация готова</strong><small id="universitySyncDetail">После сохранения группа будет обновляться при открытии приложения и периодически онлайн.</small></div></div>
       <div class="stack-buttons">
         <button class="primary-button wide" id="saveAndSyncUniversityBtn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5 12 4l8 5.5M6 10.5V19M10 10.5V19M14 10.5V19M18 10.5V19M3 20h18"/></svg><span>Сохранить и загрузить</span></button>
@@ -275,13 +276,13 @@
         <section class="settings-group"><h3>Рабочее время</h3><label><span>Начало</span><input type="time" id="workStartInput" step="900" /></label><label><span>Конец</span><input type="time" id="workEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Перерыв</h3><label><span>Обед с</span><input type="time" id="lunchStartInput" step="900" /></label><label><span>Обед до</span><input type="time" id="lunchEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Расстановка</h3><label><span>Резерв после задачи</span><select id="bufferInput"><option value="0">Без</option><option value="5">5 мин</option><option value="10">10 мин</option><option value="15">15 мин</option></select></label><label><span>Фокус по умолчанию</span><select id="blockInput"><option value="25">25 мин</option><option value="50">50 мин</option><option value="90">1 ч 30</option><option value="120">2 ч</option></select></label><label><span>Разрешить выходные</span><input type="checkbox" id="weekendsInput" /></label></section>
-        <section class="settings-group"><h3>Внешний вид</h3><button class="ios-action" type="button" id="onboardingHelpBtn"><span>Показать обучение</span><span>›</span></button><label><span>Тема</span><select id="appearanceInput"><option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label></section>
+        <section class="settings-group"><h3>Внешний вид</h3><button class="ios-action" type="button" id="onboardingHelpBtn"><span>Показать обучение</span><span>›</span></button><label><span>Оформление</span><select id="appearanceInput" disabled aria-describedby="appearanceHelp"><option value="dark" selected>Тёмная тема Tavrimo</option></select><small id="appearanceHelp" class="field-note">Единое оформление Tavrimo Dark</small></label></section>
         <section class="settings-group"><h3>Данные</h3><button class="ios-action" type="button" id="exportBtn"><span>Экспортировать</span><span>›</span></button><label class="ios-action file-action"><span>Импортировать</span><span>›</span><input type="file" id="importInput" accept=".json,application/json,.ics,text/calendar,application/ics" /></label><button class="ios-action danger-text" type="button" id="resetBtn"><span>Стереть все данные</span><span>›</span></button></section>
         <button class="primary-button wide" type="submit">Готово</button>
       </form>
     </section>
   </div>
 
-  <script src="app.js?v=12.1.5" defer></script>
+  <script src="app.js?v=12.2.0" defer></script>
 </body>
 </html>
