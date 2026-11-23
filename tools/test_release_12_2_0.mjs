@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const read = (path) => fs.readFileSync(new URL(path, import.meta.url), 'utf8');
+const app = read('../app.js');
+const html = read('../index.html');
+const css = read('../spotify-dark.css');
+const sw = read('../sw.js');
+const manifest = JSON.parse(read('../RELEASE_MANIFEST.json'));
+const pwa = JSON.parse(read('../manifest.webmanifest'));
+const version = read('../VERSION').trim();
+
+assert.equal(version, '12.2.0');
+assert.match(app, /const APP_VERSION = '12\.2\.0';/);
+assert.equal(manifest.version, version);
+assert.equal(manifest.release, version);
+assert.ok(html.includes(`id="appVersionLabel">v${version}</span>`));
+for (const resource of ['app.js','style.css','spotify-dark.css','config.js']) assert.ok(html.includes(`${resource}?v=${version}`), `${resource} cache-busting version`);
+assert.match(html, /assets\/branding\/tavrimo-cup-mark\.png/);
+assert.match(html, /id="appearanceInput" disabled/);
+assert.match(app, /document\.documentElement\.dataset\.theme = 'dark'/);
+assert.match(app, /theme: 'dark'/);
+assert.match(css, /--bg:\s*#121212/i);
+assert.match(css, /--surface:\s*#181818/i);
+assert.match(css, /--surface-soft:\s*#1f1f1f/i);
+assert.match(css, /--accent:\s*#1ed760/i);
+assert.match(css, /@media \(min-width: 896px\)/);
+assert.match(css, /\.tabbar::before/);
+assert.match(sw, /tavrimo-v12\.2\.0-spotify-dark/);
+assert.match(sw, /spotify-dark\.css/);
+assert.match(sw, /tavrimo-cup-mark\.png/);
+assert.equal(pwa.theme_color, '#121212');
+assert.equal(pwa.background_color, '#121212');
+assert.ok(fs.existsSync(new URL('../assets/branding/tavrimo-cup-mark.png', import.meta.url)));
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+assert.equal(ids.length,new Set(ids).size,'HTML IDs must stay unique');
+assert.ok(manifest.features.includes('Spotify-inspired near-black dark UI using Tavrimo branding'));
+console.log('Tavrimo 12.2.0 design and release checks passed.');
