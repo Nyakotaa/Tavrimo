@@ -1,3 +1,15 @@
+# Changelog
+
+## 12.2.0 — Spotify-inspired Dark UI (2026-11-24)
+
+- Updated the existing Tavrimo PWA with the supplied Spotify-inspired dark design reference.
+- Added the original pixel coffee-cup Tavrimo mark to the centered app header.
+- Introduced centralized near-black, charcoal and functional green design tokens.
+- Added pill-shaped search/actions and compact dark cards.
+- Preserved mobile bottom navigation and added a desktop sidebar from 896 px.
+- Kept schema v17, tasks, timetable sync, ICS import, backup format and user data behavior.
+- Set one consistent dark UI; legacy stored theme values remain preserved but no longer switch the appearance.
+
 ## 12.1.5 — ICS import and demo group matching hotfix (9 November 2026)
 
 - Fixed Settings → Import so the file picker accepts both `.json` backups and `.ics` calendars, routing each format to its own importer.

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.1.5';
+  const APP_VERSION = '12.2.0';
   const SCHEMA_VERSION = 17;
   const STORAGE_KEY = 'tavrimo-planner-v17';
   const LEGACY_KEYS = [
@@ -27,7 +27,7 @@
     { target: '[data-view="calendar"]', view: 'calendar', icon: '05', title: 'Смотри всю неделю', text: 'Во вкладке «Неделя» можно посмотреть учебную неделю целиком и перейти на конкретный день.' },
     { target: '[data-view="tasks"]', view: 'tasks', icon: '06', title: 'Управляй задачами', text: 'Поиск и фильтры помогают быстро найти нужную задачу, а привязка к паре сохраняет учебный контекст.' },
     { target: '[data-view="more"]', view: 'more', icon: '07', title: 'Инструменты', text: 'Фокус, статистика, состояние плана и настройки собраны в одном месте, чтобы не перегружать главный экран.' },
-    { target: '#moreSettings', view: 'more', icon: '08', title: 'Настрой расписание и данные', text: 'Группа РЭУ, рабочие часы, тема и резервные копии находятся здесь. Расписание обновляется в фоне, пока есть интернет.' },
+    { target: '#moreSettings', view: 'more', icon: '08', title: 'Настрой расписание и данные', text: 'Группа РЭУ, рабочие часы и резервные копии находятся здесь. Расписание обновляется в фоне, пока есть интернет.' },
   ];
   let onboardingStep = 0;
   let onboardingTimer = null;
@@ -506,6 +506,32 @@
     return { found: true, entry, parsed };
   }
 
+  async function refreshUniversityGroupSuggestions({ fetchImpl = fetch, baseHref = document.baseURI || window.location.href } = {}) {
+    const list = $('#universityGroupSuggestions');
+    if (!list) return [];
+    const entries = [];
+    const builtin = normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] });
+    entries.push(...builtin.snapshots);
+    const manifestPath = String(globalThis.TAVRIMO_CONFIG?.scheduleSnapshotManifest || 'data/schedules/manifest.json');
+    try {
+      const response = await fetchImpl(new URL(manifestPath, baseHref).toString(), {
+        method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' }
+      });
+      if (response.ok) {
+        const manifest = normalizeScheduleSnapshotManifest(await response.json());
+        entries.push(...manifest.snapshots);
+      }
+    } catch { /* Suggestions are optional; manual group entry remains available. */ }
+    const seen = new Set();
+    const unique = entries.filter((entry) => {
+      if (seen.has(entry.groupKey)) return false;
+      seen.add(entry.groupKey);
+      return true;
+    });
+    list.innerHTML = unique.map((entry) => `<option value="${escapeHtml(entry.groupCode)}"></option>`).join('');
+    return unique;
+  }
+
   function universityEventsForDate(date, events = data.university.events) {
     const key = typeof date === 'string' ? date : dateKey(date);
     const source = Array.isArray(events) ? events : [];
@@ -832,9 +858,10 @@
   }
 
   function applyTheme() {
-    const requested = data.settings.theme || 'system';
-    const actual = requested === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : requested;
-    document.documentElement.dataset.theme = actual;
+    // Tavrimo 12.2.0 adopts one consistent Spotify-inspired dark interface.
+    // Legacy theme preferences remain in stored data for safe backup compatibility,
+    // but no longer switch the visual system to light mode.
+    document.documentElement.dataset.theme = 'dark';
   }
 
   function renderAll() {
@@ -1260,6 +1287,7 @@
     const refreshNow = $('#syncUniversityNowBtn'); if (refreshNow) { refreshNow.disabled = false; refreshNow.textContent = data.university.syncError ? '↻ Повторить обновление' : isSnapshot ? '↻ Проверить файл' : isManualIcs ? '↻ Выбрать новый ICS' : '↻ Обновить расписание'; }
     $('#clearUniversityScheduleBtn')?.toggleAttribute('disabled', !data.university.events.length);
     openModal('universitySetupBackdrop');
+    refreshUniversityGroupSuggestions();
     setTimeout(() => $('#universityGroupInput').focus(), 100);
   }
 
@@ -1454,7 +1482,7 @@
     $('#workStartInput').value = hm(data.settings.workStart * 60); $('#workEndInput').value = hm(data.settings.workEnd * 60);
     $('#lunchStartInput').value = hm(data.settings.lunchStart * 60); $('#lunchEndInput').value = hm(data.settings.lunchEnd * 60);
     $('#bufferInput').value = String(data.settings.buffer); $('#blockInput').value = String(data.settings.focusLength);
-    $('#weekendsInput').checked = data.settings.weekends; $('#appearanceInput').value = data.settings.theme;
+    $('#weekendsInput').checked = data.settings.weekends; $('#appearanceInput').value = 'dark';
   }
 
   function updateAppVersion() { $('#appVersionLabel').textContent = `v${APP_VERSION}`; }
@@ -1837,7 +1865,7 @@
       event.preventDefault();
       const workStart = toMinutes($('#workStartInput').value); const workEnd = toMinutes($('#workEndInput').value); const lunchStart = toMinutes($('#lunchStartInput').value); const lunchEnd = toMinutes($('#lunchEndInput').value);
       const error = validateSettingsDraft(workStart, workEnd, lunchStart, lunchEnd); if (error) { showToast(error); return; }
-      data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: $('#appearanceInput').value };
+      data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: 'dark' };
       repairAndPersist(); if (!focusRunning) resetFocusTimer(); saveData(); closeModal('settingsSheetBackdrop'); renderAll();
       showToast('Настройки сохранены. Проверь слоты, если изменились рабочие часы.');
     });
@@ -1846,7 +1874,6 @@
     $('#resetBtn').onclick = () => { if (confirm('Удалить все задачи, расписание и статистику?')) resetAllData(); };
     window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: true, silent: true }); scheduleUniversityAutoSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
     window.addEventListener('scroll', () => $('#topbar').classList.toggle('scrolled', window.scrollY > 4), { passive: true });
-    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (data.settings.theme === 'system') applyTheme(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAllModals(); });
     document.addEventListener('click', (event) => { if (!event.target.closest('.filter-button') && !event.target.closest('#filterPopover')) $('#filterPopover').hidden = true; });
     document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); });
@@ -2012,6 +2039,7 @@
     inspectScheduleIcsCompatibility,
     parseStaticScheduleSnapshot,
     loadStaticScheduleSnapshot,
+    refreshUniversityGroupSuggestions,
     syncUniversitySchedule,
     parseBackupData,
     normalizeUniversity,

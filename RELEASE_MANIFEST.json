@@ -1,7 +1,7 @@
 {
-  "name": "Tavrimo Campus Editorial Redesign",
-  "version": "12.1.5",
-  "release": "12.1.5",
+  "name": "Tavrimo Spotify-inspired Dark UI",
+  "version": "12.2.0",
+  "release": "12.2.0",
   "features": [
     "REA timetable on the main screen",
     "automatic timetable synchronization",
@@ -53,10 +53,20 @@
     "route JSON backups and ICS schedules through separate safe import paths",
     "match Cyrillic and English-keyboard variants of the bundled demo group",
     "keep manually imported ICS calendars local without retrying a denied upstream portal",
-    "bust the service worker cache to ensure clients receive the 12.1.5 fixes"
+    "bust the service worker cache to ensure clients receive the 12.1.5 fixes",
+    "second validated Vuzio ICS snapshot for group 15.14Д-ММ05/26б (48 events, 2026-11-16 through 2026-11-30)",
+    "available static timetable groups are suggested in the group input; arbitrary group entry and existing Sync Gateway path remain available",
+    "service worker pre-caches the second group calendar for offline loading",
+    "Spotify-inspired near-black dark UI using Tavrimo branding",
+    "centralized dark color tokens matching DESIGN.md",
+    "Tavrimo pixel coffee-cup logo in centered app header",
+    "pill buttons and search, compact charcoal surfaces, green functional accent",
+    "responsive desktop sidebar and mobile bottom navigation",
+    "dark-only visual system while preserving v17 local data and backup compatibility"
   ],
   "source": "https://rasp.rea.ru/",
-  "notes": "Демо-календарь группы 15.14Д-ГГ04/266 встроен непосредственно в app.js и загружается без сетевого обращения к Sync Gateway. Доступен период 9–23 ноября 2026 года; для прочих групп прежний live provider сохранён.",
-  "status": "demo-group-bundled-local-snapshot-live-sync-unverified",
-  "summary": "Исправлена ошибка 503 для демонстрационной группы: её 46 занятий встроены в клиентский пакет и отображаются независимо от доступности Sync Gateway."
+  "notes": "Демо-календарь группы 15.14Д-ГГ04/266 встроен непосредственно в app.js и загружается без сетевого обращения к Sync Gateway. Доступен период 9–23 ноября 2026 года; для прочих групп прежний live provider сохранён. Дополнительно подключён календарный снимок Vuzio для группы 15.14Д-ММ05/26б: 48 занятий за 16–30 ноября 2026 года. Реестр содержит две подтверждённые группы; остальные группы требуют своих уникальных ICS или проверки live-источника. Tavrimo 12.2.0 updates the existing PWA to a single Spotify-inspired dark design system; existing local data schema v17, timetable snapshots, sync paths, task behavior and backup formats are unchanged.",
+  "status": "two-static-group-snapshots-live-sync-unverified",
+  "summary": "Spotify-inspired Dark UI refresh of the existing Tavrimo PWA. Existing scheduling, tasks, local storage, backup compatibility and the two verified schedule snapshots are retained. Live synchronization for other groups remains dependent on the existing Sync Gateway and is not newly verified.",
+  "design": "Spotify-inspired Dark UI based on the supplied DESIGN.md, using original Tavrimo coffee-cup branding and system/Inter typography; no Spotify logo or proprietary font."
 }

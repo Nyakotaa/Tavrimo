@@ -1,7 +1,7 @@
-const VERSION = 'tavrimo-v12.1.5-ics-settings-import-20261109';
+const VERSION = 'tavrimo-v12.2.0-spotify-dark-20261124';
 const SHELL = [
-  './', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './404.html', './data/schedules/manifest.json', './data/schedules/rea-15-14d-gg04-266.ics?v=vuzio-20261109-071932z-46-events',
-  './assets/icons/apple-touch-icon-v17.png', './assets/icons/icon-180.png',
+  './', './index.html', './style.css?v=12.2.0', './spotify-dark.css?v=12.2.0', './app.js?v=12.2.0', './config.js?v=12.2.0', './manifest.webmanifest', './404.html', './data/schedules/manifest.json', './data/schedules/rea-15-14d-gg04-266.ics?v=vuzio-20261109-071932z-46-events', './data/schedules/rea-15-14d-mm05-26b.ics?v=vuzio-20261116-132120z-48-events',
+  './assets/branding/tavrimo-cup-mark.png', './assets/icons/apple-touch-icon-v17.png', './assets/icons/icon-180.png',
   './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/favicon-32.png', './assets/icons/source-icon-1024.png'
 ];
 
