@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createReaHttpError } from './rea-http-errors.mjs';
+import { fetchCalendarFeed } from './calendar-feed.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +20,7 @@ const MAX_CACHE_ENTRIES = 200;
 const REA_FORBIDDEN_COOLDOWN_MS = 5 * 60 * 1000;
 let reaForbiddenUntil = 0;
 let lastRateLimitPruneAt = 0;
+let lastCalendarRateLimitPruneAt = 0;
 
 const app = express();
 app.disable('x-powered-by');
@@ -27,7 +29,7 @@ app.use((req, res, next) => {
   // Public, read-only timetable API: no cookies or credentials are accepted.
   // A wildcard origin is intentional for GitHub Pages and other static PWA hosts.
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, If-None-Match');
   res.setHeader('Access-Control-Expose-Headers', 'ETag');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -37,6 +39,7 @@ app.use(express.json({ limit: '32kb' }));
 
 const cache = new Map();
 const ipWindows = new Map();
+const calendarIpWindows = new Map();
 const inflightByGroup = new Map();
 let browserPromise = null;
 
@@ -73,6 +76,32 @@ function rateLimit(req, res, next) {
   ipWindows.delete(ip);
   ipWindows.set(ip, current);
   if (current.count > REQUEST_LIMIT) return res.status(429).json({ error: 'Слишком много запросов. Попробуйте позже.' });
+  next();
+}
+
+
+function calendarFeedRateLimit(req, res, next) {
+  // Separate budget: refreshing a user's external calendars must not consume
+  // the rate-limit allowance used for REA timetable requests.
+  const ip = String(req.ip || req.socket.remoteAddress || 'unknown');
+  const now = Date.now();
+  if (now - lastCalendarRateLimitPruneAt > REQUEST_LIMIT_WINDOW || calendarIpWindows.size >= MAX_RATE_LIMIT_ENTRIES) {
+    for (const [key, entry] of calendarIpWindows) {
+      if (now - entry.start > REQUEST_LIMIT_WINDOW * 2) calendarIpWindows.delete(key);
+    }
+    lastCalendarRateLimitPruneAt = now;
+  }
+  while (calendarIpWindows.size >= MAX_RATE_LIMIT_ENTRIES) {
+    const oldestIp = calendarIpWindows.keys().next().value;
+    if (!oldestIp) break;
+    calendarIpWindows.delete(oldestIp);
+  }
+  const current = calendarIpWindows.get(ip) || { start: now, count: 0 };
+  if (now - current.start > REQUEST_LIMIT_WINDOW) { current.start = now; current.count = 0; }
+  current.count += 1;
+  calendarIpWindows.delete(ip);
+  calendarIpWindows.set(ip, current);
+  if (current.count > 30) return res.status(429).json({ error: 'Слишком много запросов календаря. Попробуйте через минуту.' });
   next();
 }
 
@@ -1006,6 +1035,27 @@ app.get('/api/rea/schedule', rateLimit, async (req, res) => {
       payload.retryAfterSeconds = retryAfterSeconds;
     }
     return res.status(502).json(payload);
+  }
+});
+
+
+app.post('/api/calendar/feed', calendarFeedRateLimit, async (req, res) => {
+  // Calendar subscription URLs are private read-only capabilities. Never log, cache,
+  // echo, or persist the URL or fetched ICS body on this server.
+  res.set('Cache-Control', 'no-store');
+  const source = String(req.body?.url || '').trim();
+  if (!source) return res.status(400).json({ error: 'Укажи ссылку iCalendar.' });
+  try {
+    const ics = await fetchCalendarFeed(source);
+    return res.json({ ics });
+  } catch (error) {
+    const invalid = error?.code === 'INVALID_CALENDAR_URL';
+    const tooLarge = error?.code === 'CALENDAR_TOO_LARGE';
+    const status = invalid ? 400 : tooLarge ? 413 : 502;
+    const message = String(error?.message || 'Не удалось получить календарь.');
+    // Do not include source URL in server logs: provider links may contain secret tokens.
+    console.warn(`[CALENDAR_FEED] code=${error?.code || 'UNKNOWN'} status=${status}`);
+    return res.status(status).json({ error: message, code: error?.code || 'CALENDAR_FEED_ERROR' });
   }
 });
 

@@ -10,11 +10,12 @@
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <script src="config.js?v=12.2.0" defer></script>
+  <script src="config.js?v=12.3.0" defer></script>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v17.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
-  <link rel="stylesheet" href="style.css?v=12.2.0" />
-  <link rel="stylesheet" href="spotify-dark.css?v=12.2.0" />
+  <link rel="stylesheet" href="style.css?v=12.3.0" />
+  <link rel="stylesheet" href="spotify-dark.css?v=12.3.0" />
+  <link rel="stylesheet" href="calendar-update.css?v=12.3.0" />
   <title>Tavrimo — планирование студенческой жизни</title>
 </head>
 <body>
@@ -145,6 +146,9 @@
           <button class="feature-card" id="moreUniversity" type="button">
             <span class="feature-icon green" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5.5 10.5V19M10 10.5V19M14 10.5V19M18.5 10.5V19M3 20h18M2.5 9.5h19"/></svg></span><span><strong>Расписание РЭУ</strong><small>Группа и автоматическая синхронизация</small></span><span class="chevron">›</span>
           </button>
+          <button class="feature-card" id="moreCalendars" type="button">
+            <span class="feature-icon blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16M8 13h3M8 16.5h3M14 13h2.5"/></svg></span><span><strong>Мои календари</strong><small>Apple, Google, Outlook и ICS-файлы</small></span><span class="chevron">›</span>
+          </button>
           <button class="feature-card" id="moreFocus" type="button">
             <span class="feature-icon purple" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></span><span><strong>Фокус</strong><small>Таймер для одной задачи</small></span><span class="chevron">›</span>
           </button>
@@ -158,7 +162,7 @@
             <span class="feature-icon gray" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.2.0</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.3.0</span></div>
       </section>
     </main>
 
@@ -273,16 +277,44 @@
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitleSheet">
       <div class="grabber"></div><header class="sheet-header"><div><p class="eyebrow">НАСТРОЙКИ</p><h2 id="settingsTitleSheet">Рабочий день</h2></div><button class="icon-btn ghost" id="closeSettingsSheet" type="button" aria-label="Закрыть">×</button></header>
       <form class="settings-form" id="settingsForm">
+        <section class="settings-group"><h3>Профиль</h3><label class="settings-text-label"><span>Как к тебе обращаться?</span><input type="text" id="displayNameInput" maxlength="40" autocomplete="given-name" placeholder="Например, Даниил" /></label><small class="field-note settings-help">Имя хранится локально в данных Tavrimo и включается в JSON-резервную копию.</small></section>
         <section class="settings-group"><h3>Рабочее время</h3><label><span>Начало</span><input type="time" id="workStartInput" step="900" /></label><label><span>Конец</span><input type="time" id="workEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Перерыв</h3><label><span>Обед с</span><input type="time" id="lunchStartInput" step="900" /></label><label><span>Обед до</span><input type="time" id="lunchEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Расстановка</h3><label><span>Резерв после задачи</span><select id="bufferInput"><option value="0">Без</option><option value="5">5 мин</option><option value="10">10 мин</option><option value="15">15 мин</option></select></label><label><span>Фокус по умолчанию</span><select id="blockInput"><option value="25">25 мин</option><option value="50">50 мин</option><option value="90">1 ч 30</option><option value="120">2 ч</option></select></label><label><span>Разрешить выходные</span><input type="checkbox" id="weekendsInput" /></label></section>
         <section class="settings-group"><h3>Внешний вид</h3><button class="ios-action" type="button" id="onboardingHelpBtn"><span>Показать обучение</span><span>›</span></button><label><span>Оформление</span><select id="appearanceInput" disabled aria-describedby="appearanceHelp"><option value="dark" selected>Тёмная тема Tavrimo</option></select><small id="appearanceHelp" class="field-note">Единое оформление Tavrimo Dark</small></label></section>
+        <section class="settings-group"><h3>Календари</h3><button class="ios-action" type="button" id="manageCalendarsBtn"><span>Управление календарями <small id="calendarCountLabel">0 подключено</small></span><span>›</span></button></section>
         <section class="settings-group"><h3>Данные</h3><button class="ios-action" type="button" id="exportBtn"><span>Экспортировать</span><span>›</span></button><label class="ios-action file-action"><span>Импортировать</span><span>›</span><input type="file" id="importInput" accept=".json,application/json,.ics,text/calendar,application/ics" /></label><button class="ios-action danger-text" type="button" id="resetBtn"><span>Стереть все данные</span><span>›</span></button></section>
         <button class="primary-button wide" type="submit">Готово</button>
       </form>
     </section>
   </div>
 
-  <script src="app.js?v=12.2.0" defer></script>
+
+  <div class="modal-backdrop" id="calendarManagerBackdrop" hidden>
+    <section class="sheet calendar-manager-sheet" role="dialog" aria-modal="true" aria-labelledby="calendarManagerTitle">
+      <div class="grabber"></div>
+      <header class="sheet-header"><div><p class="eyebrow">МОИ ИСТОЧНИКИ</p><h2 id="calendarManagerTitle">Календари</h2></div><button class="icon-btn ghost" id="closeCalendarManager" type="button" aria-label="Закрыть">×</button></header>
+      <p class="sheet-lead">Подключи несколько календарей. Их события появятся в разделе «Сегодня» и «Мой план», будут учитываться при проверке свободного времени и останутся доступны офлайн.</p>
+      <form id="calendarFeedForm" class="calendar-feed-form">
+        <label>Название <small class="field-note">необязательно</small><input id="calendarFeedNameInput" type="text" maxlength="100" placeholder="Например, Личная жизнь" /></label>
+        <label>Ссылка iCalendar <input id="calendarFeedUrlInput" type="text" inputmode="url" autocomplete="off" placeholder="https://… или webcal://…" /></label>
+        <button class="primary-button wide" type="submit" id="calendarAddFeedBtn">Подключить календарь</button>
+      </form>
+      <p class="calendar-source-note">Ссылки iCalendar работают только для чтения и обновляются примерно раз в 30 минут, пока Tavrimo открыто и есть интернет. Импортированный .ics-файл — снимок: для обновления импортируй новый файл.</p>
+      <div class="calendar-provider-help">
+        <strong>Где взять ссылку?</strong>
+        <p><b>Google Calendar:</b> Настройки календаря → Интеграция календаря → Секретный адрес в формате iCal.</p>
+        <p><b>Outlook:</b> Настройки → Календарь → Общие календари → Опубликовать календарь → ICS.</p>
+        <p><b>Apple iCloud:</b> Поделиться календарём → Открытый календарь → Скопировать ссылку.</p>
+      </div>
+      <div class="calendar-privacy-note"><strong>Важно о приватности</strong><span>Секретная ссылка даёт доступ к чтению календаря. Не отправляй её другим людям. Ссылка хранится в локальных данных Tavrimo и попадёт в JSON-резервную копию, поэтому не делись такими копиями. При обновлении ссылка запрашивается через Sync Gateway; сервер не сохраняет URL или содержимое календаря.</span></div>
+      <label class="ios-action calendar-file-action"><span>Импортировать .ics-файл <small class="field-note">Можно выбрать несколько файлов</small></span><span>＋</span><input type="file" id="externalCalendarFileInput" accept=".ics,text/calendar,application/ics" multiple /></label>
+      <div class="calendar-list-heading"><h3>Подключённые календари</h3><button type="button" class="text-btn" id="refreshAllCalendarsBtn">Обновить все</button></div>
+      <div id="externalCalendarList" class="external-calendar-list"></div>
+      <button type="button" class="secondary-button wide" id="closeCalendarManagerBottom">Готово</button>
+    </section>
+  </div>
+
+  <script src="app.js?v=12.3.0" defer></script>
 </body>
 </html>

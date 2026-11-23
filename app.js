@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.2.0';
+  const APP_VERSION = '12.3.0';
   const SCHEMA_VERSION = 17;
   const STORAGE_KEY = 'tavrimo-planner-v17';
   const LEGACY_KEYS = [
@@ -37,11 +37,12 @@
     version: SCHEMA_VERSION,
     settings: {
       workStart: 9, workEnd: 18, lunchStart: 13, lunchEnd: 14,
-      buffer: 10, focusLength: 25, weekends: false, theme: 'dark'
+      buffer: 10, focusLength: 25, weekends: false, theme: 'dark', displayName: ''
     },
     tasks: [],
     focus: { totalMinutes: 0, sessions: [] },
-    university: { groupCode: '', groupName: '', importedAt: null, source: 'rasp.rea.ru', events: [], syncHash: '', lastSyncAt: null, lastSnapshotCheckAt: null, snapshotCapturedAt: null, snapshotRevision: '', syncError: '', syncMode: 'auto' }
+    university: { groupCode: '', groupName: '', importedAt: null, source: 'rasp.rea.ru', events: [], syncHash: '', lastSyncAt: null, lastSnapshotCheckAt: null, snapshotCapturedAt: null, snapshotRevision: '', syncError: '', syncMode: 'auto' },
+    externalCalendars: []
   };
 
   let data = loadData();
@@ -68,6 +69,8 @@
   let universitySyncTimer = null;
   let universitySyncMessage = '';
   let universitySyncChangeCount = 0;
+  let externalCalendarSyncInFlight = null;
+  let externalCalendarSyncTimer = null;
 
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -335,6 +338,243 @@
     return { calendarName, events };
   }
 
+  function externalCalendarProviderFromUrl(value) {
+    try {
+      const url = new URL(String(value || '').replace(/^webcal:/i, 'https:'));
+      const host = url.hostname.toLowerCase().replace(/\.$/, '');
+      if (host === 'calendar.google.com') return 'google';
+      if (host === 'outlook.office365.com' || host === 'outlook.live.com') return 'outlook';
+      if (host === 'caldav.icloud.com' || /^p\d+-caldav\.icloud\.com$/.test(host)) return 'apple';
+      return 'other';
+    } catch { return 'other'; }
+  }
+
+  function normalizeCalendarFeedUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      const candidate = raw.replace(/^webcal:/i, 'https:');
+      const url = new URL(candidate);
+      if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return '';
+      const provider = externalCalendarProviderFromUrl(url.href);
+      if (!['google', 'outlook', 'apple'].includes(provider)) return '';
+      return url.href.slice(0, 2000);
+    } catch { return ''; }
+  }
+
+  function parseExternalIcsDateTime(value, params = {}) {
+    const raw = String(value || '').trim();
+    const dateMatch = /^(\d{4})(\d{2})(\d{2})$/.exec(raw);
+    if (String(params.VALUE || '').replace(/"/g, '').toUpperCase() === 'DATE' || dateMatch) {
+      if (!dateMatch) return null;
+      const key = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+      return isValidDateKey(key) ? { date: key, time: '00:00', allDay: true } : null;
+    }
+    let match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z)?$/.exec(raw);
+    if (!match) match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z)?$/.exec(raw);
+    if (!match) return null;
+    const [, ys, ms, ds, hs, mins, secs = '0', zulu] = match;
+    const y = Number(ys), m = Number(ms), d = Number(ds), h = Number(hs), minute = Number(mins), second = Number(secs);
+    const key = `${ys}-${ms}-${ds}`;
+    if (!isValidDateKey(key) || h > 23 || minute > 59 || second > 59) return null;
+    let instant = null;
+    const tzid = String(params.TZID || '').replace(/^"|"$/g, '').trim();
+    if (zulu) instant = new Date(Date.UTC(y, m - 1, d, h, minute, second));
+    else if (tzid) {
+      try {
+        const wallAsUtc = Date.UTC(y, m - 1, d, h, minute, second);
+        const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tzid, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(wallAsUtc));
+        const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, Number(part.value)]));
+        const representedAsUtc = Date.UTC(values.year, values.month - 1, values.day, values.hour, values.minute, values.second);
+        const offset = representedAsUtc - wallAsUtc;
+        instant = new Date(wallAsUtc - offset);
+      } catch { instant = null; }
+    }
+    if (instant) return { date: dateKey(instant), time: `${String(instant.getHours()).padStart(2, '0')}:${String(instant.getMinutes()).padStart(2, '0')}`, allDay: false };
+    return { date: key, time: `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, allDay: false };
+  }
+
+  function parseIcsRule(value) {
+    return Object.fromEntries(String(value || '').split(';').map((part) => {
+      const idx = part.indexOf('='); return idx > 0 ? [part.slice(0, idx).toUpperCase(), part.slice(idx + 1).toUpperCase()] : ['', ''];
+    }).filter(([key]) => key));
+  }
+
+  function expandExternalIcsEvent(event, exclusions = []) {
+    const start = parseExternalIcsDateTime(event.dtstart, event.dtstartParams);
+    let end = event.dtend ? parseExternalIcsDateTime(event.dtend, event.dtendParams) : null;
+    if (!start) return [];
+    if (!end) end = { date: start.date, time: hm(Math.min(1439, toMinutes(start.time) + 30)), allDay: start.allDay };
+    const startDate = dateFromKey(start.date);
+    const rawEndDate = dateFromKey(end.date);
+    const durationDays = Math.max(0, Math.min(31, daysBetween(startDate, rawEndDate) - (start.allDay ? 1 : 0)));
+    const allDay = Boolean(start.allDay || end.allDay);
+    const startMinutes = allDay ? 0 : toMinutes(start.time);
+    const endMinutes = allDay ? 1439 : (durationDays ? 1439 : toMinutes(end.time));
+    if (!allDay && durationDays === 0 && endMinutes <= startMinutes) return [];
+    const base = {
+      uid: String(event.uid || '').trim(),
+      subject: cleanIcsText(event.summary || 'Событие календаря').slice(0, 160) || 'Событие календаря',
+      type: cleanIcsText(event.categories || 'Внешний календарь').slice(0, 80),
+      teacher: '',
+      room: cleanIcsText(event.location || '').slice(0, 120),
+      note: cleanIcsText(event.description || '').slice(0, 500),
+      allDay,
+      transparent: String(event.transp || '').toUpperCase() === 'TRANSPARENT'
+    };
+    const recurrence = parseIcsRule(event.rrule);
+    const excludedDates = new Set();
+    for (const item of exclusions) {
+      const property = parseIcsProperty(item);
+      const values = String(property?.value || '').split(',');
+      for (const value of values) {
+        const parsed = parseExternalIcsDateTime(value.trim(), property?.params || {});
+        if (parsed) excludedDates.add(`${parsed.date}|${parsed.time}`);
+      }
+    }
+    const occurrenceDates = [];
+    if (!event.rrule) occurrenceDates.push(start.date);
+    else {
+      const freq = recurrence.FREQ || '';
+      const interval = Math.max(1, Math.min(52, Number(recurrence.INTERVAL || 1)));
+      const countLimit = Math.max(0, Math.min(1000, Number(recurrence.COUNT || 1000)));
+      const untilRaw = recurrence.UNTIL || '';
+      const untilParsed = untilRaw ? parseExternalIcsDateTime(untilRaw, {}) : null;
+      const untilDate = untilParsed?.date || dateKey(addDays(startDate, 550));
+      const byDay = String(recurrence.BYDAY || '').split(',').filter(Boolean).map((day) => day.slice(-2));
+      const dayCodes = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+      let count = 0;
+      const maxDate = dateFromKey(untilDate < dateKey(addDays(startDate, 550)) ? untilDate : dateKey(addDays(startDate, 550)));
+      for (let cursor = new Date(startDate); cursor <= maxDate && occurrenceDates.length < 500; cursor = addDays(cursor, 1)) {
+        const days = daysBetween(startDate, cursor);
+        const weeks = Math.floor(days / 7);
+        const months = (cursor.getFullYear() - startDate.getFullYear()) * 12 + cursor.getMonth() - startDate.getMonth();
+        let matches = false;
+        if (freq === 'DAILY') matches = days % interval === 0;
+        else if (freq === 'WEEKLY') matches = weeks % interval === 0 && (byDay.length ? byDay.includes(dayCodes[cursor.getDay()]) : cursor.getDay() === startDate.getDay());
+        else if (freq === 'MONTHLY') matches = months % interval === 0 && cursor.getDate() === startDate.getDate();
+        else if (freq === 'YEARLY') matches = (cursor.getFullYear() - startDate.getFullYear()) % interval === 0 && cursor.getMonth() === startDate.getMonth() && cursor.getDate() === startDate.getDate();
+        if (!matches) continue;
+        count += 1;
+        if (count > countLimit) break;
+        if (dateKey(cursor) >= todayKey() || days >= -60) occurrenceDates.push(dateKey(cursor));
+      }
+      if (!occurrenceDates.includes(start.date) && start.date >= todayKey()) occurrenceDates.unshift(start.date);
+    }
+    // RDATE adds explicit dates to recurring sets.
+    for (const rdate of (event.rdates || [])) {
+      const property = parseIcsProperty(rdate);
+      for (const value of String(property?.value || '').split(',')) {
+        const parsed = parseExternalIcsDateTime(value.trim(), property?.params || {});
+        if (parsed && !occurrenceDates.includes(parsed.date)) occurrenceDates.push(parsed.date);
+      }
+    }
+    const output = [];
+    const seen = new Set();
+    for (const occurrenceDate of occurrenceDates) {
+      const occurrenceStart = dateFromKey(occurrenceDate);
+      const firstKey = `${occurrenceDate}|${allDay ? '00:00' : start.time}`;
+      if (excludedDates.has(firstKey)) continue;
+      for (let dayOffset = 0; dayOffset <= durationDays; dayOffset += 1) {
+        const date = dateKey(addDays(occurrenceStart, dayOffset));
+        if (date < dateKey(addDays(new Date(), -60)) || date > dateKey(addDays(new Date(), 550))) continue;
+        const startTime = allDay || dayOffset > 0 ? '00:00' : start.time;
+        const endTime = allDay || dayOffset < durationDays ? '23:59' : end.time;
+        if (toMinutes(endTime) <= toMinutes(startTime)) continue;
+        const fingerprint = `${event.uid || base.subject}|${date}|${startTime}|${endTime}`;
+        if (seen.has(fingerprint)) continue;
+        seen.add(fingerprint);
+        output.push({ ...base, date, start: startTime, end: endTime, id: `ext-${hashString(fingerprint)}` });
+      }
+    }
+    return output;
+  }
+
+  function parseExternalCalendarIcs(text) {
+    const source = String(text || '').replace(/^\uFEFF/, '');
+    if (!/^\s*BEGIN:VCALENDAR\b/i.test(source) || !/END:VCALENDAR\s*$/i.test(source.trim())) throw new Error('Файл не похож на календарь iCalendar (.ics).');
+    const lines = parseIcsLines(source);
+    let calendarName = '';
+    let current = null;
+    const events = [];
+    for (const line of lines) {
+      const property = parseIcsProperty(line);
+      if (property?.name === 'X-WR-CALNAME' && !calendarName) calendarName = property.value;
+      if (/^BEGIN:VEVENT$/i.test(line.trim())) { current = { rdates: [], exdates: [] }; continue; }
+      if (/^END:VEVENT$/i.test(line.trim())) {
+        if (current && String(current.status || '').toUpperCase() !== 'CANCELLED') events.push(...expandExternalIcsEvent(current, current.exdates));
+        current = null; continue;
+      }
+      if (!current || !property) continue;
+      const keyMap = { DTSTART: 'dtstart', DTEND: 'dtend', SUMMARY: 'summary', DESCRIPTION: 'description', LOCATION: 'location', UID: 'uid', RRULE: 'rrule', STATUS: 'status', TRANSP: 'transp', CATEGORIES: 'categories' };
+      const key = keyMap[property.name];
+      if (key) { current[key] = property.value; if (property.name === 'DTSTART') current.dtstartParams = property.params; if (property.name === 'DTEND') current.dtendParams = property.params; }
+      if (property.name === 'EXDATE') current.exdates.push(line);
+      if (property.name === 'RDATE') current.rdates.push(line);
+    }
+    const unique = new Map();
+    for (const event of events) unique.set(`${event.uid}|${event.date}|${event.start}|${event.end}`, event);
+    const normalizedEvents = [...unique.values()].sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+    if (!normalizedEvents.length) throw new Error('В календаре не найдено событий для отображения.');
+    if (normalizedEvents.length > 5000) throw new Error('В календаре слишком много событий (более 5000).');
+    return { calendarName: cleanIcsText(calendarName).slice(0, 100), events: normalizedEvents };
+  }
+
+  function normalizeExternalCalendarEvent(event, calendarId, calendarName, index = 0, usedIds = new Set()) {
+    const date = isValidDateKey(event?.date) ? String(event.date) : null;
+    const allDay = Boolean(event?.allDay);
+    const start = normalizeTime(event?.start) || (allDay ? '00:00' : null);
+    const end = normalizeTime(event?.end) || (allDay ? '23:59' : null);
+    if (!date || !start || !end || toMinutes(end) <= toMinutes(start)) return null;
+    const uidValue = String(event?.uid || '').trim().slice(0, 240);
+    const normalized = {
+      uid: uidValue,
+      date, start, end,
+      subject: String(event?.subject || 'Событие календаря').trim().slice(0, 160) || 'Событие календаря',
+      type: String(event?.type || 'Внешний календарь').trim().slice(0, 80),
+      teacher: '',
+      room: String(event?.room || '').trim().slice(0, 120),
+      note: String(event?.note || '').trim().slice(0, 500),
+      allDay,
+      transparent: Boolean(event?.transparent),
+      calendarId,
+      calendarName
+    };
+    const rawId = String(event?.id || '').trim() || `ext-${hashString(`${calendarId}|${uidValue}|${date}|${start}|${end}|${index}`)}`;
+    let id = rawId; let suffix = 2;
+    while (usedIds.has(id)) id = `${rawId}-${suffix++}`;
+    usedIds.add(id);
+    return { id, ...normalized };
+  }
+
+  function normalizeExternalCalendars(rawCalendars) {
+    const list = Array.isArray(rawCalendars) ? rawCalendars.slice(0, 20) : [];
+    return list.map((raw, index) => {
+      const provider = ['google', 'outlook', 'apple', 'ics', 'other'].includes(raw?.provider) ? raw.provider : 'ics';
+      const sourceType = raw?.sourceType === 'feed' ? 'feed' : 'file';
+      const feedUrl = sourceType === 'feed' ? normalizeCalendarFeedUrl(raw?.feedUrl) : '';
+      const id = String(raw?.id || `calendar-${index + 1}`).trim().slice(0, 100) || `calendar-${index + 1}`;
+      const name = String(raw?.name || 'Мой календарь').trim().slice(0, 100) || 'Мой календарь';
+      const usedIds = new Set();
+      const events = (Array.isArray(raw?.events) ? raw.events.slice(0, 5000) : []).map((event, eventIndex) => normalizeExternalCalendarEvent(event, id, name, eventIndex, usedIds)).filter(Boolean);
+      return {
+        id, name, provider, sourceType, feedUrl,
+        enabled: raw?.enabled !== false,
+        color: ['#1ed760', '#539df5', '#b99bff', '#ffa42b', '#f3727f', '#42c8c8'].includes(String(raw?.color || '').toLowerCase()) ? String(raw.color).toLowerCase() : ['#539df5', '#b99bff', '#ffa42b', '#f3727f'][index % 4],
+        importedAt: safeIso(raw?.importedAt, new Date().toISOString()),
+        lastSyncAt: safeIso(raw?.lastSyncAt, null),
+        syncError: String(raw?.syncError || '').trim().slice(0, 240),
+        events
+      };
+    }).filter((calendar) => calendar.sourceType !== 'feed' || Boolean(calendar.feedUrl));
+  }
+
+  function getGreeting(hour = new Date().getHours(), name = '') {
+    const greeting = hour >= 5 && hour < 12 ? 'Доброе утро' : hour >= 12 && hour < 18 ? 'Добрый день' : hour >= 18 && hour < 23 ? 'Добрый вечер' : 'Доброй ночи';
+    const cleanName = String(name || '').trim().replace(/[<>\r\n]/g, '').slice(0, 40);
+    return cleanName ? `${greeting}, ${cleanName}!` : `${greeting}!`;
+  }
+
   // Built-in fallback for the demo group. This copy is intentional: the group must work
   // even when static asset paths or the Sync Gateway are unavailable on the hosting platform.
   const BUILTIN_SCHEDULE_SNAPSHOT = Object.freeze({"groupCode":"15.14Д-ГГ04/266","aliases":["15.14Д-ГГ04/26б"],"file":"data/schedules/rea-15-14d-gg04-266.ics","revision":"vuzio-20261109-071932z-46-events","capturedAt":"2026-11-09T10:19:32+03:00","source":"Vuzio · календарный снимок","calendarNameIncludes":"Расписание 15.14Д-ГГ04/26б","minimumEvents":46,"coverageStart":"2026-11-09","coverageEnd":"2026-11-23"});
@@ -544,12 +784,36 @@
     return universityEventsForDate(taskDate, events).find((event) => start < toMinutes(event.end) && end > toMinutes(event.start)) || null;
   }
 
+  function externalCalendarEventsForDate(date, calendars = data.externalCalendars) {
+    const key = typeof date === 'string' ? date : dateKey(date);
+    return (Array.isArray(calendars) ? calendars : []).filter((calendar) => calendar.enabled !== false)
+      .flatMap((calendar) => (Array.isArray(calendar.events) ? calendar.events : []).filter((event) => event.date === key).map((event) => ({ ...event, calendarKind: 'external' })));
+  }
+
+  function allCalendarEventsForDate(date, options = {}) {
+    const key = typeof date === 'string' ? date : dateKey(date);
+    const includeUniversity = options.includeUniversity !== false;
+    const university = includeUniversity ? universityEventsForDate(key).map((event) => ({ ...event, calendarKind: 'university', calendarName: 'РЭУ', allDay: false, transparent: false })) : [];
+    const external = externalCalendarEventsForDate(key).map((event) => ({ ...event, calendarKind: 'external' }));
+    return [...university, ...external].sort((a, b) => toMinutes(a.start) - toMinutes(b.start) || toMinutes(a.end) - toMinutes(b.end));
+  }
+
+  function anyCalendarEventById(id) {
+    return universityEventById(id) || data.externalCalendars.flatMap((calendar) => calendar.events || []).find((event) => String(event.id) === String(id)) || null;
+  }
+
+  function calendarConflict(taskDate, start, end, calendars = data.externalCalendars) {
+    const university = universityConflict(taskDate, start, end);
+    if (university) return university;
+    return externalCalendarEventsForDate(taskDate, calendars).find((event) => !event.transparent && start < (event.allDay ? 1440 : toMinutes(event.end)) && end > (event.allDay ? 0 : toMinutes(event.start))) || null;
+  }
+
   function repairUniversityTaskConflicts() {
     let count = 0;
     for (const task of data.tasks) {
       if (task.done || !task.scheduledDate || !task.scheduledStart) continue;
       const start = toMinutes(task.scheduledStart); const end = start + task.duration + Number(data.settings.buffer || 0);
-      if (universityConflict(task.scheduledDate, start, end)) {
+      if (calendarConflict(task.scheduledDate, start, end)) {
         task.scheduledDate = null; task.scheduledStart = null; task.locked = false; count += 1;
       }
     }
@@ -578,6 +842,7 @@
     settings.focusLength = ALLOWED_FOCUS.includes(Number(settings.focusLength)) ? Number(settings.focusLength) : 25;
     settings.weekends = Boolean(settings.weekends);
     settings.theme = ['system', 'light', 'dark'].includes(settings.theme) ? settings.theme : 'system';
+    settings.displayName = String(settings.displayName || '').trim().replace(/[<>\r\n]/g, '').slice(0, 40);
 
     const rawTasks = Array.isArray(raw.tasks) ? raw.tasks : [];
     const usedIds = new Set();
@@ -598,7 +863,8 @@
     const totalMinutes = sessions.reduce((sum, session) => sum + session.minutes, 0);
 
     const university = normalizeUniversity(raw.university);
-    const universityIds = new Set(university.events.map((event) => String(event.id)));
+    const externalCalendars = normalizeExternalCalendars(raw.externalCalendars);
+    const universityIds = new Set([...university.events, ...externalCalendars.flatMap((calendar) => calendar.events)].map((event) => String(event.id)));
     for (const task of tasks) {
       if (task.linkedUniversityEventId && !universityIds.has(String(task.linkedUniversityEventId))) task.linkedUniversityEventId = null;
     }
@@ -607,7 +873,8 @@
       settings,
       tasks,
       focus: { totalMinutes, sessions },
-      university
+      university,
+      externalCalendars
     };
     return repairData(normalized, normalized.settings).data;
   }
@@ -651,11 +918,13 @@
       }
     }
 
-    if (Array.isArray(repaired.university?.events) && repaired.university.events.length) {
+    if ((Array.isArray(repaired.university?.events) && repaired.university.events.length) || (Array.isArray(repaired.externalCalendars) && repaired.externalCalendars.length)) {
       for (const task of repaired.tasks) {
         if (task.done || !task.scheduledDate || !task.scheduledStart) continue;
         const start = toMinutes(task.scheduledStart); const end = start + task.duration + Number(repaired.settings.buffer || 0);
-        if (universityConflict(task.scheduledDate, start, end, repaired.university.events)) {
+        const uniConflict = universityConflict(task.scheduledDate, start, end, repaired.university.events || []);
+        const extConflict = (repaired.externalCalendars || []).filter((calendar) => calendar.enabled !== false).flatMap((calendar) => calendar.events || []).find((event) => event.date === task.scheduledDate && !event.transparent && start < (event.allDay ? 1440 : toMinutes(event.end)) && end > (event.allDay ? 0 : toMinutes(event.start)));
+        if (uniConflict || extConflict) {
           task.scheduledDate = null; task.scheduledStart = null; task.locked = false; changed = true;
         }
       }
@@ -806,6 +1075,8 @@
     const newStart = start; const newEnd = end + buffer;
     const universityBlock = universityConflict(scheduledDate, newStart, newEnd);
     if (universityBlock) return `В это время пара: ${universityBlock.subject}${universityBlock.room ? ` · ${universityBlock.room}` : ''}.`;
+    const externalBlock = externalCalendarEventsForDate(scheduledDate).find((event) => !event.transparent && newStart < (event.allDay ? 1440 : toMinutes(event.end)) && newEnd > (event.allDay ? 0 : toMinutes(event.start)));
+    if (externalBlock) return `В это время занято: ${externalBlock.subject}${externalBlock.calendarName ? ` · ${externalBlock.calendarName}` : ''}.`;
     const conflict = data.tasks.some((other) => {
       if (String(other.id) === String(task.id) || other.done || other.scheduledDate !== scheduledDate || !other.scheduledStart) return false;
       const otherStart = toMinutes(other.scheduledStart);
@@ -878,11 +1149,11 @@
 
   function dayLoad(date) {
     const tasks = getScheduled(date, false);
-    const classes = universityEventsForDate(date);
+    const classes = allCalendarEventsForDate(date);
     const buffer = Number(data.settings.buffer || 0);
     const work = tasks.reduce((sum, task) => sum + task.duration, 0);
     const reserve = tasks.length * buffer;
-    const classWork = classes.reduce((sum, event) => sum + Math.max(0, toMinutes(event.end) - toMinutes(event.start)), 0);
+    const classWork = classes.filter((event) => !event.transparent).reduce((sum, event) => sum + Math.max(0, (event.allDay ? 1440 : toMinutes(event.end)) - (event.allDay ? 0 : toMinutes(event.start))), 0);
     return { tasks, classes, work, reserve, classWork, occupied: work + reserve + classWork };
   }
 
@@ -901,7 +1172,7 @@
 
   function getAgendaItemsForDate(date, includeDone = false) {
     const taskItems = getScheduled(date, includeDone).map((task) => ({ kind: 'task', item: task, start: toMinutes(task.scheduledStart), end: toMinutes(task.scheduledStart) + task.duration }));
-    const classItems = universityEventsForDate(date).map((event) => ({ kind: 'class', item: event, start: toMinutes(event.start), end: toMinutes(event.end) }));
+    const classItems = allCalendarEventsForDate(date).map((event) => ({ kind: 'class', item: event, start: event.allDay ? 0 : toMinutes(event.start), end: event.allDay ? 1440 : toMinutes(event.end) }));
     return [...taskItems, ...classItems].sort((a, b) => a.start - b.start || a.end - b.end || (a.kind === 'class' ? -1 : 1));
   }
 
@@ -941,8 +1212,8 @@
   }
 
   function renderUniversityEventCard(event, compact = false) {
-    const meta = [event.type, event.teacher, event.room].filter(Boolean).join(' · ');
-    return `<div class="uni-event-card ${compact ? 'compact' : ''}" data-uni-event="${escapeHtml(event.id)}">\n      <button class="uni-event-main" type="button" data-open-uni-event="${escapeHtml(event.id)}">\n        <span class="uni-event-time"><strong>${escapeHtml(event.start)}</strong><small>${escapeHtml(event.end)}</small></span>\n        <span class="uni-event-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Занятие')}</small></span>\n      </button>\n      <button class="uni-event-task" type="button" data-add-task-uni="${escapeHtml(event.id)}" aria-label="Добавить задачу к паре">＋</button>\n    </div>`;
+    const meta = [event.calendarKind === 'external' ? event.calendarName : event.type, event.teacher, event.room].filter(Boolean).join(' · ');
+    return `<div class="uni-event-card ${compact ? 'compact' : ''}" data-uni-event="${escapeHtml(event.id)}">\n      <button class="uni-event-main" type="button" data-open-uni-event="${escapeHtml(event.id)}">\n        <span class="uni-event-time"><strong>${event.allDay ? 'Весь день' : escapeHtml(event.start)}</strong><small>${event.allDay ? '' : escapeHtml(event.end)}</small></span>\n        <span class="uni-event-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Занятие')}</small></span>\n      </button>\n      <button class="uni-event-task" type="button" data-add-task-uni="${escapeHtml(event.id)}" aria-label="Добавить задачу к паре">＋</button>\n    </div>`;
   }
 
   function renderUniversityWeek() {
@@ -1344,23 +1615,23 @@
   }
 
   function openUniversityEvent(id) {
-    const event = universityEventById(id); if (!event) return;
+    const event = anyCalendarEventById(id); if (!event) return;
     selectedUniversityEventId = String(id);
-    $('#universityEventKicker').textContent = event.type || 'ПАРА';
+    $('#universityEventKicker').textContent = event.calendarKind === 'external' ? event.calendarName || 'КАЛЕНДАРЬ' : event.type || 'ПАРА';
     $('#universityEventTitle').textContent = event.subject;
-    $('#universityEventDetails').innerHTML = `\n      <div><span>Дата</span><strong>${escapeHtml(longDate(dateFromKey(event.date)))}</strong></div>\n      <div><span>Время</span><strong>${escapeHtml(event.start)}–${escapeHtml(event.end)}</strong></div>\n      ${event.teacher ? `<div><span>Преподаватель</span><strong>${escapeHtml(event.teacher)}</strong></div>` : ''}\n      ${event.room ? `<div><span>Аудитория</span><strong>${escapeHtml(event.room)}</strong></div>` : ''}\n      ${event.note ? `<div class="uni-detail-note"><span>Примечание</span><small>${escapeHtml(event.note).slice(0, 400)}</small></div>` : ''}`;
+    $('#universityEventDetails').innerHTML = `\n      <div><span>Дата</span><strong>${escapeHtml(longDate(dateFromKey(event.date)))}</strong></div>\n      <div><span>Время</span><strong>${event.allDay ? 'Весь день' : `${escapeHtml(event.start)}–${escapeHtml(event.end)}`}</strong></div>\n      ${event.teacher ? `<div><span>Преподаватель</span><strong>${escapeHtml(event.teacher)}</strong></div>` : ''}\n      ${event.room ? `<div><span>Аудитория</span><strong>${escapeHtml(event.room)}</strong></div>` : ''}\n      ${event.note ? `<div class="uni-detail-note"><span>Примечание</span><small>${escapeHtml(event.note).slice(0, 400)}</small></div>` : ''}`;
     openModal('universityEventBackdrop');
   }
 
   function addTaskFromUniversityEvent(id) {
-    const event = universityEventById(id); if (!event) return;
+    const event = anyCalendarEventById(id); if (!event) return;
     closeModal('universityEventBackdrop');
     openTaskSheet(null, {
       title: `Подготовиться к «${event.subject}»`,
       category: 'Учёба',
       deadline: event.date,
-      deadlineTime: event.start,
-      note: `К паре: ${event.subject}${event.teacher ? ` · ${event.teacher}` : ''}${event.room ? ` · ${event.room}` : ''}`,
+      deadlineTime: event.allDay ? null : event.start,
+      note: `К событию: ${event.subject}${event.teacher ? ` · ${event.teacher}` : ''}${event.room ? ` · ${event.room}` : ''}`,
       linkedUniversityEventId: event.id
     });
   }
@@ -1369,13 +1640,14 @@
     const key = dateKey(currentDate); const load = dayLoad(key); const inbox = getOpenInbox();
     const capacity = workingCapacityMinutes(); const pctRaw = capacity ? Math.round((load.occupied / capacity) * 100) : 0; const pct = Math.min(100, Math.max(0, pctRaw));
     const isToday = key === todayKey(); const working = isWorkingDay(currentDate);
-    const classes = universityEventsForDate(currentDate); const tasks = getScheduled(currentDate, true);
-    $('#todayEyebrow').textContent = data.university.groupCode ? 'РАСПИСАНИЕ' : 'ПЛАН';
-    $('#todayTitle').textContent = isToday ? 'Сегодня' : longDate(currentDate);
+    const classes = allCalendarEventsForDate(currentDate); const tasks = getScheduled(currentDate, true);
+    $('#todayEyebrow').textContent = data.externalCalendars.some((calendar) => calendar.enabled && calendar.events.length) ? 'МОИ КАЛЕНДАРИ' : data.university.groupCode ? 'РАСПИСАНИЕ' : 'ПЛАН';
+    $('#todayTitle').textContent = isToday ? getGreeting(new Date().getHours(), data.settings.displayName) : longDate(currentDate);
     const summaryBits = [];
+    if (isToday) summaryBits.push(longDate(currentDate));
     if (!working) summaryBits.push('Выходной день.');
-    if (!data.university.groupCode) summaryBits.push('Подключи группу РЭУ, чтобы видеть пары здесь.');
-    else if (!classes.length) summaryBits.push('Пар сегодня нет.');
+    if (!data.university.groupCode && !data.externalCalendars.some((calendar) => calendar.enabled && calendar.events.length)) summaryBits.push('Подключи расписание или импортируй календарь, чтобы видеть все события здесь.');
+    else if (!classes.length) summaryBits.push('Событий календаря сегодня нет.');
     if (inbox.length) summaryBits.push(`${inbox.length} ${formatCount(inbox.length, 'задача', 'задачи', 'задач')} без времени.`);
     $('#todaySubtitle').textContent = summaryBits.join(' ') || 'Пары и ручные задачи — в одном расписании.';
     $('#todayDateText').textContent = shortDate(currentDate);
@@ -1383,7 +1655,7 @@
     $('#todayClassCount').textContent = String(classes.length);
     $('#focusValue').textContent = `${pct}%`; $('#focusRingValue').textContent = `${pct}%`;
     const taskLoadLabel = `${formatDuration(load.work)} задачи${load.reserve ? ` + ${formatDuration(load.reserve)} резерв` : ''}`;
-    const classLabel = load.classWork ? ` + ${formatDuration(load.classWork)} пары` : '';
+    const classLabel = load.classWork ? ` + ${formatDuration(load.classWork)} календарь` : '';
     $('#focusLabel').textContent = `${taskLoadLabel}${classLabel} из ${formatDuration(capacity)}${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
     $('#focusProgress').style.width = `${pct}%`; $('#focusRing').style.setProperty('--ring-pct', `${pct * 3.6}deg`);
     $('#focusProgress').dataset.over = pctRaw > 100 ? 'true' : 'false'; $('#focusRing').dataset.over = pctRaw > 100 ? 'true' : 'false';
@@ -1395,9 +1667,9 @@
     if (nextClass) {
       $('#nextClassCard').classList.remove('hidden');
       const live = isToday && nowMinutes() >= toMinutes(nextClass.start) && nowMinutes() < toMinutes(nextClass.end);
-      $('#nextClassTime').textContent = `${live ? 'Сейчас' : nextClass.start} · ${nextClass.end}`;
+      $('#nextClassTime').textContent = nextClass.allDay ? 'Весь день' : `${live ? 'Сейчас' : nextClass.start} · ${nextClass.end}`;
       $('#nextClassTitle').textContent = nextClass.subject;
-      $('#nextClassMeta').textContent = [nextClass.type, nextClass.teacher, nextClass.room].filter(Boolean).join(' · ') || 'Пара';
+      $('#nextClassMeta').textContent = [nextClass.calendarKind === 'external' ? nextClass.calendarName : nextClass.type, nextClass.teacher, nextClass.room].filter(Boolean).join(' · ') || 'Событие календаря';
       $('#nextClassOpenBtn').dataset.uniId = nextClass.id;
     } else {
       $('#nextClassCard').classList.add('hidden'); $('#nextClassOpenBtn').dataset.uniId = '';
@@ -1407,14 +1679,14 @@
     for (const event of classes) timeline.push({ kind: 'class', item: event, start: toMinutes(event.start), end: toMinutes(event.end) });
     for (const task of tasks) timeline.push({ kind: 'task', item: task, start: toMinutes(task.scheduledStart), end: toMinutes(task.scheduledStart) + task.duration });
     timeline.sort((a, b) => a.start - b.start || (a.kind === 'class' ? -1 : 1));
-    $('#todayScheduleTimeline').innerHTML = timeline.length ? timeline.map((entry) => entry.kind === 'class' ? renderHomeUniversityEvent(entry.item) : renderHomeTask(entry.item)).join('') : emptyState(data.university.groupCode ? 'На этот день нет пар.' : 'Подключи группу РЭУ.', data.university.groupCode ? 'Если есть задачи, они появятся ниже.' : 'В «Ещё» открой «Расписание РЭУ» и укажи свою группу.');
+    $('#todayScheduleTimeline').innerHTML = timeline.length ? timeline.map((entry) => entry.kind === 'class' ? renderHomeUniversityEvent(entry.item) : renderHomeTask(entry.item)).join('') : emptyState(data.university.groupCode || data.externalCalendars.some((calendar) => calendar.enabled) ? 'На этот день нет событий.' : 'Подключи календарь.', data.university.groupCode || data.externalCalendars.some((calendar) => calendar.enabled) ? 'Если есть задачи, они появятся ниже.' : 'В «Ещё» открой «Мои календари» или подключи группу РЭУ.');
     $('#inboxCount').textContent = String(inbox.length);
     $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Все открытые задачи уже имеют ручное время.');
   }
 
   function renderHomeUniversityEvent(event) {
-    const meta = [event.type, event.teacher, event.room].filter(Boolean).join(' · ');
-    return `<div class="home-schedule-row university" data-home-uni="${escapeHtml(event.id)}"><button class="home-schedule-main" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="home-time"><strong>${escapeHtml(event.start)}</strong><small>${escapeHtml(event.end)}</small></span><span class="home-schedule-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Занятие')}</small></span><span class="home-chevron">›</span></button><button class="home-schedule-add" data-add-task-uni="${escapeHtml(event.id)}" type="button" aria-label="Добавить задачу к паре">＋</button></div>`;
+    const meta = [event.calendarKind === 'external' ? event.calendarName : event.type, event.teacher, event.room].filter(Boolean).join(' · ');
+    return `<div class="home-schedule-row university" data-home-uni="${escapeHtml(event.id)}"><button class="home-schedule-main" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="home-time"><strong>${event.allDay ? 'Весь день' : escapeHtml(event.start)}</strong><small>${event.allDay ? '' : escapeHtml(event.end)}</small></span><span class="home-schedule-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Занятие')}</small></span><span class="home-chevron">›</span></button><button class="home-schedule-add" data-add-task-uni="${escapeHtml(event.id)}" type="button" aria-label="Добавить задачу к паре">＋</button></div>`;
   }
 
   function renderHomeTask(task) {
@@ -1447,14 +1719,14 @@
     }).join('');
     const load = dayLoad(currentDate); const pctRaw = workingCapacityMinutes() ? Math.round((load.occupied / workingCapacityMinutes()) * 100) : 0;
     $('#calendarDateLabel').textContent = dateKey(currentDate) === todayKey() ? 'Сегодня' : longDate(currentDate);
-    $('#calendarLoadLabel').textContent = `${formatDuration(load.work)} задачи${load.classWork ? ` + ${formatDuration(load.classWork)} пары` : ''}${load.reserve ? ` + ${formatDuration(load.reserve)} резерв` : ''} · ${load.tasks.length} задач · ${load.classes.length} пар${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
+    $('#calendarLoadLabel').textContent = `${formatDuration(load.work)} задачи${load.classWork ? ` + ${formatDuration(load.classWork)} календарь` : ''}${load.reserve ? ` + ${formatDuration(load.reserve)} резерв` : ''} · ${load.tasks.length} задач · ${load.classes.length} событий${pctRaw > 100 ? ` · перегруз ${pctRaw - 100}%` : ''}`;
     $('#calendarLoadValue').textContent = `${Math.min(100, Math.max(0, pctRaw))}%`;
     const agenda = getAgendaItemsForDate(currentDate, true);
     $('#calendarAgenda').innerHTML = agenda.length ? agenda.map((entry) => entry.kind === 'class' ? renderCalendarUniversityBlock(entry.item) : `<button class="calendar-block" data-edit-task="${escapeHtml(entry.item.id)}" type="button"><span class="calendar-time">${escapeHtml(entry.item.scheduledStart)}<small>${escapeHtml(scheduleEnd(entry.item))}</small></span><span class="calendar-slot manual ${entry.item.done ? 'done' : ''} ${taskIsOverdue(entry.item) ? 'overdue' : ''}"><strong>${escapeHtml(entry.item.title)}</strong><small>${formatDuration(entry.item.duration)} · вручную · ${escapeHtml(deadlineLabel(entry.item))}${entry.item.category ? ` · ${escapeHtml(entry.item.category)}` : ''}</small></span></button>`).join('') : emptyState('На этот день пусто.', 'Выбери другой день или добавь задачу через +.');
   }
 
   function renderCalendarUniversityBlock(event) {
-    return `<button class="calendar-block university" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="calendar-time">${escapeHtml(event.start)}<small>${escapeHtml(event.end)}</small></span><span class="calendar-slot university"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml([event.type, event.teacher, event.room].filter(Boolean).join(' · ') || 'Пара')}</small></span></button>`;
+    return `<button class="calendar-block university" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="calendar-time">${event.allDay ? 'Весь день' : escapeHtml(event.start)}<small>${event.allDay ? '' : escapeHtml(event.end)}</small></span><span class="calendar-slot university"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml([event.calendarKind === 'external' ? event.calendarName : event.type, event.teacher, event.room].filter(Boolean).join(' · ') || 'Пара')}</small></span></button>`;
   }
 
   function renderTasks() {
@@ -1474,8 +1746,171 @@
   function renderTaskRow(task) {
     const priority = priorityLabel(task.priority); const deadline = deadlineLabel(task); const schedule = scheduleLabel(task);
     const status = task.done ? 'Готово' : taskIsOverdue(task) ? 'Нужен перенос' : (!task.scheduledDate ? 'Без времени' : 'Вручную');
-    const linkedClass = task.linkedUniversityEventId && universityEventById(task.linkedUniversityEventId) ? 'К паре' : '';
+    const linkedClass = task.linkedUniversityEventId && anyCalendarEventById(task.linkedUniversityEventId) ? 'К событию календаря' : '';
     return `<div class="task-row ${task.done ? 'done' : ''}"><button class="task-check ${task.done ? 'done' : ''}" data-toggle-task="${escapeHtml(task.id)}" type="button" aria-label="${task.done ? 'Вернуть в работу' : 'Выполнить'}">${task.done ? '✓' : ''}</button><button class="task-main" data-edit-task="${escapeHtml(task.id)}" type="button"><strong class="task-title">${escapeHtml(task.title)}</strong><span class="task-badges"><span class="badge ${priorityClass(task.priority)}">${escapeHtml(priority)}</span><span class="badge">${escapeHtml(formatDuration(task.duration))}</span><span class="badge">${escapeHtml(deadline)}</span><span class="badge">${escapeHtml(status)}</span>${linkedClass ? `<span class="badge">${escapeHtml(linkedClass)}</span>` : ''}</span></button></div>`;
+  }
+
+  function calendarFileFingerprint(fileName, calendarName) {
+    return `file:${String(fileName || '').trim().toLowerCase()}|${String(calendarName || '').trim().toLowerCase()}`;
+  }
+
+  function upsertExternalCalendar(calendar) {
+    const existingIndex = data.externalCalendars.findIndex((item) => item.id === calendar.id);
+    if (existingIndex >= 0) data.externalCalendars[existingIndex] = calendar;
+    else {
+      if (data.externalCalendars.length >= 20) throw new Error('Можно подключить не более 20 календарей.');
+      data.externalCalendars.push(calendar);
+    }
+    data.externalCalendars = normalizeExternalCalendars(data.externalCalendars);
+    repairAndPersist(); saveData(); renderAll(); renderExternalCalendarManager();
+    return calendar;
+  }
+
+  function importExternalCalendarFile(file) {
+    if (!file || !String(file.name || '').toLowerCase().endsWith('.ics')) { showToast('Выбери файл календаря с расширением .ics.'); return; }
+    if (file.size > 5_000_000) { showToast('Файл календаря слишком большой (лимит 5 МБ).'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = parseExternalCalendarIcs(String(reader.result || ''));
+        const name = parsed.calendarName || String(file.name).replace(/\.ics$/i, '').slice(0, 100) || 'Импортированный календарь';
+        const id = `file-${hashString(calendarFileFingerprint(file.name, parsed.calendarName))}`;
+        const events = parsed.events.map((event, index) => normalizeExternalCalendarEvent({ ...event, id: `${id}-${event.id}` }, id, name, index, new Set())).filter(Boolean);
+        if (!events.length) throw new Error('Не удалось распознать события в этом календаре.');
+        const prior = data.externalCalendars.find((item) => item.id === id);
+        upsertExternalCalendar({ id, name, provider: 'ics', sourceType: 'file', feedUrl: '', enabled: prior?.enabled !== false, color: prior?.color || '#539df5', importedAt: new Date().toISOString(), lastSyncAt: new Date().toISOString(), syncError: '', events });
+        showToast(`Календарь «${name}» импортирован: ${events.length} событий.`);
+      } catch (error) { showToast(error?.message || 'Не удалось импортировать календарь.'); }
+    };
+    reader.onerror = () => showToast('Не удалось прочитать файл календаря.');
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  async function fetchExternalCalendarFeed(feedUrl) {
+    const endpoint = String(window.TAVRIMO_CONFIG?.calendarFeedEndpoint || '/api/calendar/feed');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ url: feedUrl }),
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Не удалось получить календарь (HTTP ${response.status}).`);
+      if (typeof payload.ics !== 'string' || payload.ics.length > 2_000_000) throw new Error('Сервер вернул некорректный или слишком большой календарь.');
+      return payload.ics;
+    } finally { clearTimeout(timeout); }
+  }
+
+  async function addExternalCalendarFeed() {
+    const url = normalizeCalendarFeedUrl($('#calendarFeedUrlInput')?.value || '');
+    if (!url) { showToast('Вставь HTTPS-ссылку iCalendar от Google, Outlook или iCloud.'); return; }
+    const provider = externalCalendarProviderFromUrl(url);
+    const fallbackNames = { google: 'Google Calendar', outlook: 'Outlook Calendar', apple: 'Apple Calendar' };
+    const name = String($('#calendarFeedNameInput')?.value || '').trim().slice(0, 100) || fallbackNames[provider] || 'Внешний календарь';
+    const id = `feed-${hashString(url)}`;
+    const prior = data.externalCalendars.find((item) => item.id === id);
+    const button = $('#calendarAddFeedBtn');
+    if (button) { button.disabled = true; button.textContent = 'Подключаем…'; }
+    try {
+      const ics = await fetchExternalCalendarFeed(url);
+      const parsed = parseExternalCalendarIcs(ics);
+      const events = parsed.events.map((event, index) => normalizeExternalCalendarEvent({ ...event, id: `${id}-${event.id}` }, id, name, index, new Set())).filter(Boolean);
+      if (!events.length) throw new Error('В ссылке не найдено событий календаря.');
+      upsertExternalCalendar({ id, name, provider, sourceType: 'feed', feedUrl: url, enabled: prior?.enabled !== false, color: prior?.color || '#1ed760', importedAt: prior?.importedAt || new Date().toISOString(), lastSyncAt: new Date().toISOString(), syncError: '', events });
+      $('#calendarFeedUrlInput').value = ''; $('#calendarFeedNameInput').value = '';
+      showToast(`Календарь «${name}» подключён: ${events.length} событий.`);
+    } catch (error) {
+      showToast(error?.name === 'AbortError' ? 'Сервер календарей не ответил за 15 секунд.' : error?.message || 'Не удалось подключить календарь.');
+    } finally { if (button) { button.disabled = false; button.textContent = 'Подключить календарь'; } }
+  }
+
+  async function refreshExternalCalendar(calendar, { silent = false } = {}) {
+    if (!calendar || calendar.sourceType !== 'feed' || !calendar.feedUrl || !navigator.onLine) return false;
+    try {
+      const ics = await fetchExternalCalendarFeed(calendar.feedUrl);
+      const parsed = parseExternalCalendarIcs(ics);
+      const events = parsed.events.map((event, index) => normalizeExternalCalendarEvent({ ...event, id: `${calendar.id}-${event.id}` }, calendar.id, calendar.name, index, new Set())).filter(Boolean);
+      if (!events.length) throw new Error('В ссылке не найдено событий.');
+      calendar.events = events; calendar.lastSyncAt = new Date().toISOString(); calendar.syncError = '';
+      return true;
+    } catch (error) {
+      calendar.syncError = String(error?.message || 'Не удалось обновить календарь.').slice(0, 240);
+      if (!silent) showToast(`«${calendar.name}»: ${calendar.syncError}`);
+      return false;
+    }
+  }
+
+  async function refreshExternalCalendars({ silent = true } = {}) {
+    if (externalCalendarSyncInFlight) return externalCalendarSyncInFlight;
+    const feeds = data.externalCalendars.filter((calendar) => calendar.enabled && calendar.sourceType === 'feed' && calendar.feedUrl);
+    if (!feeds.length || !navigator.onLine) return false;
+    externalCalendarSyncInFlight = (async () => {
+      let changed = false;
+      for (const calendar of feeds) changed = await refreshExternalCalendar(calendar, { silent }) || changed;
+      if (changed || feeds.some((calendar) => calendar.syncError)) { saveData(); renderAll(); }
+      return changed;
+    })().finally(() => { externalCalendarSyncInFlight = null; });
+    return externalCalendarSyncInFlight;
+  }
+
+  function scheduleExternalCalendarSync() {
+    clearTimeout(externalCalendarSyncTimer);
+    const interval = Math.max(15, Number(window.TAVRIMO_CONFIG?.calendarFeedRefreshMinutes) || 30) * 60_000;
+    externalCalendarSyncTimer = setTimeout(async () => {
+      await refreshExternalCalendars({ silent: true });
+      scheduleExternalCalendarSync();
+    }, interval);
+  }
+
+  function renderExternalCalendarManager() {
+    const list = $('#externalCalendarList'); if (!list) return;
+    if (!data.externalCalendars.length) {
+      list.innerHTML = '<div class="empty-card"><strong>Пока нет подключённых календарей</strong><span>Импортируй .ics или добавь ссылку iCalendar от Google, Outlook или iCloud.</span></div>';
+      return;
+    }
+    list.innerHTML = data.externalCalendars.map((calendar) => {
+      const providerName = ({ google: 'Google Calendar', outlook: 'Outlook Calendar', apple: 'Apple Calendar', ics: 'ICS-файл', other: 'Календарь' })[calendar.provider] || 'Календарь';
+      const lastSync = calendar.lastSyncAt ? formatImportedAt(calendar.lastSyncAt) : 'Ещё не обновлялся';
+      return `<article class="external-calendar-row" data-calendar-id="${escapeHtml(calendar.id)}">
+        <span class="external-calendar-dot" style="--calendar-color:${escapeHtml(calendar.color)}"></span>
+        <div class="external-calendar-copy"><strong>${escapeHtml(calendar.name)}</strong><small>${providerName} · ${calendar.events.length} событий · ${escapeHtml(lastSync)}</small>${calendar.syncError ? `<small class="external-calendar-error">${escapeHtml(calendar.syncError)}</small>` : ''}</div>
+        <label class="external-calendar-toggle" aria-label="Показывать календарь"><input type="checkbox" data-calendar-toggle="${escapeHtml(calendar.id)}" ${calendar.enabled ? 'checked' : ''}/><span></span></label>
+        <button type="button" class="icon-btn ghost external-calendar-refresh" data-calendar-refresh="${escapeHtml(calendar.id)}" aria-label="Обновить календарь">↻</button>
+        <button type="button" class="icon-btn ghost danger-text" data-calendar-remove="${escapeHtml(calendar.id)}" aria-label="Удалить календарь">×</button>
+      </article>`;
+    }).join('');
+  }
+
+  function openExternalCalendarManager() {
+    renderExternalCalendarManager();
+    closeModal('settingsSheetBackdrop');
+    openModal('calendarManagerBackdrop');
+  }
+
+  function handleExternalCalendarManagerActions(event) {
+    const remove = event.target.closest('[data-calendar-remove]');
+    if (remove) {
+      const calendar = data.externalCalendars.find((item) => item.id === remove.dataset.calendarRemove);
+      if (!calendar || !confirm(`Удалить календарь «${calendar.name}» из Tavrimo?`)) return;
+      data.externalCalendars = data.externalCalendars.filter((item) => item.id !== calendar.id);
+      for (const task of data.tasks) if (task.linkedUniversityEventId && !anyCalendarEventById(task.linkedUniversityEventId)) task.linkedUniversityEventId = null;
+      repairAndPersist(); saveData(); renderAll(); renderExternalCalendarManager(); showToast('Календарь удалён.'); return;
+    }
+    const refresh = event.target.closest('[data-calendar-refresh]');
+    if (refresh) {
+      const calendar = data.externalCalendars.find((item) => item.id === refresh.dataset.calendarRefresh);
+      if (!calendar || calendar.sourceType !== 'feed') { showToast('Этот календарь импортирован из файла. Импортируй обновлённый .ics.'); return; }
+      refreshExternalCalendar(calendar, { silent: false }).then(() => { saveData(); renderAll(); renderExternalCalendarManager(); }); return;
+    }
+    const toggle = event.target.closest('[data-calendar-toggle]');
+    if (toggle) {
+      const calendar = data.externalCalendars.find((item) => item.id === toggle.dataset.calendarToggle);
+      if (calendar) { calendar.enabled = toggle.checked; repairAndPersist(); saveData(); renderAll(); renderExternalCalendarManager(); }
+    }
   }
 
   function renderSettings() {
@@ -1483,6 +1918,8 @@
     $('#lunchStartInput').value = hm(data.settings.lunchStart * 60); $('#lunchEndInput').value = hm(data.settings.lunchEnd * 60);
     $('#bufferInput').value = String(data.settings.buffer); $('#blockInput').value = String(data.settings.focusLength);
     $('#weekendsInput').checked = data.settings.weekends; $('#appearanceInput').value = 'dark';
+    if ($('#displayNameInput')) $('#displayNameInput').value = data.settings.displayName || '';
+    if ($('#calendarCountLabel')) $('#calendarCountLabel').textContent = `${data.externalCalendars.length} подключено`;
   }
 
   function updateAppVersion() { $('#appVersionLabel').textContent = `v${APP_VERSION}`; }
@@ -1524,7 +1961,7 @@
     $('#taskDeadline').value = task ? (task.deadline || '') : (preset?.deadline || ''); $('#taskDeadlineTime').value = task?.deadlineTime || preset?.deadlineTime || '';
     $('#taskCategory').value = task?.category || preset?.category || 'Учёба'; $('#taskNote').value = task?.note || preset?.note || '';
     $('#taskScheduleDate').value = task?.scheduledDate || preset?.scheduledDate || ''; $('#taskScheduleTime').value = task?.scheduledStart || preset?.scheduledStart || '';
-    const linkedClass = draftLinkedUniversityEventId ? universityEventById(draftLinkedUniversityEventId) : null;
+    const linkedClass = draftLinkedUniversityEventId ? anyCalendarEventById(draftLinkedUniversityEventId) : null;
     $('#taskLinkedClassContext')?.classList.toggle('hidden', !linkedClass);
     if (linkedClass) $('#taskLinkedClassText').textContent = `${linkedClass.subject} · ${linkedClass.start}–${linkedClass.end}${linkedClass.room ? ` · ${linkedClass.room}` : ''}`;
     const today = todayKey(); $('#taskDeadline').min = today; $('#taskScheduleDate').min = today;
@@ -1692,7 +2129,7 @@
         const parsed = parseBackupData(String(reader.result || ''));
         const taskCount = parsed.tasks.length;
         const accepted = confirm(
-          `Импорт заменит текущие задачи, настройки, статистику и локальное расписание. ` +
+          `Импорт заменит текущие задачи, настройки, статистику и подключённые календари. ` +
           `Перед продолжением сохрани текущие данные через «Настройки → Экспортировать». ` +
           `В выбранной копии задач: ${taskCount}. Продолжить?`
         );
@@ -1832,7 +2269,7 @@
       if ((manualDate && !manualTime) || (!manualDate && manualTime)) { showToast('Укажи и дату, и время или очисти оба поля.'); return; }
 
       const task = existing ? { ...existing } : { id: uid(), title: '', duration: 60, priority: 2, deadline: null, deadlineTime: null, category: 'Учёба', note: '', linkedUniversityEventId: null, scheduledDate: null, scheduledStart: null, locked: false, done: false, createdAt: new Date().toISOString(), completedAt: null };
-      const linkedClass = draftLinkedUniversityEventId ? universityEventById(draftLinkedUniversityEventId) : null;
+      const linkedClass = draftLinkedUniversityEventId ? anyCalendarEventById(draftLinkedUniversityEventId) : null;
       Object.assign(task, { title, duration, priority, deadline, deadlineTime, category, note, linkedUniversityEventId: linkedClass ? String(linkedClass.id) : null });
 
       if (manualDate && manualTime) {
@@ -1856,28 +2293,43 @@
     $('#timerStart').onclick = toggleFocusTimer; $('#timerReset').onclick = () => { if (focusRunning) { showToast('Сначала поставь фокус на паузу.'); return; } resetFocusTimer(); };
     $('#focusTaskSelect').addEventListener('change', () => { if (focusRunning) return; focusTaskId = $('#focusTaskSelect').value || null; resetFocusTimer(); updateFocusTip(); });
     $('#moreUniversity').onclick = openUniversitySetup;
+    $('#moreCalendars').onclick = openExternalCalendarManager;
+    $('#manageCalendarsBtn').onclick = openExternalCalendarManager;
     $('#moreFocus').onclick = openFocusSheet; $('#moreInsights').onclick = renderInsights; $('#moreHealth').onclick = renderPlanHealth; $('#moreSettings').onclick = () => { renderSettings(); openModal('settingsSheetBackdrop'); };
+    $('#closeCalendarManager').onclick = () => closeModal('calendarManagerBackdrop');
+    $('#closeCalendarManagerBottom').onclick = () => closeModal('calendarManagerBackdrop');
+    $('#calendarManagerBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal('calendarManagerBackdrop'); });
+    $('#calendarFeedForm').addEventListener('submit', (event) => { event.preventDefault(); addExternalCalendarFeed(); });
+    $('#externalCalendarFileInput').addEventListener('change', (event) => {
+      const files = Array.from(event.target.files || []);
+      if (files.length > 20) showToast('За один раз можно выбрать не более 20 файлов.');
+      files.slice(0, 20).forEach(importExternalCalendarFile);
+      event.target.value = '';
+    });
+    $('#externalCalendarList').addEventListener('click', handleExternalCalendarManagerActions);
+    $('#externalCalendarList').addEventListener('change', handleExternalCalendarManagerActions);
+    $('#refreshAllCalendarsBtn').onclick = async () => { const button = $('#refreshAllCalendarsBtn'); button.disabled = true; button.textContent = 'Обновляем…'; await refreshExternalCalendars({ silent: false }); renderExternalCalendarManager(); button.disabled = false; button.textContent = 'Обновить все'; };
 
-    ['insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop', 'healthSheetBackdrop', 'universitySetupBackdrop', 'universityEventBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
+    ['insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop', 'healthSheetBackdrop', 'universitySetupBackdrop', 'universityEventBackdrop', 'calendarManagerBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
     $('#closeInsightsSheet').onclick = () => closeModal('insightsSheetBackdrop'); $('#closeSettingsSheet').onclick = () => closeModal('settingsSheetBackdrop'); $('#closeHealthSheet').onclick = () => closeModal('healthSheetBackdrop');
 
     $('#settingsForm').addEventListener('submit', (event) => {
       event.preventDefault();
       const workStart = toMinutes($('#workStartInput').value); const workEnd = toMinutes($('#workEndInput').value); const lunchStart = toMinutes($('#lunchStartInput').value); const lunchEnd = toMinutes($('#lunchEndInput').value);
       const error = validateSettingsDraft(workStart, workEnd, lunchStart, lunchEnd); if (error) { showToast(error); return; }
-      data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: 'dark' };
+      data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: 'dark', displayName: String($('#displayNameInput')?.value || '').trim().replace(/[<>\r\n]/g, '').slice(0, 40) };
       repairAndPersist(); if (!focusRunning) resetFocusTimer(); saveData(); closeModal('settingsSheetBackdrop'); renderAll();
       showToast('Настройки сохранены. Проверь слоты, если изменились рабочие часы.');
     });
 
     $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) handleSettingsImportFile(file); event.target.value = ''; });
     $('#resetBtn').onclick = () => { if (confirm('Удалить все задачи, расписание и статистику?')) resetAllData(); };
-    window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: true, silent: true }); scheduleUniversityAutoSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
+    window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: true, silent: true }); scheduleUniversityAutoSync(); refreshExternalCalendars({ silent: true }); scheduleExternalCalendarSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
     window.addEventListener('scroll', () => $('#topbar').classList.toggle('scrolled', window.scrollY > 4), { passive: true });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAllModals(); });
     document.addEventListener('click', (event) => { if (!event.target.closest('.filter-button') && !event.target.closest('#filterPopover')) $('#filterPopover').hidden = true; });
-    document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); });
-    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); });
+    document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') { syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); refreshExternalCalendars({ silent: true }); scheduleExternalCalendarSync(); } });
+    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') { syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); refreshExternalCalendars({ silent: true }); scheduleExternalCalendarSync(); } });
   }
 
   function handleUniversityActions(event) {
@@ -2002,6 +2454,8 @@
   function boot() {
     repairAndPersist(); $('#appVersionLabel').textContent = `v${APP_VERSION}`; bindEvents(); renderAll(); updateFocusUI(); registerServiceWorker();
     scheduleUniversityAutoSync();
+    scheduleExternalCalendarSync();
+    if (navigator.onLine && data.externalCalendars.some((calendar) => calendar.enabled && calendar.sourceType === 'feed')) setTimeout(() => refreshExternalCalendars({ silent: true }), 900);
     const hasBundledSchedule = Boolean(data.university.groupCode && findScheduleSnapshot(
       normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] }),
       data.university.groupCode
@@ -2030,6 +2484,15 @@
     dayLoad,
     getPlanHealth,
     parseUniversityIcs,
+    parseExternalCalendarIcs,
+    normalizeExternalCalendars,
+    allCalendarEventsForDate,
+    calendarConflict,
+    getGreeting,
+    externalCalendarProviderFromUrl,
+    normalizeCalendarFeedUrl,
+    refreshExternalCalendar,
+    refreshExternalCalendarById: (id, options) => refreshExternalCalendar(data.externalCalendars.find((calendar) => String(calendar.id) === String(id)), options),
     isIcsScheduleFile,
     handleSettingsImportFile,
     parseIcsDateTime,

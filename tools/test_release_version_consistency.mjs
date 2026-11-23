@@ -15,7 +15,7 @@ assert.equal(manifest.version, appVersion, 'Release manifest version must match 
 assert.equal(manifest.release, appVersion, 'Release manifest release must match app.js');
 assert.ok(html.includes(`id="appVersionLabel">v${appVersion}</span>`), 'Visible app version must match app.js');
 
-for (const resource of ['app.js', 'style.css', 'config.js']) {
+for (const resource of ['app.js', 'style.css', 'spotify-dark.css', 'calendar-update.css', 'config.js']) {
   assert.ok(html.includes(`${resource}?v=${appVersion}`), `${resource} cache-busting version must match app.js`);
 }
 
