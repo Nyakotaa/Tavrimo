@@ -1,0 +1,25 @@
+name: Tavrimo 12.4.0 CI
+
+on:
+  push:
+    branches:
+      - update-12.4.0-clean-interface
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check application syntax
+        run: node --check app.js
+      - name: Run Tavrimo regression suite
+        run: node tools/run_regression.mjs

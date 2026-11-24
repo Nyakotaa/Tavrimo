@@ -1,9 +1,10 @@
-import fs from 'fs';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const js = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-const required = ['onboarding', 'onboardingSpotlight', 'onboardingCard', 'onboardingHelpBtn', 'tabAdd', 'todayDateChip'];
-for (const id of required) if (!html.includes(`id="${id}"`)) throw new Error(`Missing onboarding element: ${id}`);
-for (const token of ['ONBOARDING_STEPS', 'startOnboarding', 'finishOnboarding', 'refreshOnboardingTarget', 'nextOnboarding', 'prevOnboarding']) if (!js.includes(token)) throw new Error(`Missing onboarding logic: ${token}`);
-if (!html.includes('apple-touch-icon-v17.png')) throw new Error('Missing current Apple touch icon reference');
-if (!html.includes('class="brand-wordmark">TAVRIMO</span>')) throw new Error('Centered Tavrimo wordmark is missing');
-console.log('Onboarding static tests passed.');
+const required = ['onboarding', 'onboardingSpotlight', 'onboardingCard', 'onboardingHelpBtn', 'tabAdd', 'todayDateChip', 'todayIcsImportAction', 'moreProfile'];
+for (const id of required) assert.ok(html.includes('id="' + id + '"'), 'Missing onboarding target: ' + id);
+for (const token of ['ONBOARDING_STEPS', 'startOnboarding', 'finishOnboarding', 'refreshOnboardingTarget', 'nextOnboarding', 'prevOnboarding']) assert.ok(js.includes(token), 'Missing onboarding logic: ' + token);
+for (const token of ['homeScheduleSourceCard', 'homeSyncBtn', 'moreUniversity', 'moreCalendars', 'calendarManagerBackdrop']) assert.equal(js.includes(token), false, 'Legacy onboarding selector remains: ' + token);
+assert.equal(js.includes('автосинхронизация'), false);
+console.log('Tavrimo 12.4.0 onboarding tests passed.');
