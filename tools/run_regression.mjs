@@ -12,6 +12,8 @@ const tests = [
   'test_backup_import_safety.mjs',
   'test_navigation_smoke_12_4_0.mjs',
   'test_dom_selector_integrity_12_4_0.mjs',
+  'test_startup_splash_12_4_0.mjs',
+  'test_sw_cached_navigation_12_4_0.mjs',
   'test_release_12_4_0.mjs',
   'test_release_version_consistency.mjs'
 ];

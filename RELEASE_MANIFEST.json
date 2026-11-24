@@ -20,9 +20,11 @@
     "Statistics and Plan Health accessible from Profile",
     "More navigation limited to Profile, Focus and Settings",
     "JSON backup compatibility with schema v17",
-    "offline-first PWA with versioned Service Worker cache"
+    "offline-first PWA with versioned Service Worker cache",
+    "Branded startup splash with the original Tavrimo logo and animated loading progress",
+    "Cache-first Service Worker navigation and core assets for instant repeat PWA launch while Render free web service is asleep"
   ],
-  "notes": "Tavrimo 12.4.0 uses manual local .ics imports. Existing REA timetable events are migrated into a local calendar with original IDs preserved so task links remain valid. Previously downloaded external feed events are retained locally while private feed URLs are cleared. No background schedule or external feed synchronization is performed. Profile name and compressed avatar remain in local browser data and are included in JSON backups.",
+  "notes": "Tavrimo 12.4.0 uses manual local .ics imports. Existing REA timetable events are migrated into a local calendar with original IDs preserved so task links remain valid. Previously downloaded external feed events are retained locally while private feed URLs are cleared. No background schedule or external feed synchronization is performed. Profile name and compressed avatar remain in local browser data and are included in JSON backups. The branded splash is rendered from the local HTML shell. The Service Worker serves cached navigation and core assets first for repeat launches, avoiding the Render Free cold-start page once the Service Worker controls the installed PWA. The first-ever visit still requires the host to deliver the HTML and install the Service Worker.",
   "status": "local-calendar-only;manual-ics-import;local-profile",
   "summary": "Unified local calendar, Today .ics import and local profile. Preserves schema v17, prior event IDs, task links, focus history and JSON backups.",
   "design": "Tavrimo dark visual system with the existing original brand assets; no broad redesign."

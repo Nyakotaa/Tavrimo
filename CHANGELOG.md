@@ -1,5 +1,7 @@
 ## 12.4.0 — Unified local calendar & profile (2026-11-24)
 
+- Added a Tavrimo-branded startup splash with the existing logo and animated progress bar.
+- Changed Service Worker navigation and core assets to cache-first on repeat launches, so an installed PWA can show its local splash while a sleeping Render service wakes in the background.
 - Fixed a critical navigation runtime error: `renderChrome()` now uses `$()`/querySelectorAll for the tab collection.
 - Added a navigation smoke test for Today, Week, Tasks, More and Profile, plus DOM selector integrity checks.
 - Hotfix CI result: 11/11 current regression tests passed.

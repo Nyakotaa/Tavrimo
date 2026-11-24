@@ -5,6 +5,7 @@ on:
     branches:
       - update-12.4.0-clean-interface
       - fix/12.4.0-navigation-and-dom-2026-11-24
+      - feature/12.4.0-branded-startup-splash
   pull_request:
     branches:
       - main
