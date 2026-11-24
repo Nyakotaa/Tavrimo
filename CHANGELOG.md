@@ -1,5 +1,7 @@
 ## 12.4.0 — Unified local calendar & profile (2026-11-24)
 
+- Added a branded Tavrimo startup splash with the original cup logo and an animated loading indicator.
+- Switched Service Worker navigation and core JS/CSS to cache-first for repeat PWA launches while Render Free is waking.
 - Added a Tavrimo-branded startup splash with the existing logo and animated progress bar.
 - Changed Service Worker navigation and core assets to cache-first on repeat launches, so an installed PWA can show its local splash while a sleeping Render service wakes in the background.
 - Fixed a critical navigation runtime error: `renderChrome()` now uses `$()`/querySelectorAll for the tab collection.
