@@ -957,7 +957,7 @@
   function renderChrome() {
     $('#headerContext').textContent = ({ today: 'Сегодня', calendar: 'Неделя', tasks: 'Задачи', more: 'Ещё', profile: 'Профиль' }[currentView] || APP_NAME);
     const activeTab = currentView === 'profile' ? 'more' : currentView;
-    $('.tab[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === activeTab));
+    $$('.tab[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === activeTab));
     $$('.view').forEach((view) => view.classList.toggle('active', view.dataset.view === currentView));
   }
 
@@ -1816,6 +1816,8 @@
   if (globalThis.__TAVRIMO_QA__) globalThis.__TAVRIMO_TEST__ = {
     getData: () => clone(data),
     setData: (raw) => { data = normalizeData(raw); },
+    setCurrentViewForTest: (view) => { currentView = view; renderChrome(); },
+    renderChrome,
     setCurrentDate: (value) => { currentDate = startOfDay(value); },
     normalizeData,
     validateManualSlot,
