@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '12.3.0';
+  const APP_VERSION = '12.4.0';
   const SCHEMA_VERSION = 17;
   const STORAGE_KEY = 'tavrimo-planner-v17';
   const LEGACY_KEYS = [
@@ -20,14 +20,13 @@
   const APP_NAME = 'Tavrimo';
   const ONBOARDING_KEY = 'tavrimo-onboarding-v1';
   const ONBOARDING_STEPS = [
-    { target: '#homeScheduleSourceCard', view: 'today', icon: '01', title: 'Расписание — главный экран', text: 'Здесь каждый день начинается с твоих пар РЭУ. Время, преподаватель и аудитория всегда рядом с задачами.' },
-    { target: '#todayDateChip', view: 'today', icon: '02', title: 'Переключай день', text: 'Нажми на дату, чтобы открыть любой день. Недельный обзор с парами доступен во вкладке «Неделя».' },
-    { target: '#homeSyncBtn', view: 'today', icon: '03', title: 'Проверяй источник расписания', text: 'Tavrimo загружает расписание выбранной группы из доступного источника и сохраняет последнюю корректную версию для работы без интернета.' },
-    { target: '#tabAdd', view: 'today', icon: '04', title: 'Планируй задачи вокруг пар', text: 'Задачи по-прежнему добавляются одной кнопкой и назначаются только вручную. Время пар автоматически считается занятым.' },
-    { target: '[data-view="calendar"]', view: 'calendar', icon: '05', title: 'Смотри всю неделю', text: 'Во вкладке «Неделя» можно посмотреть учебную неделю целиком и перейти на конкретный день.' },
-    { target: '[data-view="tasks"]', view: 'tasks', icon: '06', title: 'Управляй задачами', text: 'Поиск и фильтры помогают быстро найти нужную задачу, а привязка к паре сохраняет учебный контекст.' },
-    { target: '[data-view="more"]', view: 'more', icon: '07', title: 'Инструменты', text: 'Фокус, статистика, состояние плана и настройки собраны в одном месте, чтобы не перегружать главный экран.' },
-    { target: '#moreSettings', view: 'more', icon: '08', title: 'Настрой расписание и данные', text: 'Группа РЭУ, рабочие часы и резервные копии находятся здесь. Расписание обновляется в фоне, пока есть интернет.' },
+    { target: '#todayDateChip', view: 'today', icon: '01', title: 'Выбирай день', text: 'Нажми на дату, чтобы открыть любой день и посмотреть его события и задачи.' },
+    { target: '#todayIcsImportAction', view: 'today', icon: '02', title: 'Добавляй календарь', text: 'Импортируй файл .ics с устройства. События останутся доступны офлайн.' },
+    { target: '#tabAdd', view: 'today', icon: '03', title: 'Добавляй задачи', text: 'Кнопка «+» открывает создание задачи. Время назначаешь вручную.' },
+    { target: '[data-view="calendar"]', view: 'calendar', icon: '04', title: 'Смотри неделю', text: 'Все календарные события и задачи собраны в одном недельном обзоре.' },
+    { target: '[data-view="tasks"]', view: 'tasks', icon: '05', title: 'Управляй задачами', text: 'Поиск и фильтры помогают быстро найти нужную задачу.' },
+    { target: '#moreProfile', view: 'more', icon: '06', title: 'Открой профиль', text: 'В профиле можно сохранить имя и фото на этом устройстве, а также открыть статистику.' },
+    { target: '#moreSettings', view: 'more', icon: '07', title: 'Настрой приложение', text: 'Рабочие часы, перерыв и резервные копии находятся в настройках.' }
   ];
   let onboardingStep = 0;
   let onboardingTimer = null;
@@ -42,13 +41,14 @@
     tasks: [],
     focus: { totalMinutes: 0, sessions: [] },
     university: { groupCode: '', groupName: '', importedAt: null, source: 'rasp.rea.ru', events: [], syncHash: '', lastSyncAt: null, lastSnapshotCheckAt: null, snapshotCapturedAt: null, snapshotRevision: '', syncError: '', syncMode: 'auto' },
-    externalCalendars: []
+    externalCalendars: [],
+    profile: { avatarDataUrl: '' }
   };
 
+  let dataLoadError = '';
   let data = loadData();
   let currentDate = startOfDay(new Date());
   let currentView = 'today';
-  let calendarMode = data.university.groupCode ? 'university' : 'plan';
   let selectedUniversityEventId = null;
   let activeFilter = 'all';
   let editingId = null;
@@ -349,18 +349,7 @@
     } catch { return 'other'; }
   }
 
-  function normalizeCalendarFeedUrl(value) {
-    const raw = String(value || '').trim();
-    if (!raw) return '';
-    try {
-      const candidate = raw.replace(/^webcal:/i, 'https:');
-      const url = new URL(candidate);
-      if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return '';
-      const provider = externalCalendarProviderFromUrl(url.href);
-      if (!['google', 'outlook', 'apple'].includes(provider)) return '';
-      return url.href.slice(0, 2000);
-    } catch { return ''; }
-  }
+  function normalizeCalendarFeedUrl() { return ''; }
 
   function parseExternalIcsDateTime(value, params = {}) {
     const raw = String(value || '').trim();
@@ -416,8 +405,8 @@
       uid: String(event.uid || '').trim(),
       subject: cleanIcsText(event.summary || 'Событие календаря').slice(0, 160) || 'Событие календаря',
       type: cleanIcsText(event.categories || 'Внешний календарь').slice(0, 80),
-      teacher: '',
-      room: cleanIcsText(event.location || '').slice(0, 120),
+      teacher: cleanIcsText(event.teacher || '').slice(0, 160),
+      room: cleanIcsText(event.location || event.room || '').slice(0, 120),
       note: cleanIcsText(event.description || '').slice(0, 500),
       allDay,
       transparent: String(event.transp || '').toUpperCase() === 'TRANSPARENT'
@@ -506,7 +495,7 @@
         current = null; continue;
       }
       if (!current || !property) continue;
-      const keyMap = { DTSTART: 'dtstart', DTEND: 'dtend', SUMMARY: 'summary', DESCRIPTION: 'description', LOCATION: 'location', UID: 'uid', RRULE: 'rrule', STATUS: 'status', TRANSP: 'transp', CATEGORIES: 'categories' };
+      const keyMap = { DTSTART: 'dtstart', DTEND: 'dtend', SUMMARY: 'summary', DESCRIPTION: 'description', LOCATION: 'location', UID: 'uid', RRULE: 'rrule', STATUS: 'status', TRANSP: 'transp', CATEGORIES: 'categories', 'X-TEACHER': 'teacher', TEACHER: 'teacher', 'X-ROOM': 'room', ROOM: 'room' };
       const key = keyMap[property.name];
       if (key) { current[key] = property.value; if (property.name === 'DTSTART') current.dtstartParams = property.params; if (property.name === 'DTEND') current.dtendParams = property.params; }
       if (property.name === 'EXDATE') current.exdates.push(line);
@@ -532,7 +521,7 @@
       date, start, end,
       subject: String(event?.subject || 'Событие календаря').trim().slice(0, 160) || 'Событие календаря',
       type: String(event?.type || 'Внешний календарь').trim().slice(0, 80),
-      teacher: '',
+      teacher: String(event?.teacher || '').trim().slice(0, 160),
       room: String(event?.room || '').trim().slice(0, 120),
       note: String(event?.note || '').trim().slice(0, 500),
       allDay,
@@ -551,8 +540,9 @@
     const list = Array.isArray(rawCalendars) ? rawCalendars.slice(0, 20) : [];
     return list.map((raw, index) => {
       const provider = ['google', 'outlook', 'apple', 'ics', 'other'].includes(raw?.provider) ? raw.provider : 'ics';
-      const sourceType = raw?.sourceType === 'feed' ? 'feed' : 'file';
-      const feedUrl = sourceType === 'feed' ? normalizeCalendarFeedUrl(raw?.feedUrl) : '';
+      // All imported sources are local snapshots in 12.4.0.
+      const sourceType = 'file';
+      const feedUrl = '';
       const id = String(raw?.id || `calendar-${index + 1}`).trim().slice(0, 100) || `calendar-${index + 1}`;
       const name = String(raw?.name || 'Мой календарь').trim().slice(0, 100) || 'Мой календарь';
       const usedIds = new Set();
@@ -569,219 +559,53 @@
     }).filter((calendar) => calendar.sourceType !== 'feed' || Boolean(calendar.feedUrl));
   }
 
+
+  function migrateCalendarData(raw) {
+    const source = clone(raw && typeof raw === 'object' ? raw : {});
+    const university = source.university && typeof source.university === 'object' ? { ...source.university } : {};
+    const legacyEvents = Array.isArray(university.events) ? university.events : [];
+    const calendars = Array.isArray(source.externalCalendars) ? source.externalCalendars.map((calendar) => ({ ...calendar, events: Array.isArray(calendar?.events) ? calendar.events.slice() : [] })) : [];
+    if (legacyEvents.length) {
+      const destinationId = 'legacy-rea-schedule';
+      let destination = calendars.find((calendar) => String(calendar.id || '') === destinationId);
+      if (!destination) {
+        const group = String(university.groupName || university.groupCode || '').trim();
+        destination = { id: destinationId, name: group ? 'Расписание РЭУ · ' + group : 'Расписание РЭУ', provider: 'ics', sourceType: 'file', feedUrl: '', enabled: true, color: '#1ed760', importedAt: safeIso(university.importedAt, new Date().toISOString()), lastSyncAt: null, syncError: '', events: [] };
+        calendars.push(destination);
+      }
+      const existingIds = new Map();
+      for (const calendar of calendars) for (const event of (Array.isArray(calendar.events) ? calendar.events : [])) { const id = String(event?.id || ''); if (id && !existingIds.has(id)) existingIds.set(id, event); }
+      const seenLegacyIds = new Map();
+      legacyEvents.forEach((rawEvent, index) => {
+        const event = normalizeUniversityEvent(rawEvent, index, new Set());
+        if (!event) throw new Error('Событие старого расписания ' + String(rawEvent?.subject || rawEvent?.title || index + 1) + ' имеет некорректные дату или время. Сохранённые данные не заменены.');
+        const oldId = String(rawEvent?.id || event.id);
+        const fingerprint = JSON.stringify([event.uid, event.date, event.start, event.end, event.subject, event.type, event.teacher, event.room, event.note]);
+        const duplicate = seenLegacyIds.get(oldId);
+        if (duplicate) { if (duplicate === fingerprint) return; throw new Error('Разные старые события используют одинаковый ID ' + oldId + '. Миграция остановлена без изменения исходных данных.'); }
+        seenLegacyIds.set(oldId, fingerprint);
+        const existing = existingIds.get(oldId);
+        if (existing) {
+          const existingFingerprint = JSON.stringify([String(existing.uid || ''), String(existing.date || ''), String(existing.start || ''), String(existing.end || ''), String(existing.subject || ''), String(existing.type || ''), String(existing.teacher || ''), String(existing.room || ''), String(existing.note || '')]);
+          if (existingFingerprint === fingerprint) return;
+          throw new Error('ID старого события ' + oldId + ' уже занят другим событием. Миграция остановлена без изменения исходных данных.');
+        }
+        const migrated = normalizeExternalCalendarEvent({ ...event, id: oldId, allDay: false, transparent: false }, destinationId, destination.name, index, new Set());
+        if (!migrated) throw new Error('Не удалось перенести старое событие ' + oldId + '. Исходные данные не заменены.');
+        destination.events.push(migrated);
+        existingIds.set(oldId, migrated);
+      });
+      destination.sourceType = 'file'; destination.feedUrl = '';
+      destination.importedAt = safeIso(destination.importedAt, safeIso(university.importedAt, new Date().toISOString()));
+    }
+    source.externalCalendars = calendars.map((calendar) => ({ ...calendar, sourceType: 'file', feedUrl: '' }));
+    source.university = { ...university, events: [] };
+    return source;
+  }
   function getGreeting(hour = new Date().getHours(), name = '') {
     const greeting = hour >= 5 && hour < 12 ? 'Доброе утро' : hour >= 12 && hour < 18 ? 'Добрый день' : hour >= 18 && hour < 23 ? 'Добрый вечер' : 'Доброй ночи';
     const cleanName = String(name || '').trim().replace(/[<>\r\n]/g, '').slice(0, 40);
     return cleanName ? `${greeting}, ${cleanName}!` : `${greeting}!`;
-  }
-
-  // Built-in fallback for the demo group. This copy is intentional: the group must work
-  // even when static asset paths or the Sync Gateway are unavailable on the hosting platform.
-  const BUILTIN_SCHEDULE_SNAPSHOT = Object.freeze({"groupCode":"15.14Д-ГГ04/266","aliases":["15.14Д-ГГ04/26б"],"file":"data/schedules/rea-15-14d-gg04-266.ics","revision":"vuzio-20261109-071932z-46-events","capturedAt":"2026-11-09T10:19:32+03:00","source":"Vuzio · календарный снимок","calendarNameIncludes":"Расписание 15.14Д-ГГ04/26б","minimumEvents":46,"coverageStart":"2026-11-09","coverageEnd":"2026-11-23"});
-  const BUILTIN_SCHEDULE_ICS = "BEGIN:VCALENDAR\nPRODID:-//Vuzio//RANEPA schedule//RU\nVERSION:2.0\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\nX-WR-CALNAME:Расписание 15.14Д-ГГ04/26б\nX-WR-TIMEZONE:Europe/Moscow\nREFRESH-INTERVAL;VALUE=DURATION:PT4H\nX-PUBLISHED-TTL:PT4H\nBEGIN:VEVENT\nUID:6bbda23682db6bc772fa577a@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T053000Z\nDTEND:20261109T070000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:436e3a96f0dca416f91a7b1e@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T071000Z\nDTEND:20261109T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:5b451ae2f37ed567b9ed3efa@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T085000Z\nDTEND:20261109T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:bd12338b053cf993c492a0d5@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261109T110000Z\nDTEND:20261109T123000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:811b8f3da8e36811732ba482@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261110T071000Z\nDTEND:20261110T084000Z\nSEQUENCE:0\nSUMMARY:Иностранный язык\nLOCATION:104 · 4 корпус\nDESCRIPTION:Практическое занятие\\n104 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:4cdaf378747fae9c7d6b2b2f@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261110T085000Z\nDTEND:20261110T102000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:305* · 4 корпус\nDESCRIPTION:Практическое занятие\\n305* · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:0594af2e39377632da193b0d@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261110T110000Z\nDTEND:20261110T123000Z\nSEQUENCE:0\nSUMMARY:Экономическая теория\nLOCATION:401 · 4 корпус\nDESCRIPTION:Практическое занятие\\n401 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:6012cae2400963f326f1dac7@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261111T071000Z\nDTEND:20261111T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:c581269fcac872bd6d1c6bd2@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261111T110000Z\nDTEND:20261111T123000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:aa86adc17446a46553ddcb77@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261111T124000Z\nDTEND:20261111T141000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:405 · 4 корпус\nDESCRIPTION:Практическое занятие\\n405 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:310be8deb4b22a2bea705d46@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T053000Z\nDTEND:20261112T070000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:304 · 4 корпус\nDESCRIPTION:Практическое занятие\\n304 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:25c1efca92b77e9b3506c200@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T085000Z\nDTEND:20261112T102000Z\nSEQUENCE:0\nSUMMARY:Тренинг профессионального и личност\n ного роста\nLOCATION:405 · 4 корпус\nDESCRIPTION:Практическое занятие\\n405 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:d6180665dcc28e63593b9434@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T110000Z\nDTEND:20261112T123000Z\nSEQUENCE:0\nSUMMARY:Технологии командообразования\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:d5b67312cc48bb695811f7ef@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261112T124000Z\nDTEND:20261112T141000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:404 · 4 корпус\nDESCRIPTION:Практическое занятие\\n404 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:39d80b5181828e054f2a2e09@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261113T071000Z\nDTEND:20261113T084000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:507*** · 6 корпус\nDESCRIPTION:Практическое занятие\\n507*** · 6 корпу\n с\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:cfbc38fa014809c7edaaf264@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261113T110000Z\nDTEND:20261113T123000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:103 · 4 корпус\nDESCRIPTION:Практическое занятие\\n103 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:20d755b24a3a4ecdcacf41f9@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261113T124000Z\nDTEND:20261113T141000Z\nSEQUENCE:0\nSUMMARY:Иностранный язык\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:0c13b8265a012a954af397f7@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261114T053000Z\nDTEND:20261114T070000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:306 · 4 корпус\nDESCRIPTION:Практическое занятие\\n306 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:355db9728fef00cf06aa741a@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261114T071000Z\nDTEND:20261114T084000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:b1991d0059e0835538ad679f@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261114T085000Z\nDTEND:20261114T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:80ae5be4f8bad222b68af35c@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T071000Z\nDTEND:20261116T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Артамо\n нов Д. В.\nLOCATION:с/з №3 · 4 корпус\nDESCRIPTION:Артамонов Дмитрий Валерьевич\\nПра\n ктическое занятие\\nс/з №3 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:80ae5be4f8bad222b68af35c-1@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T071000Z\nDTEND:20261116T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Внуков\n а Е. Ю.\nLOCATION:с/з №4 · 4 корпус\nDESCRIPTION:Внукова Елена Юрьевна\\nПрактическ\n ое занятие\\nс/з №4 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:69a7234ec4638524ea77a611@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T085000Z\nDTEND:20261116T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:7310e41e2575bcadf4bea041@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261116T110000Z\nDTEND:20261116T123000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:d915d94088b51f5bedd5fef0@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T053000Z\nDTEND:20261117T070000Z\nSEQUENCE:0\nSUMMARY:Теория государства и права\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:01cced39f492fe6595566600@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T071000Z\nDTEND:20261117T084000Z\nSEQUENCE:0\nSUMMARY:Теория государства и права\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:a8d79b6f6a87c072cb86ae81@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T110000Z\nDTEND:20261117T123000Z\nSEQUENCE:0\nSUMMARY:Экономическая теория\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:802b793d54310572fda51d7d@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261117T124000Z\nDTEND:20261117T141000Z\nSEQUENCE:0\nSUMMARY:Экономическая теория\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:fbdc9f6777e36fefb97e1223@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T053000Z\nDTEND:20261118T070000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Внуков\n а Е. Ю.\nLOCATION:с/з №4 · 4 корпус\nDESCRIPTION:Внукова Елена Юрьевна\\nПрактическ\n ое занятие\\nс/з №4 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:8f91c68d9aed6e8455f27fe1@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T071000Z\nDTEND:20261118T084000Z\nSEQUENCE:0\nSUMMARY:Физическая культура и спорт · Внуков\n а Е. Ю.\nLOCATION:с/з №4 · 4 корпус\nDESCRIPTION:Внукова Елена Юрьевна\\nПрактическ\n ое занятие\\nс/з №4 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:3272b1b47fb21e20eb6f4faa@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T085000Z\nDTEND:20261118T102000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:da3a31a608be05bb5a40f3e9@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261118T110000Z\nDTEND:20261118T123000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:ef7646852dc5801cf6af39bf@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261119T053000Z\nDTEND:20261119T070000Z\nSEQUENCE:0\nSUMMARY:Картины мира\nLOCATION:401 · 4 корпус\nDESCRIPTION:Практическое занятие\\n401 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:9f573130b5b4205257e49818@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261119T085000Z\nDTEND:20261119T102000Z\nSEQUENCE:0\nSUMMARY:Тренинг профессионального и личност\n ного роста\nLOCATION:404 · 4 корпус\nDESCRIPTION:Практическое занятие\\n404 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:3c62da827463f5239358e184@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261119T110000Z\nDTEND:20261119T123000Z\nSEQUENCE:0\nSUMMARY:Технологии командообразования\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:7ee27cd3f2d9923a51c321eb@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261120T053000Z\nDTEND:20261120T070000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:5a294715a5b73f97c515f8f0@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261120T071000Z\nDTEND:20261120T084000Z\nSEQUENCE:0\nSUMMARY:Высшая математика\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:ba6b4c2448f6c661f8d3be46@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261120T085000Z\nDTEND:20261120T102000Z\nSEQUENCE:0\nSUMMARY:Иностранный язык\nLOCATION:404 · 4 корпус\nDESCRIPTION:Практическое занятие\\n404 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:f003aa3f9be673ddfa399f65@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T053000Z\nDTEND:20261121T070000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:a92892d4c9966b633d4465f4@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T071000Z\nDTEND:20261121T084000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:f031659a0ec4318f44b5db21@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T085000Z\nDTEND:20261121T102000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:3521046276d4d9aa068fd515@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261121T110000Z\nDTEND:20261121T123000Z\nSEQUENCE:0\nSUMMARY:Основы российской государственност\n и\nLOCATION:406 · 4 корпус\nDESCRIPTION:Практическое занятие\\n406 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:549739a2db743e2ee285e9f5@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T071000Z\nDTEND:20261123T084000Z\nSEQUENCE:0\nSUMMARY:Теория государства и права\nLOCATION:403 · 4 корпус\nDESCRIPTION:Практическое занятие\\n403 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:bdec5a7581bf14dead501858@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T085000Z\nDTEND:20261123T102000Z\nSEQUENCE:0\nSUMMARY:Геополитика\nLOCATION:101 · 4 корпус\nDESCRIPTION:Лекция\\n101 · 4 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:9a0145579e1c13bd68cc4587@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T110000Z\nDTEND:20261123T123000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nBEGIN:VEVENT\nUID:1fe0f079923eaa0be4cf84e2@schedule.mrdis.one\nDTSTAMP:20261109T071932Z\nLAST-MODIFIED:20261109T071932Z\nDTSTART:20261123T124000Z\nDTEND:20261123T141000Z\nSEQUENCE:0\nSUMMARY:Управление проектами\nLOCATION:137 · 2 корпус\nDESCRIPTION:Лекция\\n137 · 2 корпус\nSTATUS:CONFIRMED\nTRANSP:OPAQUE\nEND:VEVENT\nEND:VCALENDAR\n";
-
-  function normalizeScheduleSnapshotGroup(value) {
-    const text = String(value || '').normalize('NFKC').trim().toLocaleLowerCase('ru-RU')
-      .replace(/ё/g, 'е')
-      .replace(/[\u2010-\u2015\u2212]/g, '-')
-      .replace(/[\u200b-\u200d\ufeff]/g, '')
-      .replace(/\s+/g, '');
-    // Group codes are often typed with an English keyboard even when the official
-    // timetable uses Cyrillic letters. Canonicalize unambiguous transliteration
-    // and visual lookalikes so the bundled group is still recognized.
-    const latinToCyrillic = { a: 'а', b: 'б', c: 'с', d: 'д', e: 'е', g: 'г', h: 'н', k: 'к', m: 'м', o: 'о', p: 'р', t: 'т', x: 'х', y: 'у' };
-    return text.replace(/[a-z]/g, (letter) => latinToCyrillic[letter] || letter);
-  }
-
-  function normalizeScheduleSnapshotManifest(raw) {
-    if (!raw || typeof raw !== 'object' || Number(raw.schemaVersion) !== 1 || !Array.isArray(raw.snapshots)) {
-      throw new Error('Реестр демонстрационных расписаний имеет неверный формат.');
-    }
-    const snapshots = [];
-    const seenGroups = new Set();
-    for (const item of raw.snapshots) {
-      if (!item || typeof item !== 'object') continue;
-      const groupCode = String(item.groupCode || '').trim().slice(0, 80);
-      const groupKey = normalizeScheduleSnapshotGroup(groupCode);
-      const aliases = Array.isArray(item.aliases)
-        ? [...new Set(item.aliases.map((alias) => String(alias || '').trim().slice(0, 80)).filter(Boolean))].slice(0, 8)
-        : [];
-      const groupKeys = [...new Set([groupKey, ...aliases.map(normalizeScheduleSnapshotGroup)].filter(Boolean))];
-      const file = String(item.file || '').trim();
-      const revision = String(item.revision || '').trim().slice(0, 80);
-      const capturedAt = safeIso(item.capturedAt, null);
-      // Allow only a simple file name inside data/schedules. No user input is ever used as a path.
-      const safeFile = /^data\/schedules\/[A-Za-z0-9._-]+\.ics$/i.test(file) && !file.includes('..');
-      if (!groupCode || !groupKey || groupKeys.some((key) => seenGroups.has(key)) || !safeFile || !revision || !capturedAt) continue;
-      groupKeys.forEach((key) => seenGroups.add(key));
-      snapshots.push({
-        groupCode,
-        groupKey,
-        aliases,
-        aliasKeys: groupKeys.slice(1),
-        file,
-        revision,
-        capturedAt,
-        source: String(item.source || 'Vuzio · календарный снимок').trim().slice(0, 80),
-        calendarNameIncludes: String(item.calendarNameIncludes || '').trim().slice(0, 120),
-        minimumEvents: Number.isInteger(Number(item.minimumEvents)) && Number(item.minimumEvents) > 0 ? Number(item.minimumEvents) : 1,
-        coverageStart: isValidDateKey(item.coverageStart) ? String(item.coverageStart) : '',
-        coverageEnd: isValidDateKey(item.coverageEnd) ? String(item.coverageEnd) : ''
-      });
-    }
-    return { schemaVersion: 1, snapshots };
-  }
-
-  function findScheduleSnapshot(manifest, groupCode) {
-    const target = normalizeScheduleSnapshotGroup(groupCode);
-    return (Array.isArray(manifest?.snapshots) ? manifest.snapshots : [])
-      .find((item) => item.groupKey === target || (Array.isArray(item.aliasKeys) && item.aliasKeys.includes(target))) || null;
-  }
-
-  function scheduleGroupsMatch(first, second) {
-    const a = normalizeScheduleSnapshotGroup(first);
-    const b = normalizeScheduleSnapshotGroup(second);
-    if (a && a === b) return true;
-    const manifest = normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] });
-    const left = findScheduleSnapshot(manifest, first);
-    const right = findScheduleSnapshot(manifest, second);
-    return Boolean(left && right && left.groupKey === right.groupKey);
-  }
-
-  function inspectScheduleIcsCompatibility(text) {
-    const lines = parseIcsLines(text);
-    let inEvent = false;
-    let eventCount = 0;
-    let unsupported = [];
-    const timezones = new Set();
-    for (const line of lines) {
-      const upper = line.toUpperCase();
-      if (upper === 'BEGIN:VEVENT') { inEvent = true; eventCount += 1; continue; }
-      if (upper === 'END:VEVENT') { inEvent = false; continue; }
-      if (!inEvent) continue;
-      const property = parseIcsProperty(line);
-      if (!property) continue;
-      if (['RRULE', 'RDATE', 'EXDATE', 'RECURRENCE-ID', 'DURATION'].includes(property.name)) unsupported.push(property.name);
-      if (property.name === 'STATUS' && property.value.toUpperCase() === 'CANCELLED') unsupported.push('STATUS:CANCELLED');
-      if (['DTSTART', 'DTEND'].includes(property.name) && property.params.TZID) timezones.add(String(property.params.TZID).replace(/^"|"$/g, ''));
-    }
-    const unsupportedTimezones = [...timezones].filter((zone) => !['Europe/Moscow', 'Europe/Kirov', 'Etc/GMT-3', 'GMT+03:00'].includes(zone));
-    return {
-      eventCount,
-      unsupported: [...new Set(unsupported)],
-      unsupportedTimezones,
-      compatible: unsupported.length === 0 && unsupportedTimezones.length === 0
-    };
-  }
-
-  function parseStaticScheduleSnapshot(text, groupCode, entry) {
-    const raw = String(text || '').replace(/^\uFEFF/, '').trim();
-    if (!/^BEGIN:VCALENDAR(?:\r?\n)/i.test(raw) || !/END:VCALENDAR\s*$/i.test(raw)) {
-      throw new Error('Файл снимка не является полноценным календарём iCalendar.');
-    }
-    const compatibility = inspectScheduleIcsCompatibility(raw);
-    if (!compatibility.compatible) {
-      const detail = compatibility.unsupported.length ? compatibility.unsupported.join(', ') : compatibility.unsupportedTimezones.join(', ');
-      throw new Error(`Формат ICS содержит неподдерживаемые конструкции: ${detail}. Старое расписание сохранено.`);
-    }
-    const parsed = parseUniversityIcs(raw);
-    // Vuzio appends a teacher's abbreviated name to some SUMMARY values while
-    // also providing the full name in DESCRIPTION. Keep the teacher in its own
-    // field and show the clean discipline title in the timetable.
-    parsed.events = parsed.events.map((event) => {
-      const subject = event.teacher
-        ? String(event.subject || '').replace(/\s+·\s+[\p{L}-]+\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.?$/u, '').trim()
-        : event.subject;
-      return { ...event, subject: subject || event.subject };
-    });
-    if (!parsed.events.length || parsed.events.length !== compatibility.eventCount) {
-      throw new Error(`Не все занятия из ICS удалось прочитать (${parsed.events.length} из ${compatibility.eventCount}). Старое расписание сохранено.`);
-    }
-    if (parsed.events.length < Number(entry.minimumEvents || 1)) {
-      throw new Error(`В файле слишком мало занятий (${parsed.events.length}). Старое расписание сохранено.`);
-    }
-    if (entry.calendarNameIncludes && !String(parsed.calendarName || '').toLocaleLowerCase('ru-RU').includes(entry.calendarNameIncludes.toLocaleLowerCase('ru-RU'))) {
-      throw new Error('Название календаря не соответствует ожидаемой группе. Старое расписание сохранено.');
-    }
-    const dates = parsed.events.map((event) => event.date).sort();
-    if (entry.coverageStart && dates[0] > entry.coverageStart) {
-      throw new Error('Календарь начинается позже заявленного периода. Старое расписание сохранено.');
-    }
-    if (entry.coverageEnd && dates[dates.length - 1] < entry.coverageEnd) {
-      throw new Error('Календарь заканчивается раньше заявленного периода. Старое расписание сохранено.');
-    }
-    return { ...parsed, groupCode, events: normalizeUniversity({ groupCode, events: parsed.events }).events, compatibility, hash: hashString(raw) };
-  }
-
-  async function loadStaticScheduleSnapshot(groupCode, { fetchImpl = fetch, baseHref = document.baseURI || window.location.href, signal } = {}) {
-    // Resolve the bundled demo snapshot before any fetch. This keeps the demo group usable
-    // even when the manifest/ICS static URLs are not published correctly or the Sync Gateway is down.
-    const builtInManifest = normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] });
-    const builtInEntry = findScheduleSnapshot(builtInManifest, groupCode);
-    if (builtInEntry) {
-      const parsed = parseStaticScheduleSnapshot(BUILTIN_SCHEDULE_ICS, groupCode, builtInEntry);
-      return { found: true, entry: builtInEntry, parsed, bundled: true };
-    }
-
-    const manifestPath = String(globalThis.TAVRIMO_CONFIG?.scheduleSnapshotManifest || 'data/schedules/manifest.json');
-    const manifestUrl = new URL(manifestPath, baseHref);
-    const manifestResponse = await fetchImpl(manifestUrl.toString(), { method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' }, signal });
-    if (manifestResponse.status === 404) return { found: false };
-    if (!manifestResponse.ok) throw new Error(`Не удалось прочитать реестр расписаний (${manifestResponse.status}).`);
-    let rawManifest;
-    try { rawManifest = await manifestResponse.json(); }
-    catch { throw new Error('Реестр демонстрационных расписаний повреждён. Старое расписание сохранено.'); }
-    const manifest = normalizeScheduleSnapshotManifest(rawManifest);
-    const entry = findScheduleSnapshot(manifest, groupCode);
-    if (!entry) return { found: false };
-    const assetUrl = new URL(entry.file, baseHref);
-    if (assetUrl.origin !== manifestUrl.origin || !assetUrl.pathname.startsWith(new URL('data/schedules/', baseHref).pathname)) {
-      throw new Error('Путь к ICS-файлу выходит за пределы каталога расписаний.');
-    }
-    assetUrl.searchParams.set('v', entry.revision);
-    const fileResponse = await fetchImpl(assetUrl.toString(), { method: 'GET', cache: 'no-store', headers: { Accept: 'text/calendar, text/plain;q=0.9, */*;q=0.1' }, signal });
-    if (!fileResponse.ok) throw new Error(`Не удалось загрузить демонстрационный ICS (${fileResponse.status}). Старое расписание сохранено.`);
-    const text = await fileResponse.text();
-    const parsed = parseStaticScheduleSnapshot(text, groupCode, entry);
-    return { found: true, entry, parsed };
-  }
-
-  async function refreshUniversityGroupSuggestions({ fetchImpl = fetch, baseHref = document.baseURI || window.location.href } = {}) {
-    const list = $('#universityGroupSuggestions');
-    if (!list) return [];
-    const entries = [];
-    const builtin = normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] });
-    entries.push(...builtin.snapshots);
-    const manifestPath = String(globalThis.TAVRIMO_CONFIG?.scheduleSnapshotManifest || 'data/schedules/manifest.json');
-    try {
-      const response = await fetchImpl(new URL(manifestPath, baseHref).toString(), {
-        method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' }
-      });
-      if (response.ok) {
-        const manifest = normalizeScheduleSnapshotManifest(await response.json());
-        entries.push(...manifest.snapshots);
-      }
-    } catch { /* Suggestions are optional; manual group entry remains available. */ }
-    const seen = new Set();
-    const unique = entries.filter((entry) => {
-      if (seen.has(entry.groupKey)) return false;
-      seen.add(entry.groupKey);
-      return true;
-    });
-    list.innerHTML = unique.map((entry) => `<option value="${escapeHtml(entry.groupCode)}"></option>`).join('');
-    return unique;
-  }
-
-  function universityEventsForDate(date, events = data.university.events) {
-    const key = typeof date === 'string' ? date : dateKey(date);
-    const source = Array.isArray(events) ? events : [];
-    return source.filter((event) => event.date === key).sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
-  }
-
-  function universityEventById(id) { return data.university.events.find((event) => String(event.id) === String(id)); }
-
-  function universityConflict(taskDate, start, end, events = data.university.events) {
-    return universityEventsForDate(taskDate, events).find((event) => start < toMinutes(event.end) && end > toMinutes(event.start)) || null;
   }
 
   function externalCalendarEventsForDate(date, calendars = data.externalCalendars) {
@@ -790,21 +614,21 @@
       .flatMap((calendar) => (Array.isArray(calendar.events) ? calendar.events : []).filter((event) => event.date === key).map((event) => ({ ...event, calendarKind: 'external' })));
   }
 
-  function allCalendarEventsForDate(date, options = {}) {
+  function allCalendarEventsForDate(date) {
     const key = typeof date === 'string' ? date : dateKey(date);
-    const includeUniversity = options.includeUniversity !== false;
-    const university = includeUniversity ? universityEventsForDate(key).map((event) => ({ ...event, calendarKind: 'university', calendarName: 'РЭУ', allDay: false, transparent: false })) : [];
-    const external = externalCalendarEventsForDate(key).map((event) => ({ ...event, calendarKind: 'external' }));
-    return [...university, ...external].sort((a, b) => toMinutes(a.start) - toMinutes(b.start) || toMinutes(a.end) - toMinutes(b.end));
+    return externalCalendarEventsForDate(key).sort((a, b) => {
+      const aStart = a.allDay ? 0 : toMinutes(a.start);
+      const bStart = b.allDay ? 0 : toMinutes(b.start);
+      return aStart - bStart || toMinutes(a.end) - toMinutes(b.end);
+    });
   }
 
   function anyCalendarEventById(id) {
-    return universityEventById(id) || data.externalCalendars.flatMap((calendar) => calendar.events || []).find((event) => String(event.id) === String(id)) || null;
+    const event = data.externalCalendars.flatMap((calendar) => calendar.events || []).find((item) => String(item.id) === String(id));
+    return event ? { ...event, calendarKind: 'external' } : null;
   }
 
   function calendarConflict(taskDate, start, end, calendars = data.externalCalendars) {
-    const university = universityConflict(taskDate, start, end);
-    if (university) return university;
     return externalCalendarEventsForDate(taskDate, calendars).find((event) => !event.transparent && start < (event.allDay ? 1440 : toMinutes(event.end)) && end > (event.allDay ? 0 : toMinutes(event.start))) || null;
   }
 
@@ -812,14 +636,12 @@
     let count = 0;
     for (const task of data.tasks) {
       if (task.done || !task.scheduledDate || !task.scheduledStart) continue;
-      const start = toMinutes(task.scheduledStart); const end = start + task.duration + Number(data.settings.buffer || 0);
-      if (calendarConflict(task.scheduledDate, start, end)) {
-        task.scheduledDate = null; task.scheduledStart = null; task.locked = false; count += 1;
-      }
+      const start = toMinutes(task.scheduledStart);
+      const end = start + task.duration + Number(data.settings.buffer || 0);
+      if (calendarConflict(task.scheduledDate, start, end)) { task.scheduledDate = null; task.scheduledStart = null; task.locked = false; count += 1; }
     }
     return count;
   }
-
   function normalizeQuarterHour(value, fallback, min = 0, max = 23.75) {
     const number = Number(value);
     if (!Number.isFinite(number) || number < min || number > max) return fallback;
@@ -829,8 +651,8 @@
   function normalizeData(raw) {
     const base = clone(DEFAULTS);
     if (!raw || typeof raw !== 'object') return base;
-
-    const rawSettings = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
+    const migratedRaw = migrateCalendarData(raw);
+    const rawSettings = migratedRaw.settings && typeof migratedRaw.settings === 'object' ? migratedRaw.settings : {};
     const settings = { ...base.settings, ...rawSettings };
     settings.workStart = normalizeQuarterHour(settings.workStart, 9);
     settings.workEnd = normalizeQuarterHour(settings.workEnd, 18);
@@ -844,38 +666,29 @@
     settings.theme = ['system', 'light', 'dark'].includes(settings.theme) ? settings.theme : 'system';
     settings.displayName = String(settings.displayName || '').trim().replace(/[<>\r\n]/g, '').slice(0, 40);
 
-    const rawTasks = Array.isArray(raw.tasks) ? raw.tasks : [];
+    const rawTasks = Array.isArray(migratedRaw.tasks) ? migratedRaw.tasks : [];
     const usedIds = new Set();
     const tasks = rawTasks.map((task, index) => normalizeTask(task, index, usedIds)).filter((task) => task.title);
     const taskIds = new Set(tasks.map((task) => String(task.id)));
-    const focusRaw = raw.focus && typeof raw.focus === 'object' ? raw.focus : {};
+    const focusRaw = migratedRaw.focus && typeof migratedRaw.focus === 'object' ? migratedRaw.focus : {};
     const sessions = Array.isArray(focusRaw.sessions) ? focusRaw.sessions.slice(-500).map((session) => {
       const minutes = Math.round(Number(session?.minutes) || 0);
       const date = isValidDateKey(session?.date) ? String(session.date) : null;
       if (minutes <= 0 || !date) return null;
-      return {
-        date,
-        taskId: session?.taskId != null && taskIds.has(String(session.taskId)) ? String(session.taskId) : null,
-        minutes: Math.min(1440, minutes),
-        completedAt: safeIso(session?.completedAt, new Date().toISOString())
-      };
+      return { date, taskId: session?.taskId != null && taskIds.has(String(session.taskId)) ? String(session.taskId) : null,
+        minutes: Math.min(1440, minutes), completedAt: safeIso(session?.completedAt, new Date().toISOString()) };
     }).filter(Boolean) : [];
     const totalMinutes = sessions.reduce((sum, session) => sum + session.minutes, 0);
-
-    const university = normalizeUniversity(raw.university);
-    const externalCalendars = normalizeExternalCalendars(raw.externalCalendars);
-    const universityIds = new Set([...university.events, ...externalCalendars.flatMap((calendar) => calendar.events)].map((event) => String(event.id)));
+    const university = normalizeUniversity(migratedRaw.university);
+    const externalCalendars = normalizeExternalCalendars(migratedRaw.externalCalendars);
+    const profileRaw = migratedRaw.profile && typeof migratedRaw.profile === 'object' ? migratedRaw.profile : {};
+    const avatarDataUrl = String(profileRaw.avatarDataUrl || '');
+    const profile = { avatarDataUrl: avatarDataUrl.length <= 400_000 && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/i.test(avatarDataUrl) ? avatarDataUrl : '' };
+    const calendarEventIds = new Set([...university.events, ...externalCalendars.flatMap((calendar) => calendar.events)].map((event) => String(event.id)));
     for (const task of tasks) {
-      if (task.linkedUniversityEventId && !universityIds.has(String(task.linkedUniversityEventId))) task.linkedUniversityEventId = null;
+      if (task.linkedUniversityEventId && !calendarEventIds.has(String(task.linkedUniversityEventId))) task.linkedUniversityEventId = null;
     }
-    const normalized = {
-      version: SCHEMA_VERSION,
-      settings,
-      tasks,
-      focus: { totalMinutes, sessions },
-      university,
-      externalCalendars
-    };
+    const normalized = { version: SCHEMA_VERSION, settings, tasks, focus: { totalMinutes, sessions }, university, externalCalendars, profile };
     return repairData(normalized, normalized.settings).data;
   }
 
@@ -922,9 +735,8 @@
       for (const task of repaired.tasks) {
         if (task.done || !task.scheduledDate || !task.scheduledStart) continue;
         const start = toMinutes(task.scheduledStart); const end = start + task.duration + Number(repaired.settings.buffer || 0);
-        const uniConflict = universityConflict(task.scheduledDate, start, end, repaired.university.events || []);
         const extConflict = (repaired.externalCalendars || []).filter((calendar) => calendar.enabled !== false).flatMap((calendar) => calendar.events || []).find((event) => event.date === task.scheduledDate && !event.transparent && start < (event.allDay ? 1440 : toMinutes(event.end)) && end > (event.allDay ? 0 : toMinutes(event.start)));
-        if (uniConflict || extConflict) {
+        if (extConflict) {
           task.scheduledDate = null; task.scheduledStart = null; task.locked = false; changed = true;
         }
       }
@@ -947,17 +759,21 @@
       for (const key of [STORAGE_KEY, ...LEGACY_KEYS]) {
         const raw = localStorage.getItem(key);
         if (!raw) continue;
-        const parsed = normalizeData(JSON.parse(raw));
+        let source;
+        try { source = JSON.parse(raw); } catch { continue; }
+        const parsed = normalizeData(source);
         if (isOnlyLegacyDemo(parsed)) {
           [STORAGE_KEY, ...LEGACY_KEYS].forEach((legacy) => localStorage.removeItem(legacy));
           return clone(DEFAULTS);
         }
-        if (key !== STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        // Write only after the migrated snapshot is complete. A quota error leaves the old
+        // JSON untouched, so migration can be safely retried on the next launch.
+        if (key !== STORAGE_KEY || JSON.stringify(source) !== JSON.stringify(parsed)) {
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); } catch { /* preserve original data */ }
+        }
         return parsed;
       }
-    } catch {
-      // clean start
-    }
+    } catch (error) { dataLoadError = error?.message || 'Не удалось безопасно открыть сохранённые данные. Исходная копия оставлена на устройстве.'; }
     return clone(DEFAULTS);
   }
 
@@ -1073,8 +889,6 @@
     if (task.deadline && dateKey(date) === task.deadline && end > deadlineMinutes(task)) return task.deadlineTime ? `Слот заканчивается позже ${task.deadlineTime}.` : 'Слот заканчивается после дедлайна.';
 
     const newStart = start; const newEnd = end + buffer;
-    const universityBlock = universityConflict(scheduledDate, newStart, newEnd);
-    if (universityBlock) return `В это время пара: ${universityBlock.subject}${universityBlock.room ? ` · ${universityBlock.room}` : ''}.`;
     const externalBlock = externalCalendarEventsForDate(scheduledDate).find((event) => !event.transparent && newStart < (event.allDay ? 1440 : toMinutes(event.end)) && newEnd > (event.allDay ? 0 : toMinutes(event.start)));
     if (externalBlock) return `В это время занято: ${externalBlock.subject}${externalBlock.calendarName ? ` · ${externalBlock.calendarName}` : ''}.`;
     const conflict = data.tasks.some((other) => {
@@ -1136,13 +950,14 @@
   }
 
   function renderAll() {
-    applyTheme(); renderChrome(); renderToday(); renderCalendar(); renderCalendarMode(); renderTasks(); renderSettings();
+    applyTheme(); renderChrome(); renderToday(); renderCalendar(); renderCalendarMode(); renderTasks(); renderProfile(); renderSettings();
     populateFocusTasks(); updateAppVersion(); updateManualHint(); updateFocusUI();
   }
 
   function renderChrome() {
-    $('#headerContext').textContent = currentView === 'today' ? shortDate(currentDate) : ({ calendar: 'Неделя', tasks: 'Задачи', more: 'Ещё' }[currentView] || APP_NAME);
-    $$('.tab[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === currentView));
+    $('#headerContext').textContent = ({ today: 'Сегодня', calendar: 'Неделя', tasks: 'Задачи', more: 'Ещё', profile: 'Профиль' }[currentView] || APP_NAME);
+    const activeTab = currentView === 'profile' ? 'more' : currentView;
+    $('.tab[data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === activeTab));
     $$('.view').forEach((view) => view.classList.toggle('active', view.dataset.view === currentView));
   }
 
@@ -1211,361 +1026,7 @@
     return `Обновлено ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
   }
 
-  function renderUniversityEventCard(event, compact = false) {
-    const meta = [event.calendarKind === 'external' ? event.calendarName : event.type, event.teacher, event.room].filter(Boolean).join(' · ');
-    return `<div class="uni-event-card ${compact ? 'compact' : ''}" data-uni-event="${escapeHtml(event.id)}">\n      <button class="uni-event-main" type="button" data-open-uni-event="${escapeHtml(event.id)}">\n        <span class="uni-event-time"><strong>${event.allDay ? 'Весь день' : escapeHtml(event.start)}</strong><small>${event.allDay ? '' : escapeHtml(event.end)}</small></span>\n        <span class="uni-event-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Занятие')}</small></span>\n      </button>\n      <button class="uni-event-task" type="button" data-add-task-uni="${escapeHtml(event.id)}" aria-label="Добавить задачу к паре">＋</button>\n    </div>`;
-  }
-
-  function renderUniversityWeek() {
-    const group = data.university.groupCode || '';
-    $('#universityGroupLabel').textContent = group || 'Группа не выбрана';
-    $('#universityManageBtn').textContent = group ? 'Настроить' : 'Подключить';
-    $('#universitySyncLabel').textContent = data.university.syncMode === 'snapshot' && data.university.events.length
-      ? `Демонстрационный снимок · ${data.university.events.length} занятий · ${formatImportedAt(data.university.snapshotCapturedAt || data.university.importedAt)}`
-      : data.university.events.length ? `${formatImportedAt(data.university.lastSyncAt || data.university.importedAt)} · ${data.university.events.length} занятий${data.university.syncError ? ' · не удалось обновить' : ''}` : (data.university.syncError ? `Ошибка синхронизации · ${data.university.syncError}` : 'Группа подключена — расписание загрузится автоматически.');
-    const monday = getWeekStart(currentDate);
-    const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-    const total = days.reduce((sum, day) => sum + universityEventsForDate(day).length, 0);
-    const todayCount = universityEventsForDate(currentDate).length;
-    const hours = days.reduce((sum, day) => sum + universityEventsForDate(day).reduce((acc, event) => acc + Math.max(0, toMinutes(event.end) - toMinutes(event.start)), 0), 0);
-    $('#universityWeekSummary').innerHTML = `\n      <div><strong>${total}</strong><span>занятий за неделю</span></div>\n      <div><strong>${formatDuration(hours)}</strong><span>учебного времени</span></div>\n      <div><strong>${todayCount}</strong><span>в выбранный день</span></div>`;
-    $('#universityAgenda').innerHTML = days.map((day) => {
-      const events = universityEventsForDate(day);
-      const key = dateKey(day); const selected = key === dateKey(currentDate); const isToday = key === todayKey();
-      return `<section class="uni-day ${selected ? 'selected' : ''}"><button class="uni-day-head" data-day="${key}" type="button"><span><strong>${escapeHtml(weekdayShort(day))}</strong><b>${day.getDate()}</b>${isToday ? '<em>сегодня</em>' : ''}</span><small>${events.length ? `${events.length} ${formatCount(events.length, 'пара', 'пары', 'пар')}` : 'свободно'}</small></button><div class="uni-day-events">${events.length ? events.map((event) => renderUniversityEventCard(event)).join('') : `<div class="uni-empty">Нет занятий</div>`}</div></section>`;
-    }).join('');
-  }
-
-  function renderCalendarMode() {
-    const uni = calendarMode === 'university';
-    $('#calendarPlanPanel')?.classList.toggle('hidden', uni);
-    $('#universityCalendarPanel')?.classList.toggle('hidden', !uni);
-    $$('.calendar-mode-btn').forEach((button) => {
-      const active = button.dataset.calendarMode === calendarMode;
-      button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active));
-    });
-    if (uni) renderUniversityWeek();
-  }
-
-  function syncEndpoint() {
-    const configured = String(globalThis.TAVRIMO_CONFIG?.syncEndpoint || '/api/rea/schedule').trim();
-    return configured.replace(/\/$/, '');
-  }
-
-  function syncConfigNumber(key, fallback, min = 0) {
-    const parsed = Number(globalThis.TAVRIMO_CONFIG?.[key]);
-    return Number.isFinite(parsed) ? Math.max(min, parsed) : fallback;
-  }
-
-  function syncEndpointAvailable() {
-    return Boolean(syncEndpoint());
-  }
-
-  function setUniversitySyncState(state, detail = '') {
-    universitySyncMessage = detail;
-    const stateEl = $('#universitySyncState'); const detailEl = $('#universitySyncDetail'); const dot = $('#universitySyncDot'); const card = $('#universitySyncStateCard');
-    if (stateEl) stateEl.textContent = state;
-    if (detailEl) detailEl.textContent = detail;
-    if (dot) dot.dataset.state = state.includes('Ошибка') ? 'over' : state.includes('обнов') || state.includes('готов') ? 'on' : 'idle';
-    card?.classList.toggle('is-error', state.includes('Ошибка'));
-    card?.classList.toggle('is-loading', state.includes('Обновляю'));
-  }
-
-  function updateHomeSyncUI() {
-    const group = data.university.groupCode || '';
-    const label = $('#homeGroupLabel'); const detail = $('#homeSyncLabel'); const button = $('#homeSyncBtn');
-    if (!label || !detail) return;
-    label.textContent = group || 'Группа не выбрана';
-    if (!group) detail.textContent = 'Укажи группу — расписание загрузится автоматически.';
-    else if (data.university.syncError) detail.textContent = `Не удалось обновить · ${data.university.syncError}`;
-    else if (data.university.syncMode === 'snapshot') detail.textContent = `Демо-снимок · ${data.university.events.length} занятий · ${formatImportedAt(data.university.snapshotCapturedAt || data.university.importedAt).replace(/^Обновлено\s*/i,'')}`;
-    else if (data.university.syncMode === 'manual' && data.university.events.length) detail.textContent = `Локальный ICS · ${data.university.events.length} занятий · работает без сервера`;
-    else if (data.university.lastSyncAt) detail.textContent = `Синхронизировано ${formatImportedAt(data.university.lastSyncAt).replace(/^Обновлено\s*/i,'')}`;
-    else if (data.university.events.length) detail.textContent = `${data.university.events.length} занятий · синхронизация включена`;
-    else detail.textContent = 'Синхронизация включена · проверяем расписание онлайн';
-    if (button) {
-      button.disabled = false;
-      button.removeAttribute('aria-disabled');
-      button.setAttribute('aria-busy', String(Boolean(universitySyncInFlight)));
-      const failed = Boolean(data.university.syncError) && !universitySyncInFlight;
-      const localIcs = data.university.syncMode === 'manual' && data.university.events.length > 0;
-      const buttonText = $('#homeSyncBtnText'); if (buttonText) buttonText.textContent = universitySyncInFlight ? 'Обновляю…' : localIcs ? 'Импорт ICS' : (failed ? 'Повторить' : 'Обновить'); else button.textContent = universitySyncInFlight ? 'Обновляю…' : localIcs ? 'Импорт ICS' : (failed ? '↻ Повторить' : '↻ Обновить');
-      button.title = localIcs ? 'Выбрать новый ICS-файл для обновления расписания' : failed ? 'Повторить синхронизацию расписания' : 'Принудительно проверить расписание РЭУ';
-      button.classList.toggle('is-busy', Boolean(universitySyncInFlight));
-      button.classList.toggle('is-error', failed);
-    }
-  }
-
-  function extractGroupCode(value) {
-    const text = String(value || '').trim();
-    const labeled = text.match(/(?:группа|group)\s*[:#\-]?\s*([^|,]+)/i)?.[1]?.trim();
-    return (labeled || text).slice(0, 80);
-  }
-
-  function mergeUniversityEvents(previousEvents, nextEvents) {
-    const previous = Array.isArray(previousEvents) ? previousEvents : [];
-    const next = Array.isArray(nextEvents) ? nextEvents : [];
-    const byUid = new Map(previous.filter((event) => event.uid).map((event) => [String(event.uid), event]));
-    const leftovers = previous.slice();
-    const merged = [];
-    let added = 0; let changed = 0; let removed = 0;
-    const takeOld = (candidate) => { const index = leftovers.findIndex((item) => String(item.id) === String(candidate.id)); if (index >= 0) leftovers.splice(index, 1); };
-    for (const event of next) {
-      let old = event.uid ? byUid.get(String(event.uid)) : null;
-      if (!old) {
-        const signature = `${event.subject}|${event.teacher}|${event.room}`.toLowerCase();
-        const candidates = leftovers.filter((item) => `${item.subject}|${item.teacher}|${item.room}`.toLowerCase() === signature);
-        candidates.sort((a, b) => Math.abs(daysBetween(dateFromKey(a.date), dateFromKey(event.date))) - Math.abs(daysBetween(dateFromKey(b.date), dateFromKey(event.date))));
-        old = candidates[0] || null;
-      }
-      if (old) {
-        takeOld(old);
-        const eventChanged = old.date !== event.date || old.start !== event.start || old.end !== event.end || old.subject !== event.subject || old.teacher !== event.teacher || old.room !== event.room || old.type !== event.type;
-        if (eventChanged) changed += 1;
-        merged.push({ ...event, id: old.id });
-      } else {
-        added += 1; merged.push(event);
-      }
-    }
-    removed = leftovers.length;
-    return { events: merged, changes: { added, changed, removed } };
-  }
-
-  function applyUniversitySchedule(nextUniversity) {
-    const merge = mergeUniversityEvents(data.university.events, nextUniversity.events);
-    const previousIds = new Set(data.university.events.map((event) => String(event.id)));
-    const nextIds = new Set(merge.events.map((event) => String(event.id)));
-    let unlinked = 0;
-    for (const task of data.tasks) {
-      if (task.linkedUniversityEventId && previousIds.has(String(task.linkedUniversityEventId)) && !nextIds.has(String(task.linkedUniversityEventId))) {
-        task.linkedUniversityEventId = null; unlinked += 1;
-      }
-    }
-    data.university = {
-      ...data.university,
-      ...nextUniversity,
-      events: normalizeUniversity({ ...nextUniversity, events: merge.events }).events,
-      syncMode: nextUniversity.syncMode || 'auto'
-    };
-    const conflicts = repairUniversityTaskConflicts();
-    universitySyncChangeCount = merge.changes.added + merge.changes.changed + merge.changes.removed;
-    saveData(); renderAll();
-    return { ...merge.changes, unlinked, conflicts };
-  }
-
-  async function syncUniversitySchedule({ force = false, silent = false } = {}) {
-    const group = String(data.university.groupCode || '').trim();
-    if (!group) {
-      if (force && !silent) {
-        showToast('Сначала укажи группу РЭУ.');
-        setUniversitySyncState('Группа не выбрана', 'Укажи группу, чтобы загрузить расписание.');
-      }
-      return { ok: false, skipped: true, reason: 'no-group' };
-    }
-    // navigator.onLine is only a hint in Safari/PWA (VPNs, captive portals and some
-    // network stacks can report it incorrectly). A manual refresh should try the request
-    // instead of becoming a no-op because of a stale online flag.
-    const interval = syncConfigNumber('syncIntervalMinutes', 15, 5) * 60 * 1000;
-    const builtInSnapshot = findScheduleSnapshot(
-      normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] }),
-      group
-    );
-    // A manually imported calendar is a local source, not an instruction to retry
-    // the blocked official portal on every startup / tab focus / timer tick.
-    if (data.university.syncMode === 'manual' && data.university.events.length) {
-      const detail = `Локальный ICS · ${data.university.events.length} занятий. Для обновления импортируй новый файл календаря.`;
-      if (data.university.syncError) { data.university.syncError = ''; saveData(); }
-      setUniversitySyncState('Используется импортированный календарь', detail);
-      updateHomeSyncUI();
-      if (!silent) showToast('Используется локальный календарь. Для обновления импортируй новый .ics.');
-      return { ok: true, local: true, skipped: true };
-    }
-    const lastMarker = builtInSnapshot
-      ? (data.university.syncMode === 'snapshot' ? data.university.lastSnapshotCheckAt : '')
-      : (data.university.syncMode === 'snapshot' ? data.university.lastSnapshotCheckAt : data.university.lastSyncAt);
-    const last = lastMarker ? Date.parse(lastMarker) : 0;
-    if (!force && !data.university.syncError && last && Date.now() - last < interval && data.university.events.length) return { ok: true, skipped: true, snapshot: Boolean(builtInSnapshot) };
-
-    // A manual refresh must always do something. If a silent startup/visibility refresh is
-    // already running, cancel that request and start a fresh one instead of silently ignoring
-    // the button press.
-    if (universitySyncInFlight) {
-      if (!force) return universitySyncInFlight;
-      universitySyncToken += 1;
-      try { universitySyncController?.abort(); } catch {}
-      universitySyncController = null;
-      universitySyncInFlight = null;
-      updateHomeSyncUI();
-    }
-
-    const endpoint = syncEndpoint();
-    const controller = new AbortController();
-    universitySyncController = controller;
-    const token = ++universitySyncToken;
-    const timeout = setTimeout(() => controller.abort(), syncConfigNumber('requestTimeoutMs', 60000, 5000));
-    universitySyncInFlight = (async () => {
-      setUniversitySyncState(
-        builtInSnapshot ? 'Загружаю расписание группы…' : 'Обновляю расписание…',
-        builtInSnapshot ? `Группа ${group} · встроенный календарь Tavrimo` : `Группа ${group} · обращаемся к серверу синхронизации`
-      );
-      updateHomeSyncUI();
-      try {
-        const snapshot = await loadStaticScheduleSnapshot(group, { signal: controller.signal });
-        if (token !== universitySyncToken) return { ok: false, cancelled: true };
-        if (snapshot.found) {
-          const now = new Date().toISOString();
-          const { entry, parsed } = snapshot;
-          const hasSameSnapshot = data.university.syncMode === 'snapshot'
-            && data.university.snapshotRevision === entry.revision
-            && data.university.syncHash === `"${parsed.hash}"`;
-          let changes = { added: 0, changed: 0, removed: 0, conflicts: 0 };
-          if (!hasSameSnapshot) {
-            const next = normalizeUniversity({
-              groupCode: group,
-              groupName: group,
-              importedAt: entry.capturedAt,
-              snapshotCapturedAt: entry.capturedAt,
-              lastSnapshotCheckAt: now,
-              lastSyncAt: null,
-              snapshotRevision: entry.revision,
-              syncHash: `"${parsed.hash}"`,
-              syncError: '',
-              syncMode: 'snapshot',
-              source: entry.source,
-              events: parsed.events
-            });
-            changes = applyUniversitySchedule(next);
-          } else {
-            data.university.lastSnapshotCheckAt = now;
-            data.university.syncError = '';
-            saveData(); renderAll();
-          }
-          const coverageLabel = entry.coverageStart && entry.coverageEnd
-            ? ` · период ${shortDate(dateFromKey(entry.coverageStart))}–${shortDate(dateFromKey(entry.coverageEnd))}`
-            : '';
-          setUniversitySyncState('Демонстрационный снимок загружен', `${parsed.events.length} занятий · ${entry.source}${coverageLabel} · файл от ${formatImportedAt(entry.capturedAt).replace(/^Обновлено\s*/i, '')}`);
-          if (!silent) showToast(hasSameSnapshot ? 'Демонстрационное расписание проверено.' : `Загружено занятий: ${parsed.events.length}. Это статический снимок.`);
-          return { ok: true, snapshot: true, changed: Boolean(changes.added || changes.changed || changes.removed), changes };
-        }
-
-        const params = new URLSearchParams({ group });
-        if (force) params.set('force', '1');
-        const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${params.toString()}`;
-        const storedEtag = force ? '' : String(data.university.syncHash || '').trim();
-        const ifNoneMatch = storedEtag ? (storedEtag === '*' || /^(W\/)?"/.test(storedEtag) ? storedEtag : `"${storedEtag}"`) : '';
-        const headers = ifNoneMatch ? { 'If-None-Match': ifNoneMatch } : {};
-        const response = await fetch(url, { method: 'GET', cache: 'no-store', headers: { ...headers, 'Cache-Control': 'no-cache', Pragma: 'no-cache' }, signal: controller.signal });
-        if (token !== universitySyncToken) return { ok: false, cancelled: true };
-        if (response.status === 304) {
-          data.university.lastSyncAt = new Date().toISOString();
-          data.university.syncError = '';
-          saveData();
-          renderAll();
-          setUniversitySyncState('Расписание актуально', 'Проверено только что · изменений нет');
-          return { ok: true, changed: false };
-        }
-        if (!response.ok) {
-          let payload = null;
-          try { payload = await response.json(); } catch {}
-          if (payload?.code === 'REA_UPSTREAM_FORBIDDEN') {
-            throw new Error('Портал РЭУ отклонил автоматический запрос (HTTP 403). Это не ошибка номера группы. Сохранённые данные расписания не изменены; временно используйте импорт официального .ics.');
-          }
-          let detail = `Сервер синхронизации ответил ${response.status}`;
-          if (payload?.error) detail += ` · ${payload.error}`;
-          throw new Error(detail);
-        }
-        const type = response.headers.get('content-type') || '';
-        const payload = type.includes('application/json') ? await response.json() : { ics: await response.text() };
-        const ics = typeof payload.ics === 'string' ? payload.ics : typeof payload.data === 'string' ? payload.data : '';
-        const parsed = ics ? parseUniversityIcs(ics) : { calendarName: '', events: Array.isArray(payload.events) ? payload.events : [] };
-        const hasCalendarPayload = /^BEGIN:VCALENDAR/i.test(String(ics || '').trim()) || Array.isArray(payload.events);
-        if (!hasCalendarPayload) throw new Error('Портал не вернул корректное расписание для этой группы');
-        if (!parsed.events?.length && data.university.events.length) {
-          data.university.lastSyncAt = new Date().toISOString();
-          data.university.syncError = 'Официальный портал вернул пустое расписание. Сохранено последнее известное расписание.';
-          saveData(); renderAll();
-          setUniversitySyncState('Проверка без изменений', 'Портал временно не вернул занятия · оставлено последнее известное расписание.');
-          if (!silent) showToast('Портал временно не вернул занятия. Старое расписание сохранено.');
-          return { ok: true, changed: false, emptyRemote: true };
-        }
-        const next = normalizeUniversity({ groupCode: group, groupName: group, importedAt: new Date().toISOString(), events: parsed.events });
-        const responseEtag = String(response.headers.get('etag') || '').trim();
-        const payloadHash = String(payload.hash || '').trim();
-        const calculatedHash = hashString(ics || JSON.stringify(next.events));
-        const hashValue = responseEtag || (payloadHash ? (/^(W\/)?"/.test(payloadHash) ? payloadHash : `"${payloadHash}"`) : `"${calculatedHash}"`);
-        next.syncHash = hashValue.slice(0, 128); next.lastSyncAt = new Date().toISOString(); next.syncError = ''; next.syncMode = 'auto';
-        const changes = applyUniversitySchedule(next);
-        setUniversitySyncState(changes.added || changes.changed || changes.removed ? 'Расписание обновлено' : 'Расписание актуально', changes.added || changes.changed || changes.removed ? `Изменений: ${changes.added + changes.changed + changes.removed}` : 'Изменений нет');
-        if (!silent) {
-          if (changes.changed || changes.added || changes.removed) showToast(`Расписание обновлено · ${changes.added + changes.changed + changes.removed} изменений.`);
-          else showToast('Расписание уже актуально.');
-          if (changes.conflicts) showToast(`${changes.conflicts} задач перенесено во входящие из-за изменений в парах.`);
-        }
-        return { ok: true, changed: Boolean(changes.added || changes.changed || changes.removed), changes };
-      } catch (error) {
-        if (token !== universitySyncToken) return { ok: false, cancelled: true };
-        const reason = error?.name === 'AbortError' ? 'Превышено время ожидания.' : String(error?.message || 'Неизвестная ошибка.');
-        data.university.syncError = reason.slice(0, 240); if (data.university.syncMode !== 'snapshot') data.university.syncMode = 'auto'; saveData(); renderAll();
-        setUniversitySyncState('Ошибка синхронизации', reason);
-        if (!silent) showToast(`Не удалось обновить расписание: ${reason}`);
-        return { ok: false, error: reason };
-      } finally {
-        clearTimeout(timeout);
-        if (token === universitySyncToken) {
-          universitySyncController = null;
-          universitySyncInFlight = null;
-          updateHomeSyncUI();
-        }
-      }
-    })();
-    return universitySyncInFlight;
-  }
-
-  function scheduleUniversityAutoSync() {
-    clearTimeout(universitySyncTimer);
-    if (!data.university.groupCode) return;
-    const minutes = syncConfigNumber('syncIntervalMinutes', 15, 5);
-    universitySyncTimer = setTimeout(async () => {
-      if (document.visibilityState === 'visible') await syncUniversitySchedule({ silent: true });
-      scheduleUniversityAutoSync();
-    }, minutes * 60 * 1000);
-  }
-
-  function saveUniversityGroup({ andSync = false } = {}) {
-    const value = extractGroupCode($('#universityGroupInput').value);
-    if (!value) { showToast('Укажи номер группы.'); return; }
-    const changed = value !== data.university.groupCode;
-    if (changed && data.university.events.length && !confirm('Сменить группу? Старое расписание будет удалено, чтобы не смешать группы.')) return;
-    data.university.groupCode = value; data.university.groupName = value; data.university.source = 'rasp.rea.ru'; data.university.syncError = ''; data.university.syncMode = 'auto';
-    if (changed) { data.university.events = []; data.university.importedAt = null; data.university.lastSyncAt = null; data.university.lastSnapshotCheckAt = null; data.university.snapshotCapturedAt = null; data.university.snapshotRevision = ''; data.university.syncHash = ''; data.university.source = 'rasp.rea.ru'; data.university.syncMode = 'auto'; }
-    repairAndPersist(); saveData(); closeModal('universitySetupBackdrop'); calendarMode = 'university'; renderAll();
-    showToast(`Группа ${value} сохранена.`);
-    scheduleUniversityAutoSync();
-    if (andSync) syncUniversitySchedule({ force: true });
-  }
-
-  function openUniversitySetup() {
-    $('#universityGroupInput').value = data.university.groupCode || '';
-    const configuredEndpoint = syncEndpoint();
-    const explicitRemote = /^https?:\/\//i.test(configuredEndpoint);
-    const sameOriginAssumption = configuredEndpoint.startsWith('/');
-    const isSnapshot = data.university.syncMode === 'snapshot';
-    const isManualIcs = data.university.syncMode === 'manual' && data.university.events.length > 0;
-    const status = data.university.events.length ? `${data.university.events.length} занятий · ${formatImportedAt(isSnapshot ? (data.university.snapshotCapturedAt || data.university.importedAt) : (data.university.lastSyncAt || data.university.importedAt))}` : 'Расписание ещё не загружено.';
-    const gatewayHint = isSnapshot ? `Демонстрационный снимок (${data.university.source || 'локальный ICS'}). Сам файл не обновляется автоматически.` : isManualIcs ? 'Используется импортированный календарь. Для обновления выбери новый файл .ics.' : explicitRemote ? 'Подключён удалённый Sync Gateway.' : sameOriginAssumption ? 'Для автообновления сервер должен обслуживать /api/rea/schedule.' : 'Для автообновления нужен Sync Gateway.';
-    $('#universityImportStatus').textContent = data.university.syncError ? `Ошибка: ${data.university.syncError} Последние сохранённые занятия не удалены.` : `${status} ${gatewayHint}`;
-    setUniversitySyncState(data.university.syncError ? 'Ошибка синхронизации' : isSnapshot ? 'Демонстрационный снимок' : isManualIcs ? 'Локальный ICS' : 'Автосинхронизация включена', data.university.syncError ? 'Сохранённое расписание оставлено без изменений.' : isSnapshot ? `${data.university.source || 'Локальный ICS'} · снимок от ${formatImportedAt(data.university.snapshotCapturedAt || data.university.importedAt).replace(/^Обновлено\s*/i, '')}.` : 'Tavrimo проверяет доступный источник при запуске, возвращении в приложение и периодически онлайн.');
-    const refreshNow = $('#syncUniversityNowBtn'); if (refreshNow) { refreshNow.disabled = false; refreshNow.textContent = data.university.syncError ? '↻ Повторить обновление' : isSnapshot ? '↻ Проверить файл' : isManualIcs ? '↻ Выбрать новый ICS' : '↻ Обновить расписание'; }
-    $('#clearUniversityScheduleBtn')?.toggleAttribute('disabled', !data.university.events.length);
-    openModal('universitySetupBackdrop');
-    refreshUniversityGroupSuggestions();
-    setTimeout(() => $('#universityGroupInput').focus(), 100);
-  }
-
-  function openOfficialReaSchedule() {
-    const popup = window.open('https://rasp.rea.ru/', '_blank', 'noopener,noreferrer');
-    if (!popup) showToast('Safari заблокировал новое окно. Открой rasp.rea.ru вручную.');
-  }
+  function renderCalendarMode() { /* unified local Week view */ }
 
   function isIcsScheduleFile(file) {
     const name = String(file?.name || '').toLowerCase();
@@ -1579,40 +1040,7 @@
     else importData(file);
   }
 
-  function importUniversityIcs(file) {
-    if (file.size > 5_000_000) { showToast('Файл расписания слишком большой.'); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const result = parseUniversityIcs(String(reader.result || ''));
-        if (!result.events.length) throw new Error('В файле .ics не найдено ни одного занятия.');
-        const declaredName = String(result.calendarName || '').trim();
-        const declaredGroup = declaredName.replace(/^(?:расписание|schedule)\s*/i, '').trim();
-        const currentGroup = String(data.university.groupCode || '').trim();
-        if (currentGroup && declaredGroup && !scheduleGroupsMatch(currentGroup, declaredGroup)) {
-          throw new Error(`Этот календарь относится к группе «${declaredGroup}», а в Tavrimo выбрана «${currentGroup}». Сначала выбери соответствующую группу.`);
-        }
-        const declaredSnapshot = declaredGroup ? findScheduleSnapshot(normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] }), declaredGroup) : null;
-        const groupCode = currentGroup || declaredSnapshot?.groupCode || declaredGroup || '';
-        if (!groupCode) throw new Error('Сначала укажи группу, затем импортируй её календарь .ics.');
-        const normalizedEvents = normalizeUniversity({ groupCode, events: result.events }).events;
-        if (!normalizedEvents.length) throw new Error('Занятия в календаре не удалось распознать. Старое расписание сохранено.');
-        const changes = applyUniversitySchedule({ groupCode, groupName: groupCode, importedAt: new Date().toISOString(), lastSyncAt: null, lastSnapshotCheckAt: null, snapshotCapturedAt: null, snapshotRevision: '', syncHash: '', syncError: '', syncMode: 'manual', source: 'Локальный ICS', events: normalizedEvents });
-        data.university.syncMode = 'manual';
-        data.university.syncError = '';
-        saveData();
-        closeModal('universitySetupBackdrop');
-        closeModal('settingsSheetBackdrop');
-        calendarMode = 'university';
-        renderAll();
-        showToast(changes.conflicts ? `Расписание импортировано: ${normalizedEvents.length} занятий. ${changes.conflicts} задач перенесено во входящие.` : `Расписание импортировано: ${normalizedEvents.length} занятий.`);
-      } catch (error) {
-        showToast(error?.message || 'Не удалось прочитать .ics. Проверь файл календаря.');
-      }
-    };
-    reader.onerror = () => showToast('Не удалось прочитать файл расписания.');
-    reader.readAsText(file, 'UTF-8');
-  }
+  function importUniversityIcs(file) { importExternalCalendarFile(file); }
 
   function openUniversityEvent(id) {
     const event = anyCalendarEventById(id); if (!event) return;
@@ -1641,13 +1069,13 @@
     const capacity = workingCapacityMinutes(); const pctRaw = capacity ? Math.round((load.occupied / capacity) * 100) : 0; const pct = Math.min(100, Math.max(0, pctRaw));
     const isToday = key === todayKey(); const working = isWorkingDay(currentDate);
     const classes = allCalendarEventsForDate(currentDate); const tasks = getScheduled(currentDate, true);
-    $('#todayEyebrow').textContent = data.externalCalendars.some((calendar) => calendar.enabled && calendar.events.length) ? 'МОИ КАЛЕНДАРИ' : data.university.groupCode ? 'РАСПИСАНИЕ' : 'ПЛАН';
+    $('#todayEyebrow').textContent = classes.length ? 'КАЛЕНДАРЬ' : 'ПЛАН ДНЯ';
     $('#todayTitle').textContent = isToday ? getGreeting(new Date().getHours(), data.settings.displayName) : longDate(currentDate);
     const summaryBits = [];
     if (isToday) summaryBits.push(longDate(currentDate));
     if (!working) summaryBits.push('Выходной день.');
-    if (!data.university.groupCode && !data.externalCalendars.some((calendar) => calendar.enabled && calendar.events.length)) summaryBits.push('Подключи расписание или импортируй календарь, чтобы видеть все события здесь.');
-    else if (!classes.length) summaryBits.push('Событий календаря сегодня нет.');
+    if (!data.externalCalendars.some((calendar) => calendar.enabled && calendar.events.length)) summaryBits.push('Импортируй .ics, чтобы добавить события в календарь.');
+    else if (!classes.length) summaryBits.push('Событий календаря в этот день нет.');
     if (inbox.length) summaryBits.push(`${inbox.length} ${formatCount(inbox.length, 'задача', 'задачи', 'задач')} без времени.`);
     $('#todaySubtitle').textContent = summaryBits.join(' ') || 'Пары и ручные задачи — в одном расписании.';
     $('#todayDateText').textContent = shortDate(currentDate);
@@ -1661,7 +1089,6 @@
     $('#focusProgress').dataset.over = pctRaw > 100 ? 'true' : 'false'; $('#focusRing').dataset.over = pctRaw > 100 ? 'true' : 'false';
     $('#dayStatusText').textContent = !working ? 'ВЫХОДНОЙ' : pctRaw > 100 ? 'ПЕРЕГРУЗ' : classes.length || tasks.length ? 'ПЛАН ДНЯ' : 'СВОБОДНЫЙ ДЕНЬ';
     $('#statusDot').dataset.state = !working ? 'off' : pctRaw > 100 ? 'over' : classes.length || tasks.length ? 'on' : 'idle';
-    updateHomeSyncUI();
 
     const nextClass = isToday ? classes.find((event) => nowMinutes() < toMinutes(event.end)) : classes[0];
     if (nextClass) {
@@ -1679,7 +1106,7 @@
     for (const event of classes) timeline.push({ kind: 'class', item: event, start: toMinutes(event.start), end: toMinutes(event.end) });
     for (const task of tasks) timeline.push({ kind: 'task', item: task, start: toMinutes(task.scheduledStart), end: toMinutes(task.scheduledStart) + task.duration });
     timeline.sort((a, b) => a.start - b.start || (a.kind === 'class' ? -1 : 1));
-    $('#todayScheduleTimeline').innerHTML = timeline.length ? timeline.map((entry) => entry.kind === 'class' ? renderHomeUniversityEvent(entry.item) : renderHomeTask(entry.item)).join('') : emptyState(data.university.groupCode || data.externalCalendars.some((calendar) => calendar.enabled) ? 'На этот день нет событий.' : 'Подключи календарь.', data.university.groupCode || data.externalCalendars.some((calendar) => calendar.enabled) ? 'Если есть задачи, они появятся ниже.' : 'В «Ещё» открой «Мои календари» или подключи группу РЭУ.');
+    $('#todayScheduleTimeline').innerHTML = timeline.length ? timeline.map((entry) => entry.kind === 'class' ? renderHomeUniversityEvent(entry.item) : renderHomeTask(entry.item)).join('') : emptyState(data.externalCalendars.some((calendar) => calendar.enabled) ? 'На этот день нет событий.' : 'Календарь пока пуст.', data.externalCalendars.some((calendar) => calendar.enabled) ? 'Если есть задачи, они появятся ниже.' : 'Импортируй календарь .ics с экрана «Сегодня».');
     $('#inboxCount').textContent = String(inbox.length);
     $('#todayInbox').innerHTML = inbox.length ? inbox.slice(0, 8).map(renderInboxRow).join('') : emptyState('Входящих задач нет.', 'Все открытые задачи уже имеют ручное время.');
   }
@@ -1762,7 +1189,7 @@
       data.externalCalendars.push(calendar);
     }
     data.externalCalendars = normalizeExternalCalendars(data.externalCalendars);
-    repairAndPersist(); saveData(); renderAll(); renderExternalCalendarManager();
+    repairAndPersist(); saveData(); renderAll();
     return calendar;
   }
 
@@ -1786,140 +1213,86 @@
     reader.readAsText(file, 'UTF-8');
   }
 
-  async function fetchExternalCalendarFeed(feedUrl) {
-    const endpoint = String(window.TAVRIMO_CONFIG?.calendarFeedEndpoint || '/api/calendar/feed');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ url: feedUrl }),
-        cache: 'no-store',
-        signal: controller.signal
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Не удалось получить календарь (HTTP ${response.status}).`);
-      if (typeof payload.ics !== 'string' || payload.ics.length > 2_000_000) throw new Error('Сервер вернул некорректный или слишком большой календарь.');
-      return payload.ics;
-    } finally { clearTimeout(timeout); }
+  async function fetchExternalCalendarFeed() {
+    throw new Error('Ссылки календарей отключены. Импортируй локальный .ics-файл.');
   }
-
-  async function addExternalCalendarFeed() {
-    const url = normalizeCalendarFeedUrl($('#calendarFeedUrlInput')?.value || '');
-    if (!url) { showToast('Вставь HTTPS-ссылку iCalendar от Google, Outlook или iCloud.'); return; }
-    const provider = externalCalendarProviderFromUrl(url);
-    const fallbackNames = { google: 'Google Calendar', outlook: 'Outlook Calendar', apple: 'Apple Calendar' };
-    const name = String($('#calendarFeedNameInput')?.value || '').trim().slice(0, 100) || fallbackNames[provider] || 'Внешний календарь';
-    const id = `feed-${hashString(url)}`;
-    const prior = data.externalCalendars.find((item) => item.id === id);
-    const button = $('#calendarAddFeedBtn');
-    if (button) { button.disabled = true; button.textContent = 'Подключаем…'; }
-    try {
-      const ics = await fetchExternalCalendarFeed(url);
-      const parsed = parseExternalCalendarIcs(ics);
-      const events = parsed.events.map((event, index) => normalizeExternalCalendarEvent({ ...event, id: `${id}-${event.id}` }, id, name, index, new Set())).filter(Boolean);
-      if (!events.length) throw new Error('В ссылке не найдено событий календаря.');
-      upsertExternalCalendar({ id, name, provider, sourceType: 'feed', feedUrl: url, enabled: prior?.enabled !== false, color: prior?.color || '#1ed760', importedAt: prior?.importedAt || new Date().toISOString(), lastSyncAt: new Date().toISOString(), syncError: '', events });
-      $('#calendarFeedUrlInput').value = ''; $('#calendarFeedNameInput').value = '';
-      showToast(`Календарь «${name}» подключён: ${events.length} событий.`);
-    } catch (error) {
-      showToast(error?.name === 'AbortError' ? 'Сервер календарей не ответил за 15 секунд.' : error?.message || 'Не удалось подключить календарь.');
-    } finally { if (button) { button.disabled = false; button.textContent = 'Подключить календарь'; } }
-  }
-
-  async function refreshExternalCalendar(calendar, { silent = false } = {}) {
-    if (!calendar || calendar.sourceType !== 'feed' || !calendar.feedUrl || !navigator.onLine) return false;
-    try {
-      const ics = await fetchExternalCalendarFeed(calendar.feedUrl);
-      const parsed = parseExternalCalendarIcs(ics);
-      const events = parsed.events.map((event, index) => normalizeExternalCalendarEvent({ ...event, id: `${calendar.id}-${event.id}` }, calendar.id, calendar.name, index, new Set())).filter(Boolean);
-      if (!events.length) throw new Error('В ссылке не найдено событий.');
-      calendar.events = events; calendar.lastSyncAt = new Date().toISOString(); calendar.syncError = '';
-      return true;
-    } catch (error) {
-      calendar.syncError = String(error?.message || 'Не удалось обновить календарь.').slice(0, 240);
-      if (!silent) showToast(`«${calendar.name}»: ${calendar.syncError}`);
-      return false;
-    }
-  }
-
-  async function refreshExternalCalendars({ silent = true } = {}) {
-    if (externalCalendarSyncInFlight) return externalCalendarSyncInFlight;
-    const feeds = data.externalCalendars.filter((calendar) => calendar.enabled && calendar.sourceType === 'feed' && calendar.feedUrl);
-    if (!feeds.length || !navigator.onLine) return false;
-    externalCalendarSyncInFlight = (async () => {
-      let changed = false;
-      for (const calendar of feeds) changed = await refreshExternalCalendar(calendar, { silent }) || changed;
-      if (changed || feeds.some((calendar) => calendar.syncError)) { saveData(); renderAll(); }
-      return changed;
-    })().finally(() => { externalCalendarSyncInFlight = null; });
-    return externalCalendarSyncInFlight;
-  }
-
-  function scheduleExternalCalendarSync() {
-    clearTimeout(externalCalendarSyncTimer);
-    const interval = Math.max(15, Number(window.TAVRIMO_CONFIG?.calendarFeedRefreshMinutes) || 30) * 60_000;
-    externalCalendarSyncTimer = setTimeout(async () => {
-      await refreshExternalCalendars({ silent: true });
-      scheduleExternalCalendarSync();
-    }, interval);
-  }
-
-  function renderExternalCalendarManager() {
-    const list = $('#externalCalendarList'); if (!list) return;
-    if (!data.externalCalendars.length) {
-      list.innerHTML = '<div class="empty-card"><strong>Пока нет подключённых календарей</strong><span>Импортируй .ics или добавь ссылку iCalendar от Google, Outlook или iCloud.</span></div>';
-      return;
-    }
-    list.innerHTML = data.externalCalendars.map((calendar) => {
-      const providerName = ({ google: 'Google Calendar', outlook: 'Outlook Calendar', apple: 'Apple Calendar', ics: 'ICS-файл', other: 'Календарь' })[calendar.provider] || 'Календарь';
-      const lastSync = calendar.lastSyncAt ? formatImportedAt(calendar.lastSyncAt) : 'Ещё не обновлялся';
-      return `<article class="external-calendar-row" data-calendar-id="${escapeHtml(calendar.id)}">
-        <span class="external-calendar-dot" style="--calendar-color:${escapeHtml(calendar.color)}"></span>
-        <div class="external-calendar-copy"><strong>${escapeHtml(calendar.name)}</strong><small>${providerName} · ${calendar.events.length} событий · ${escapeHtml(lastSync)}</small>${calendar.syncError ? `<small class="external-calendar-error">${escapeHtml(calendar.syncError)}</small>` : ''}</div>
-        <label class="external-calendar-toggle" aria-label="Показывать календарь"><input type="checkbox" data-calendar-toggle="${escapeHtml(calendar.id)}" ${calendar.enabled ? 'checked' : ''}/><span></span></label>
-        <button type="button" class="icon-btn ghost external-calendar-refresh" data-calendar-refresh="${escapeHtml(calendar.id)}" aria-label="Обновить календарь">↻</button>
-        <button type="button" class="icon-btn ghost danger-text" data-calendar-remove="${escapeHtml(calendar.id)}" aria-label="Удалить календарь">×</button>
-      </article>`;
-    }).join('');
-  }
-
-  function openExternalCalendarManager() {
-    renderExternalCalendarManager();
-    closeModal('settingsSheetBackdrop');
-    openModal('calendarManagerBackdrop');
-  }
-
-  function handleExternalCalendarManagerActions(event) {
-    const remove = event.target.closest('[data-calendar-remove]');
-    if (remove) {
-      const calendar = data.externalCalendars.find((item) => item.id === remove.dataset.calendarRemove);
-      if (!calendar || !confirm(`Удалить календарь «${calendar.name}» из Tavrimo?`)) return;
-      data.externalCalendars = data.externalCalendars.filter((item) => item.id !== calendar.id);
-      for (const task of data.tasks) if (task.linkedUniversityEventId && !anyCalendarEventById(task.linkedUniversityEventId)) task.linkedUniversityEventId = null;
-      repairAndPersist(); saveData(); renderAll(); renderExternalCalendarManager(); showToast('Календарь удалён.'); return;
-    }
-    const refresh = event.target.closest('[data-calendar-refresh]');
-    if (refresh) {
-      const calendar = data.externalCalendars.find((item) => item.id === refresh.dataset.calendarRefresh);
-      if (!calendar || calendar.sourceType !== 'feed') { showToast('Этот календарь импортирован из файла. Импортируй обновлённый .ics.'); return; }
-      refreshExternalCalendar(calendar, { silent: false }).then(() => { saveData(); renderAll(); renderExternalCalendarManager(); }); return;
-    }
-    const toggle = event.target.closest('[data-calendar-toggle]');
-    if (toggle) {
-      const calendar = data.externalCalendars.find((item) => item.id === toggle.dataset.calendarToggle);
-      if (calendar) { calendar.enabled = toggle.checked; repairAndPersist(); saveData(); renderAll(); renderExternalCalendarManager(); }
-    }
-  }
+  async function addExternalCalendarFeed() { showToast('В 12.4.0 календарь добавляется только из локального .ics-файла.'); return false; }
+  async function refreshExternalCalendar() { return false; }
+  async function refreshExternalCalendars() { return false; }
+  function scheduleExternalCalendarSync() { return false; }
 
   function renderSettings() {
     $('#workStartInput').value = hm(data.settings.workStart * 60); $('#workEndInput').value = hm(data.settings.workEnd * 60);
     $('#lunchStartInput').value = hm(data.settings.lunchStart * 60); $('#lunchEndInput').value = hm(data.settings.lunchEnd * 60);
     $('#bufferInput').value = String(data.settings.buffer); $('#blockInput').value = String(data.settings.focusLength);
     $('#weekendsInput').checked = data.settings.weekends; $('#appearanceInput').value = 'dark';
-    if ($('#displayNameInput')) $('#displayNameInput').value = data.settings.displayName || '';
-    if ($('#calendarCountLabel')) $('#calendarCountLabel').textContent = `${data.externalCalendars.length} подключено`;
+  }
+
+
+  function renderProfile() {
+    const avatar = String(data.profile?.avatarDataUrl || '');
+    const avatarEl = $('#profileAvatar');
+    if (!avatarEl) return;
+    const name = String(data.settings.displayName || '').trim();
+    const initials = name ? name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() : 'TV';
+    avatarEl.innerHTML = avatar ? `<img src="${escapeHtml(avatar)}" alt="Аватар профиля" />` : `<span aria-hidden="true">${escapeHtml(initials)}</span>`;
+    const nameInput = $('#profileNameInput');
+    if (nameInput) nameInput.value = name;
+    const removeButton = $('#profileRemoveAvatarBtn');
+    if (removeButton) removeButton.hidden = !avatar;
+    const label = $('#profileNamePreview');
+    if (label) label.textContent = name || 'Имя ещё не указано';
+  }
+
+  function saveProfileName() {
+    const nextName = String($('#profileNameInput')?.value || '').trim().replace(/[<>\r\n]/g, '').slice(0, 40);
+    const previous = data;
+    data = { ...data, settings: { ...data.settings, displayName: nextName } };
+    if (!saveData()) { data = previous; renderProfile(); return false; }
+    renderAll();
+    showToast('Профиль сохранён на этом устройстве.');
+    return true;
+  }
+
+  async function compressProfileAvatar(file) {
+    if (!file || !String(file.type || '').startsWith('image/')) throw new Error('Выбери файл изображения.');
+    if (Number(file.size || 0) > 10_000_000) throw new Error('Изображение слишком большое (лимит исходного файла — 10 МБ).');
+    const source = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
+      reader.readAsDataURL(file);
+    });
+    const image = await new Promise((resolve, reject) => {
+      const preview = new Image();
+      preview.onload = () => resolve(preview);
+      preview.onerror = () => reject(new Error('Не удалось открыть изображение.'));
+      preview.src = source;
+    });
+    const size = 320;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Браузер не поддерживает обработку изображения.');
+    const width = image.naturalWidth || image.width; const height = image.naturalHeight || image.height;
+    const side = Math.min(width, height);
+    if (!side) throw new Error('В изображении нет доступных пикселей.');
+    const sx = Math.floor((width - side) / 2); const sy = Math.floor((height - side) / 2);
+    context.drawImage(image, sx, sy, side, side, 0, 0, size, size);
+    let output = canvas.toDataURL('image/jpeg', 0.78);
+    if (output.length > 400_000) output = canvas.toDataURL('image/jpeg', 0.62);
+    if (output.length > 400_000) throw new Error('Не удалось сжать фото до 300 КБ. Выбери изображение попроще.');
+    return output;
+  }
+
+  async function saveProfileAvatar(file) {
+    const avatarDataUrl = await compressProfileAvatar(file);
+    const previous = data;
+    data = { ...data, profile: { ...data.profile, avatarDataUrl } };
+    if (!saveData()) { data = previous; renderProfile(); return false; }
+    renderAll();
+    showToast('Фото сохранено только на этом устройстве.');
+    return true;
   }
 
   function updateAppVersion() { $('#appVersionLabel').textContent = `v${APP_VERSION}`; }
@@ -2160,7 +1533,7 @@
   }
 
   function switchView(view, options = {}) {
-    if (!['today', 'calendar', 'tasks', 'more'].includes(view)) return;
+    if (!['today', 'calendar', 'tasks', 'more', 'profile'].includes(view)) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; currentView = view;
     const update = () => renderAll(); if (!reduce && document.startViewTransition) document.startViewTransition(update); else update();
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
@@ -2187,23 +1560,29 @@
   }
 
   function bindEvents() {
-    const runManualUniversityRefresh = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (!data.university.groupCode) { openUniversitySetup(); return; }
-      if (data.university.syncMode === 'manual' && data.university.events.length) {
-        openUniversitySetup();
-        const fallback = $('.uni-fallback-details'); if (fallback) fallback.open = true;
-        showToast('Выбери новый файл .ics в разделе ручного импорта.');
-        return;
-      }
-      void syncUniversitySchedule({ force: true, silent: false });
-    };
-    $('#homeSyncBtn')?.addEventListener('click', runManualUniversityRefresh);
-    $('#syncUniversityNowBtn')?.addEventListener('click', runManualUniversityRefresh);
     $('#tabAdd').addEventListener('click', () => openTaskSheet());
-        $('#homeManageGroupBtn')?.addEventListener('click', openUniversitySetup);
+    $('#todayIcsInput').addEventListener('change', (event) => {
+      const files = Array.from(event.target.files || []);
+      if (files.length > 20) showToast('За один раз можно выбрать не более 20 файлов.');
+      files.slice(0, 20).forEach(importExternalCalendarFile);
+      event.target.value = '';
+    });
     $('#nextClassOpenBtn')?.addEventListener('click', () => { const id = $('#nextClassOpenBtn').dataset.uniId; if (id) openUniversityEvent(id); });
+    $('#profileSaveBtn').addEventListener('click', saveProfileName);
+    $('#profileAvatarInput').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (file) { try { await saveProfileAvatar(file); } catch (error) { showToast(error?.message || 'Не удалось сохранить фото.'); } }
+      event.target.value = '';
+    });
+    $('#profileRemoveAvatarBtn').addEventListener('click', () => {
+      const previous = data;
+      data = { ...data, profile: { ...data.profile, avatarDataUrl: '' } };
+      if (!saveData()) { data = previous; renderProfile(); return; }
+      renderAll(); showToast('Фото профиля удалено.');
+    });
+    $('#profileStatsBtn').addEventListener('click', renderInsights);
+    $('#profileHealthBtn').addEventListener('click', renderPlanHealth);
+    $('#profileBackBtn').addEventListener('click', () => switchView('more'));
     $('#todayDateChip').addEventListener('click', () => { $('#datePickerInput').value = dateKey(currentDate); openModal('dateSheetBackdrop'); });
     $('#closeDateSheet').addEventListener('click', () => closeModal('dateSheetBackdrop'));
     $('#datePickerInput').addEventListener('change', (event) => { updateDateFromInput(event.target.value); closeModal('dateSheetBackdrop'); });
@@ -2218,15 +1597,7 @@
     $$('.tab[data-view]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view)));
     $('#todayScheduleTimeline').addEventListener('click', handleDelegatedActions); $('#todayInbox').addEventListener('click', handleDelegatedActions);
     $('#calendarAgenda').addEventListener('click', handleDelegatedActions); $('#allTaskList').addEventListener('click', handleDelegatedActions);
-    $('#universityAgenda').addEventListener('click', handleUniversityActions);
-    $$('.calendar-mode-btn').forEach((button) => button.addEventListener('click', () => { calendarMode = button.dataset.calendarMode; renderAll(); }));
-    $('#universityManageBtn').addEventListener('click', openUniversitySetup);
-    $('#saveAndSyncUniversityBtn').onclick = () => saveUniversityGroup({ andSync: true });
-    $('#closeUniversitySetup').onclick = () => closeModal('universitySetupBackdrop'); $('#cancelUniversitySetup').onclick = () => closeModal('universitySetupBackdrop');
-    $('#openReaScheduleBtn').onclick = openOfficialReaSchedule;
-    $('#clearUniversityScheduleBtn').onclick = () => { if (!data.university.events.length) { showToast('Расписание уже пустое.'); return; } if (confirm('Удалить загруженное расписание РЭУ?')) { data.university.events = []; data.university.importedAt = null; data.university.lastSyncAt = null; data.university.syncHash = ''; data.university.syncError = ''; saveData(); closeModal('universitySetupBackdrop'); renderAll(); showToast('Расписание РЭУ удалено.'); } };
-    $('#universityIcsInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importUniversityIcs(file); event.target.value = ''; });
-    $('#closeUniversityEvent').onclick = () => closeModal('universityEventBackdrop'); $('#openReaFromEventBtn').onclick = openOfficialReaSchedule;
+    $('#closeUniversityEvent').onclick = () => closeModal('universityEventBackdrop');
     $('#addTaskFromUniversityEventBtn').onclick = () => { if (selectedUniversityEventId) addTaskFromUniversityEvent(selectedUniversityEventId); };
     $('#weekStrip').addEventListener('click', (event) => { const button = event.target.closest('[data-day]'); if (!button) return; currentDate = startOfDay(dateFromKey(button.dataset.day)); renderAll(); });
     $('#taskSearch').addEventListener('input', renderTasks); $('#filterButton').addEventListener('click', () => { const popover = $('#filterPopover'); popover.hidden = !popover.hidden; });
@@ -2292,53 +1663,31 @@
     $('#focusSheetBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal('focusSheetBackdrop'); });
     $('#timerStart').onclick = toggleFocusTimer; $('#timerReset').onclick = () => { if (focusRunning) { showToast('Сначала поставь фокус на паузу.'); return; } resetFocusTimer(); };
     $('#focusTaskSelect').addEventListener('change', () => { if (focusRunning) return; focusTaskId = $('#focusTaskSelect').value || null; resetFocusTimer(); updateFocusTip(); });
-    $('#moreUniversity').onclick = openUniversitySetup;
-    $('#moreCalendars').onclick = openExternalCalendarManager;
-    $('#manageCalendarsBtn').onclick = openExternalCalendarManager;
-    $('#moreFocus').onclick = openFocusSheet; $('#moreInsights').onclick = renderInsights; $('#moreHealth').onclick = renderPlanHealth; $('#moreSettings').onclick = () => { renderSettings(); openModal('settingsSheetBackdrop'); };
-    $('#closeCalendarManager').onclick = () => closeModal('calendarManagerBackdrop');
-    $('#closeCalendarManagerBottom').onclick = () => closeModal('calendarManagerBackdrop');
-    $('#calendarManagerBackdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal('calendarManagerBackdrop'); });
-    $('#calendarFeedForm').addEventListener('submit', (event) => { event.preventDefault(); addExternalCalendarFeed(); });
-    $('#externalCalendarFileInput').addEventListener('change', (event) => {
-      const files = Array.from(event.target.files || []);
-      if (files.length > 20) showToast('За один раз можно выбрать не более 20 файлов.');
-      files.slice(0, 20).forEach(importExternalCalendarFile);
-      event.target.value = '';
-    });
-    $('#externalCalendarList').addEventListener('click', handleExternalCalendarManagerActions);
-    $('#externalCalendarList').addEventListener('change', handleExternalCalendarManagerActions);
-    $('#refreshAllCalendarsBtn').onclick = async () => { const button = $('#refreshAllCalendarsBtn'); button.disabled = true; button.textContent = 'Обновляем…'; await refreshExternalCalendars({ silent: false }); renderExternalCalendarManager(); button.disabled = false; button.textContent = 'Обновить все'; };
+    $('#moreProfile').onclick = () => switchView('profile');
+    $('#moreFocus').onclick = openFocusSheet;
+    $('#moreSettings').onclick = () => { renderSettings(); openModal('settingsSheetBackdrop'); };
 
-    ['insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop', 'healthSheetBackdrop', 'universitySetupBackdrop', 'universityEventBackdrop', 'calendarManagerBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
+
+    ['insightsSheetBackdrop', 'settingsSheetBackdrop', 'dateSheetBackdrop', 'healthSheetBackdrop', 'universityEventBackdrop'].forEach((id) => $(`#${id}`).addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(id); }));
     $('#closeInsightsSheet').onclick = () => closeModal('insightsSheetBackdrop'); $('#closeSettingsSheet').onclick = () => closeModal('settingsSheetBackdrop'); $('#closeHealthSheet').onclick = () => closeModal('healthSheetBackdrop');
 
     $('#settingsForm').addEventListener('submit', (event) => {
       event.preventDefault();
       const workStart = toMinutes($('#workStartInput').value); const workEnd = toMinutes($('#workEndInput').value); const lunchStart = toMinutes($('#lunchStartInput').value); const lunchEnd = toMinutes($('#lunchEndInput').value);
       const error = validateSettingsDraft(workStart, workEnd, lunchStart, lunchEnd); if (error) { showToast(error); return; }
-      data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: 'dark', displayName: String($('#displayNameInput')?.value || '').trim().replace(/[<>\r\n]/g, '').slice(0, 40) };
+      data.settings = { ...data.settings, workStart: workStart / 60, workEnd: workEnd / 60, lunchStart: lunchStart / 60, lunchEnd: lunchEnd / 60, buffer: Number($('#bufferInput').value), focusLength: Number($('#blockInput').value), weekends: $('#weekendsInput').checked, theme: 'dark' };
       repairAndPersist(); if (!focusRunning) resetFocusTimer(); saveData(); closeModal('settingsSheetBackdrop'); renderAll();
       showToast('Настройки сохранены. Проверь слоты, если изменились рабочие часы.');
     });
 
     $('#exportBtn').onclick = exportData; $('#importInput').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) handleSettingsImportFile(file); event.target.value = ''; });
     $('#resetBtn').onclick = () => { if (confirm('Удалить все задачи, расписание и статистику?')) resetAllData(); };
-    window.addEventListener('online', () => { showToast('Соединение восстановлено.'); syncUniversitySchedule({ force: true, silent: true }); scheduleUniversityAutoSync(); refreshExternalCalendars({ silent: true }); scheduleExternalCalendarSync(); }); window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённое расписание остаётся на устройстве.'));
+    window.addEventListener('offline', () => showToast('Офлайн-режим: сохранённые события и задачи остаются на устройстве.'));
     window.addEventListener('scroll', () => $('#topbar').classList.toggle('scrolled', window.scrollY > 4), { passive: true });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAllModals(); });
     document.addEventListener('click', (event) => { if (!event.target.closest('.filter-button') && !event.target.closest('#filterPopover')) $('#filterPopover').hidden = true; });
-    document.addEventListener('visibilitychange', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') { syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); refreshExternalCalendars({ silent: true }); scheduleExternalCalendarSync(); } });
-    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); if (document.visibilityState === 'visible') { syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync); refreshExternalCalendars({ silent: true }); scheduleExternalCalendarSync(); } });
-  }
-
-  function handleUniversityActions(event) {
-    const taskButton = event.target.closest('[data-add-task-uni]');
-    if (taskButton) { event.stopPropagation(); addTaskFromUniversityEvent(taskButton.dataset.addTaskUni); return; }
-    const eventButton = event.target.closest('[data-open-uni-event]');
-    if (eventButton) { event.stopPropagation(); openUniversityEvent(eventButton.dataset.openUniEvent); return; }
-    const dayButton = event.target.closest('.uni-day-head[data-day]');
-    if (dayButton) { currentDate = dateFromKey(dayButton.dataset.day); renderAll(); }
+    document.addEventListener('visibilitychange', () => { if (focusRunning && document.visibilityState === 'visible') tickFocusTimer(); });
+    window.addEventListener('pageshow', () => { if (focusRunning) tickFocusTimer(); });
   }
 
   function handleDelegatedActions(event) {
@@ -2452,18 +1801,14 @@
 
   function showUpdateBanner(worker) { $('#updateBanner').hidden = false; $('#updateBtn').onclick = () => worker?.postMessage({ type: 'SKIP_WAITING' }); }
   function boot() {
-    repairAndPersist(); $('#appVersionLabel').textContent = `v${APP_VERSION}`; bindEvents(); renderAll(); updateFocusUI(); registerServiceWorker();
-    scheduleUniversityAutoSync();
-    scheduleExternalCalendarSync();
-    if (navigator.onLine && data.externalCalendars.some((calendar) => calendar.enabled && calendar.sourceType === 'feed')) setTimeout(() => refreshExternalCalendars({ silent: true }), 900);
-    const hasBundledSchedule = Boolean(data.university.groupCode && findScheduleSnapshot(
-      normalizeScheduleSnapshotManifest({ schemaVersion: 1, snapshots: [BUILTIN_SCHEDULE_SNAPSHOT] }),
-      data.university.groupCode
-    ));
-    // A bundled schedule is local app data, so initialize it even when the browser reports offline.
-    if (data.university.groupCode && (navigator.onLine || hasBundledSchedule)) {
-      setTimeout(() => syncUniversitySchedule({ silent: true }).finally(scheduleUniversityAutoSync), 250);
-    }
+    repairAndPersist();
+    updateAppVersion();
+    bindEvents();
+    renderAll();
+    updateFocusUI();
+    registerServiceWorker();
+    // 12.4.0 is local-first: startup never contacts the REA gateway or calendar feeds.
+    if (dataLoadError) showToast(dataLoadError);
     setTimeout(() => startOnboarding(false), 480);
   }
 
@@ -2483,36 +1828,24 @@
     getAgendaItemsForDate,
     dayLoad,
     getPlanHealth,
-    parseUniversityIcs,
     parseExternalCalendarIcs,
     normalizeExternalCalendars,
     allCalendarEventsForDate,
     calendarConflict,
     getGreeting,
-    externalCalendarProviderFromUrl,
+    migrateCalendarData,
+    anyCalendarEventById,
+    importExternalCalendarFile,
+    renderProfile,
+    compressProfileAvatar,
     normalizeCalendarFeedUrl,
-    refreshExternalCalendar,
-    refreshExternalCalendarById: (id, options) => refreshExternalCalendar(data.externalCalendars.find((calendar) => String(calendar.id) === String(id)), options),
+    refreshExternalCalendar: async () => false,
     isIcsScheduleFile,
     handleSettingsImportFile,
     parseIcsDateTime,
-    normalizeScheduleSnapshotManifest,
-    findScheduleSnapshot,
-    scheduleGroupsMatch,
-    inspectScheduleIcsCompatibility,
-    parseStaticScheduleSnapshot,
-    loadStaticScheduleSnapshot,
-    refreshUniversityGroupSuggestions,
-    syncUniversitySchedule,
     parseBackupData,
     normalizeUniversity,
-    extractGroupCode,
-    universityConflict,
-    universityEventsForDate,
     repairUniversityTaskConflicts,
-    mergeUniversityEvents,
-    syncEndpoint,
-    syncConfigNumber,
     deadlineLabel,
     deadlineTimestamp,
     workingCapacityMinutes,

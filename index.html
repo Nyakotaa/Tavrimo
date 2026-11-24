@@ -10,22 +10,17 @@
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <script src="config.js?v=12.3.0" defer></script>
+  <script src="config.js?v=12.4.0" defer></script>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-v17.png" />
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
-  <link rel="stylesheet" href="style.css?v=12.3.0" />
-  <link rel="stylesheet" href="spotify-dark.css?v=12.3.0" />
-  <link rel="stylesheet" href="calendar-update.css?v=12.3.0" />
+  <link rel="stylesheet" href="style.css?v=12.4.0" />
+  <link rel="stylesheet" href="spotify-dark.css?v=12.4.0" />
+  <link rel="stylesheet" href="calendar-update.css?v=12.4.0" />
   <title>Tavrimo — планирование студенческой жизни</title>
 </head>
 <body>
   <div class="app-shell" id="appShell">
     <header class="topbar" id="topbar">
-      <span class="topbar-spacer" aria-hidden="true"></span>
-      <div class="brand-lockup" aria-label="Tavrimo">
-        <img class="brand-logo" src="assets/branding/tavrimo-cup-mark.png" alt="" width="32" height="32" />
-        <span class="brand-wordmark">TAVRIMO</span>
-      </div>
       <span class="topbar-context" id="headerContext">Сегодня</span>
     </header>
 
@@ -42,26 +37,16 @@
           </button>
         </div>
 
-        <section class="schedule-source-card" id="homeScheduleSourceCard" aria-label="Источник расписания">
-          <div class="schedule-source-main">
-            <span class="uni-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5.5 10.5V19M10 10.5V19M14 10.5V19M18.5 10.5V19M3 20h18M2.5 9.5h19"/></svg></span>
-            <div class="schedule-source-copy">
-              <span class="section-kicker">РАСПИСАНИЕ РЭУ</span>
-              <strong id="homeGroupLabel">Группа не выбрана</strong>
-              <small id="homeSyncLabel">Укажи группу — расписание загрузится автоматически.</small>
-            </div>
-          </div>
-          <div class="schedule-source-actions">
-            <button class="secondary-button compact-action" id="homeSyncBtn" type="button" data-action="refresh-schedule" aria-label="Обновить расписание"><svg class="ui-icon sync-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9A7 7 0 0 1 18 6.2L20 8M4 16l2 1.8A7 7 0 0 0 18.4 15"/></svg><span id="homeSyncBtnText">Обновить</span></button>
-            <button class="icon-btn ghost" id="homeManageGroupBtn" type="button" aria-label="Настроить группу"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="m19.4 13.4 1.1.8-1.2 2.1-1.3-.5a7.6 7.6 0 0 1-1.5.9l-.2 1.4h-2.5l-.4-1.4a7.6 7.6 0 0 1-1.6 0l-.7 1.2-2.3-1.1.4-1.4a7.5 7.5 0 0 1-1.1-1.2l-1.4.1-.7-2.4 1.2-.7a7.5 7.5 0 0 1 0-1.6L6 8.9l1.1-2.3 1.4.4a7.5 7.5 0 0 1 1.2-1.1l-.1-1.4L12 3.8l.7 1.2a7.5 7.5 0 0 1 1.6 0l.7-1.2 2.3 1.1-.4 1.4A7.5 7.5 0 0 1 18 7.5l1.4-.1.7 2.4-1.2.7a7.5 7.5 0 0 1 0 1.6Z"/></svg></button>
-          </div>
+        <section class="next-class-card hidden" id="nextClassCard" aria-live="polite">
+          <div class="next-class-time"><span>БЛИЖАЙШЕЕ СОБЫТИЕ</span><strong id="nextClassTime">—</strong></div>
+          <div class="next-class-copy"><strong id="nextClassTitle">—</strong><small id="nextClassMeta">—</small></div>
+          <button class="next-class-action" id="nextClassOpenBtn" type="button" aria-label="Открыть событие">›</button>
         </section>
 
-        <section class="next-class-card hidden" id="nextClassCard" aria-live="polite">
-          <div class="next-class-time"><span>СЛЕДУЮЩАЯ ПАРА</span><strong id="nextClassTime">—</strong></div>
-          <div class="next-class-copy"><strong id="nextClassTitle">—</strong><small id="nextClassMeta">—</small></div>
-          <button class="next-class-action" id="nextClassOpenBtn" type="button" aria-label="Открыть пару">›</button>
-        </section>
+        <label class="today-ics-import secondary-button wide file-action" id="todayIcsImportAction">
+          <span>＋ Импортировать .ics</span>
+          <input type="file" id="todayIcsInput" accept=".ics,text/calendar,application/ics" multiple />
+        </label>
 
         <section class="section schedule-primary-section">
           <div class="section-header">
@@ -96,10 +81,6 @@
           <div><p class="eyebrow">РАСПИСАНИЕ</p><h1>Неделя</h1><p class="page-subtitle" id="weekRange">—</p></div>
           <div class="calendar-actions"><button class="secondary-button compact-action" id="calendarPrevWeek" type="button" aria-label="Предыдущая неделя">‹</button><button class="secondary-button compact-action" id="calendarToday" type="button">Сегодня</button><button class="secondary-button compact-action" id="calendarNextWeek" type="button" aria-label="Следующая неделя">›</button></div>
         </div>
-        <div class="calendar-mode" role="tablist" aria-label="Тип расписания">
-          <button class="calendar-mode-btn active" data-calendar-mode="plan" role="tab" aria-selected="true" type="button">Мой план</button>
-          <button class="calendar-mode-btn" data-calendar-mode="university" role="tab" aria-selected="false" type="button">РЭУ</button>
-        </div>
         <div id="calendarPlanPanel">
           <div class="week-strip" id="weekStrip"></div>
           <section class="day-overview">
@@ -108,14 +89,38 @@
           </section>
           <div class="calendar-list" id="calendarAgenda"></div>
         </div>
-        <div id="universityCalendarPanel" class="university-panel hidden" aria-live="polite">
-          <section class="uni-profile-card" id="universityProfileCard">
-            <div class="uni-profile-copy"><span class="section-kicker">МОЯ ГРУППА</span><strong id="universityGroupLabel">Группа не выбрана</strong><small id="universitySyncLabel">Подключи расписание РЭУ, чтобы видеть пары здесь.</small></div>
-            <button class="secondary-button" id="universityManageBtn" type="button">Настроить</button>
-          </section>
-          <section class="uni-summary" id="universityWeekSummary"></section>
-          <div class="university-week" id="universityAgenda"></div>
+      </section>
+
+      <section class="view" data-view="profile" id="profileView">
+        <div class="page-intro compact">
+          <div><p class="eyebrow">ЛИЧНОЕ</p><h1>Профиль</h1><p class="page-subtitle">Твои данные хранятся только на этом устройстве.</p></div>
+          <button class="secondary-button compact-action" id="profileBackBtn" type="button">Назад</button>
         </div>
+        <section class="profile-card">
+          <div class="profile-avatar" id="profileAvatar"><span aria-hidden="true">TV</span></div>
+          <div class="profile-card-copy">
+            <strong id="profileNamePreview">Имя ещё не указано</strong>
+            <small>Локальный профиль Tavrimo</small>
+            <div class="profile-avatar-actions">
+              <label class="secondary-button compact-action file-action"><span>Выбрать фото</span><input type="file" id="profileAvatarInput" accept="image/*" /></label>
+              <button class="text-btn danger-text" id="profileRemoveAvatarBtn" type="button" hidden>Удалить фото</button>
+            </div>
+          </div>
+        </section>
+        <section class="profile-name-form">
+          <label for="profileNameInput">Имя</label>
+          <input id="profileNameInput" type="text" maxlength="40" autocomplete="given-name" placeholder="Как к тебе обращаться?" />
+          <button class="primary-button wide" id="profileSaveBtn" type="button">Сохранить профиль</button>
+        </section>
+        <div class="profile-shortcuts">
+          <button class="feature-card" id="profileStatsBtn" type="button">
+            <span class="feature-icon blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5h16"/><rect x="5" y="11" width="3.5" height="6.5" rx=".7"/><rect x="10.3" y="7" width="3.5" height="10.5" rx=".7"/><rect x="15.6" y="4" width="3.5" height="13.5" rx=".7"/></svg></span><span><strong>Статистика</strong><small>Нагрузка и фокус за неделю</small></span><span class="chevron">›</span>
+          </button>
+          <button class="feature-card" id="profileHealthBtn" type="button">
+            <span class="feature-icon green" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.8 8.2-2.4 5.2-5.2 2.4 2.4-5.2 5.2-2.4Z"/></svg></span><span><strong>Состояние плана</strong><small>Дедлайны и загруженность</small></span><span class="chevron">›</span>
+          </button>
+        </div>
+        <p class="profile-privacy-note">Имя и фото остаются в локальных данных Tavrimo и включаются в JSON-резервную копию. Фото не отправляется на сервер.</p>
       </section>
 
       <section class="view" data-view="tasks" id="tasksView">
@@ -143,26 +148,17 @@
           <div><p class="eyebrow">TAVRIMO</p><h1>Ещё</h1><p class="page-subtitle">Дополнительные инструменты.</p></div>
         </div>
         <div class="more-list">
-          <button class="feature-card" id="moreUniversity" type="button">
-            <span class="feature-icon green" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5.5 10.5V19M10 10.5V19M14 10.5V19M18.5 10.5V19M3 20h18M2.5 9.5h19"/></svg></span><span><strong>Расписание РЭУ</strong><small>Группа и автоматическая синхронизация</small></span><span class="chevron">›</span>
-          </button>
-          <button class="feature-card" id="moreCalendars" type="button">
-            <span class="feature-icon blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16M8 13h3M8 16.5h3M14 13h2.5"/></svg></span><span><strong>Мои календари</strong><small>Apple, Google, Outlook и ICS-файлы</small></span><span class="chevron">›</span>
+          <button class="feature-card" id="moreProfile" type="button">
+            <span class="feature-icon green" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></span><span><strong>Профиль</strong><small>Имя, фото и статистика</small></span><span class="chevron">›</span>
           </button>
           <button class="feature-card" id="moreFocus" type="button">
             <span class="feature-icon purple" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></span><span><strong>Фокус</strong><small>Таймер для одной задачи</small></span><span class="chevron">›</span>
           </button>
-          <button class="feature-card" id="moreInsights" type="button">
-            <span class="feature-icon blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5h16"/><rect x="5" y="11" width="3.5" height="6.5" rx=".7"/><rect x="10.3" y="7" width="3.5" height="10.5" rx=".7"/><rect x="15.6" y="4" width="3.5" height="13.5" rx=".7"/></svg></span><span><strong>Статистика</strong><small>Нагрузка и фокус за неделю</small></span><span class="chevron">›</span>
-          </button>
-          <button class="feature-card" id="moreHealth" type="button">
-            <span class="feature-icon green" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.8 8.2-2.4 5.2-5.2 2.4 2.4-5.2 5.2-2.4Z"/></svg></span><span><strong>Состояние плана</strong><small>Дедлайны, перегруз и задачи без слота</small></span><span class="chevron">›</span>
-          </button>
           <button class="feature-card" id="moreSettings" type="button">
-            <span class="feature-icon gray" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><span><strong>Настройки</strong><small>Рабочее время, тема и данные</small></span><span class="chevron">›</span>
+            <span class="feature-icon gray" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></span><span><strong>Настройки</strong><small>Рабочее время и данные</small></span><span class="chevron">›</span>
           </button>
         </div>
-        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.3.0</span></div>
+        <div class="app-version">Tavrimo <span id="appVersionLabel">v12.4.0</span></div>
       </section>
     </main>
 
@@ -214,35 +210,12 @@
     </section>
   </div>
 
-  <div class="modal-backdrop" id="universitySetupBackdrop" hidden>
-    <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="universitySetupTitle">
-      <div class="grabber"></div>
-      <header class="sheet-header"><div><p class="eyebrow">РЭУ ИМ. Г. В. ПЛЕХАНОВА</p><h2 id="universitySetupTitle">Моя группа</h2></div><button class="icon-btn ghost" id="closeUniversitySetup" type="button" aria-label="Закрыть">×</button></header>
-      <p class="sheet-lead">Введи номер своей группы. Tavrimo загрузит расписание выбранной группы из доступного источника и сохранит его для работы без интернета.</p>
-      <label>Номер группы<input id="universityGroupInput" type="text" maxlength="80" placeholder="Начни вводить название группы" autocomplete="off" list="universityGroupSuggestions" /><datalist id="universityGroupSuggestions"></datalist></label>
-      <p class="uni-import-help">Для групп с готовым календарём появятся подсказки. Остальные группы можно вводить вручную, если для них доступна синхронизация.</p>
-      <div class="uni-sync-status" id="universitySyncStateCard"><span class="status-dot" id="universitySyncDot"></span><div><strong id="universitySyncState">Автосинхронизация готова</strong><small id="universitySyncDetail">После сохранения группа будет обновляться при открытии приложения и периодически онлайн.</small></div></div>
-      <div class="stack-buttons">
-        <button class="primary-button wide" id="saveAndSyncUniversityBtn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5 12 4l8 5.5M6 10.5V19M10 10.5V19M14 10.5V19M18 10.5V19M3 20h18"/></svg><span>Сохранить и загрузить</span></button>
-        <button class="secondary-button wide" id="syncUniversityNowBtn" type="button" data-action="refresh-schedule"><svg class="ui-icon sync-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9A7 7 0 0 1 18 6.2L20 8M4 16l2 1.8A7 7 0 0 0 18.4 15"/></svg><span>Обновить расписание</span></button>
-        <button class="secondary-button wide" id="openReaScheduleBtn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Открыть rasp.rea.ru</span></button>
-      </div>
-      <details class="uni-fallback-details">
-        <summary>Импорт .ics вручную</summary>
-        <p>Резервный способ, если официальный портал временно недоступен.</p>
-        <label class="secondary-button wide file-action uni-file-action"><span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 17v3h16v-3"/></svg>Импортировать .ics</span><input type="file" id="universityIcsInput" accept=".ics,text/calendar,application/ics" /></label>
-      </details>
-      <div class="uni-import-help" id="universityImportStatus">Расписание ещё не подключено.</div>
-      <div class="form-actions"><button class="danger-button" type="button" id="clearUniversityScheduleBtn">Удалить расписание</button><span></span><button class="secondary-button" type="button" id="cancelUniversitySetup">Закрыть</button></div>
-    </section>
-  </div>
-
   <div class="modal-backdrop" id="universityEventBackdrop" hidden>
     <section class="sheet compact" role="dialog" aria-modal="true" aria-labelledby="universityEventTitle">
       <div class="grabber"></div>
-      <header class="sheet-header"><div><p class="eyebrow" id="universityEventKicker">ПАРА</p><h2 id="universityEventTitle">—</h2></div><button class="icon-btn ghost" id="closeUniversityEvent" type="button" aria-label="Закрыть">×</button></header>
+      <header class="sheet-header"><div><p class="eyebrow" id="universityEventKicker">СОБЫТИЕ</p><h2 id="universityEventTitle">—</h2></div><button class="icon-btn ghost" id="closeUniversityEvent" type="button" aria-label="Закрыть">×</button></header>
       <div class="uni-event-details" id="universityEventDetails"></div>
-      <div class="stack-buttons"><button class="primary-button wide" id="addTaskFromUniversityEventBtn" type="button">＋ Поставить задачу к этой паре</button><button class="secondary-button wide" id="openReaFromEventBtn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Открыть расписание РЭУ</span></button></div>
+      <div class="stack-buttons"><button class="primary-button wide" id="addTaskFromUniversityEventBtn" type="button">＋ Добавить задачу к событию</button></div>
     </section>
   </div>
 
@@ -277,44 +250,19 @@
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitleSheet">
       <div class="grabber"></div><header class="sheet-header"><div><p class="eyebrow">НАСТРОЙКИ</p><h2 id="settingsTitleSheet">Рабочий день</h2></div><button class="icon-btn ghost" id="closeSettingsSheet" type="button" aria-label="Закрыть">×</button></header>
       <form class="settings-form" id="settingsForm">
-        <section class="settings-group"><h3>Профиль</h3><label class="settings-text-label"><span>Как к тебе обращаться?</span><input type="text" id="displayNameInput" maxlength="40" autocomplete="given-name" placeholder="Например, Даниил" /></label><small class="field-note settings-help">Имя хранится локально в данных Tavrimo и включается в JSON-резервную копию.</small></section>
+        
         <section class="settings-group"><h3>Рабочее время</h3><label><span>Начало</span><input type="time" id="workStartInput" step="900" /></label><label><span>Конец</span><input type="time" id="workEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Перерыв</h3><label><span>Обед с</span><input type="time" id="lunchStartInput" step="900" /></label><label><span>Обед до</span><input type="time" id="lunchEndInput" step="900" /></label></section>
         <section class="settings-group"><h3>Расстановка</h3><label><span>Резерв после задачи</span><select id="bufferInput"><option value="0">Без</option><option value="5">5 мин</option><option value="10">10 мин</option><option value="15">15 мин</option></select></label><label><span>Фокус по умолчанию</span><select id="blockInput"><option value="25">25 мин</option><option value="50">50 мин</option><option value="90">1 ч 30</option><option value="120">2 ч</option></select></label><label><span>Разрешить выходные</span><input type="checkbox" id="weekendsInput" /></label></section>
         <section class="settings-group"><h3>Внешний вид</h3><button class="ios-action" type="button" id="onboardingHelpBtn"><span>Показать обучение</span><span>›</span></button><label><span>Оформление</span><select id="appearanceInput" disabled aria-describedby="appearanceHelp"><option value="dark" selected>Тёмная тема Tavrimo</option></select><small id="appearanceHelp" class="field-note">Единое оформление Tavrimo Dark</small></label></section>
-        <section class="settings-group"><h3>Календари</h3><button class="ios-action" type="button" id="manageCalendarsBtn"><span>Управление календарями <small id="calendarCountLabel">0 подключено</small></span><span>›</span></button></section>
-        <section class="settings-group"><h3>Данные</h3><button class="ios-action" type="button" id="exportBtn"><span>Экспортировать</span><span>›</span></button><label class="ios-action file-action"><span>Импортировать</span><span>›</span><input type="file" id="importInput" accept=".json,application/json,.ics,text/calendar,application/ics" /></label><button class="ios-action danger-text" type="button" id="resetBtn"><span>Стереть все данные</span><span>›</span></button></section>
+        
+        <section class="settings-group"><h3>Данные</h3><button class="ios-action" type="button" id="exportBtn"><span>Экспортировать</span><span>›</span></button><label class="ios-action file-action"><span>Импортировать</span><span>›</span><input type="file" id="importInput" accept=".json,application/json" /></label><button class="ios-action danger-text" type="button" id="resetBtn"><span>Стереть все данные</span><span>›</span></button></section>
         <button class="primary-button wide" type="submit">Готово</button>
       </form>
     </section>
   </div>
 
 
-  <div class="modal-backdrop" id="calendarManagerBackdrop" hidden>
-    <section class="sheet calendar-manager-sheet" role="dialog" aria-modal="true" aria-labelledby="calendarManagerTitle">
-      <div class="grabber"></div>
-      <header class="sheet-header"><div><p class="eyebrow">МОИ ИСТОЧНИКИ</p><h2 id="calendarManagerTitle">Календари</h2></div><button class="icon-btn ghost" id="closeCalendarManager" type="button" aria-label="Закрыть">×</button></header>
-      <p class="sheet-lead">Подключи несколько календарей. Их события появятся в разделе «Сегодня» и «Мой план», будут учитываться при проверке свободного времени и останутся доступны офлайн.</p>
-      <form id="calendarFeedForm" class="calendar-feed-form">
-        <label>Название <small class="field-note">необязательно</small><input id="calendarFeedNameInput" type="text" maxlength="100" placeholder="Например, Личная жизнь" /></label>
-        <label>Ссылка iCalendar <input id="calendarFeedUrlInput" type="text" inputmode="url" autocomplete="off" placeholder="https://… или webcal://…" /></label>
-        <button class="primary-button wide" type="submit" id="calendarAddFeedBtn">Подключить календарь</button>
-      </form>
-      <p class="calendar-source-note">Ссылки iCalendar работают только для чтения и обновляются примерно раз в 30 минут, пока Tavrimo открыто и есть интернет. Импортированный .ics-файл — снимок: для обновления импортируй новый файл.</p>
-      <div class="calendar-provider-help">
-        <strong>Где взять ссылку?</strong>
-        <p><b>Google Calendar:</b> Настройки календаря → Интеграция календаря → Секретный адрес в формате iCal.</p>
-        <p><b>Outlook:</b> Настройки → Календарь → Общие календари → Опубликовать календарь → ICS.</p>
-        <p><b>Apple iCloud:</b> Поделиться календарём → Открытый календарь → Скопировать ссылку.</p>
-      </div>
-      <div class="calendar-privacy-note"><strong>Важно о приватности</strong><span>Секретная ссылка даёт доступ к чтению календаря. Не отправляй её другим людям. Ссылка хранится в локальных данных Tavrimo и попадёт в JSON-резервную копию, поэтому не делись такими копиями. При обновлении ссылка запрашивается через Sync Gateway; сервер не сохраняет URL или содержимое календаря.</span></div>
-      <label class="ios-action calendar-file-action"><span>Импортировать .ics-файл <small class="field-note">Можно выбрать несколько файлов</small></span><span>＋</span><input type="file" id="externalCalendarFileInput" accept=".ics,text/calendar,application/ics" multiple /></label>
-      <div class="calendar-list-heading"><h3>Подключённые календари</h3><button type="button" class="text-btn" id="refreshAllCalendarsBtn">Обновить все</button></div>
-      <div id="externalCalendarList" class="external-calendar-list"></div>
-      <button type="button" class="secondary-button wide" id="closeCalendarManagerBottom">Готово</button>
-    </section>
-  </div>
-
-  <script src="app.js?v=12.3.0" defer></script>
+  <script src="app.js?v=12.4.0" defer></script>
 </body>
 </html>

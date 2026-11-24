@@ -1,46 +1,28 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tests = [
   'test_manual_scheduling.mjs',
-  'test_university_schedule.mjs',
-  'test_static_schedule_provider.mjs',
-  'test_vuzio_real_snapshot.mjs',
-  'test_static_snapshot_sync_no_gateway.mjs',
-  'test_settings_ics_import.mjs',
-  'test_onboarding.mjs',
-  'test_rea_fallback.mjs',
-  'test_rea_text_fallback.mjs',
-  'test_live_sync.mjs',
-  'test_backup_import_safety.mjs',
-  'test_sync_gateway_guardrails.mjs',
-  'test_rea_upstream_error_handling.mjs',
-  'test_vuzio_mm05_snapshot.mjs',
+  'test_calendar_migration_12_4_0.mjs',
   'test_external_calendar_features.mjs',
-  'test_calendar_feed_security.mjs',
-  'test_release_12_3_0.mjs',
+  'test_profile_12_4_0.mjs',
+  'test_local_only_architecture.mjs',
+  'test_onboarding.mjs',
+  'test_backup_import_safety.mjs',
+  'test_release_12_4_0.mjs',
   'test_release_version_consistency.mjs'
 ];
-
 let passed = 0;
 const failed = [];
 for (const test of tests) {
-  process.stdout.write(`\n=== ${test} ===\n`);
-  const result = spawnSync(process.execPath, [path.join(root, 'tools', test)], {
-    cwd: root,
-    stdio: 'inherit',
-    env: process.env
-  });
+  process.stdout.write('\n=== ' + test + ' ===\n');
+  const result = spawnSync(process.execPath, [path.join(root, 'tools', test)], { cwd: root, stdio: 'inherit', env: process.env });
   if (result.status === 0) passed += 1;
   else failed.push({ test, status: result.status, signal: result.signal });
 }
-
-process.stdout.write(`\nRegression summary: ${passed}/${tests.length} passed.\n`);
+process.stdout.write('\nRegression summary: ' + passed + '/' + tests.length + ' passed.\n');
 if (failed.length) {
-  for (const item of failed) process.stderr.write(`FAILED ${item.test} (status=${item.status}, signal=${item.signal || 'none'})\n`);
+  for (const item of failed) process.stderr.write('FAILED ' + item.test + ' (status=' + item.status + ', signal=' + (item.signal || 'none') + ')\n');
   process.exitCode = 1;
-} else {
-  process.stdout.write('All current Tavrimo regression tests passed.\n');
-}
+} else process.stdout.write('All current Tavrimo 12.4.0 regression tests passed.\n');

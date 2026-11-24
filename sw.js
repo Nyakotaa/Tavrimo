@@ -1,6 +1,6 @@
-const VERSION = 'tavrimo-v12.3.0-multi-calendars-greeting-20261124';
+const VERSION = 'tavrimo-v12.4.0-unified-local-calendar-profile-20261124';
 const SHELL = [
-  './', './index.html', './style.css?v=12.3.0', './spotify-dark.css?v=12.3.0', './calendar-update.css?v=12.3.0', './app.js?v=12.3.0', './config.js?v=12.3.0', './manifest.webmanifest', './404.html', './data/schedules/manifest.json', './data/schedules/rea-15-14d-gg04-266.ics?v=vuzio-20261109-071932z-46-events', './data/schedules/rea-15-14d-mm05-26b.ics?v=vuzio-20261116-132120z-48-events',
+  './', './index.html', './style.css?v=12.4.0', './spotify-dark.css?v=12.4.0', './calendar-update.css?v=12.4.0', './app.js?v=12.4.0', './config.js?v=12.4.0', './manifest.webmanifest', './404.html',
   './assets/branding/tavrimo-cup-mark.png', './assets/icons/apple-touch-icon-v17.png', './assets/icons/icon-180.png',
   './assets/icons/icon-192.png', './assets/icons/icon-512.png', './assets/icons/favicon-32.png', './assets/icons/source-icon-1024.png'
 ];
@@ -23,7 +23,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  // Never cache sync API responses: timetable freshness is handled by Tavrimo's sync layer.
+  // 12.4.0 uses local .ics imports only; legacy API requests must never be treated as timetable content.
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(request, { cache: 'no-store' }).catch(() => new Response(JSON.stringify({ error: 'Офлайн' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
     return;

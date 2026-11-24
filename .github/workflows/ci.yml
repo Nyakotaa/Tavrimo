@@ -1,0 +1,34 @@
+name: Tavrimo 12.4.0 CI
+
+on:
+  push:
+    branches:
+      - update-12.4.0-clean-interface
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check application syntax
+        run: node --check app.js
+      - name: Run Tavrimo regression suite
+        run: node tools/run_regression.mjs
+      - name: Package complete 12.4.0 source archive
+        run: git archive --format=zip --prefix=Tavrimo_12.4.0/ HEAD -o Tavrimo_12.4.0_Source.zip
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tavrimo_12.4.0_Source
+          path: Tavrimo_12.4.0_Source.zip
+          if-no-files-found: error
+          retention-days: 30

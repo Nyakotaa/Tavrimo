@@ -274,3 +274,123 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Tavrimo 12.4.0 — centered section title and local profile */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+  padding-inline: 18px;
+}
+.topbar-context {
+  max-width: none;
+  justify-self: center;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 760;
+  text-align: center;
+}
+.today-ics-import {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  cursor: pointer;
+  color: var(--text);
+}
+.today-ics-import input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  margin: 6px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+}
+.profile-avatar {
+  width: 104px;
+  height: 104px;
+  flex: 0 0 104px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--surface-soft);
+  color: var(--accent);
+  font-size: 36px;
+  font-weight: 820;
+}
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.profile-card-copy {
+  min-width: 0;
+  flex: 1;
+}
+.profile-card-copy > strong {
+  display: block;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 780;
+}
+.profile-card-copy > small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.profile-avatar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 12px;
+}
+.profile-name-form {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 18px;
+}
+.profile-name-form > label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 760;
+}
+.profile-name-form > input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  color: var(--text);
+}
+.profile-shortcuts {
+  display: grid;
+  gap: 8px;
+}
+.profile-privacy-note {
+  margin: 13px 2px 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+@media (max-width: 520px) {
+  .profile-card { gap: 13px; padding: 15px; }
+  .profile-avatar { width: 84px; height: 84px; flex-basis: 84px; }
+  .profile-card-copy > strong { font-size: 14px; }
+}

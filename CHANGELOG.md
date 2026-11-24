@@ -1,13 +1,14 @@
-## 12.3.0 — Multi-calendars & personal greeting (2026-11-24)
+## 12.4.0 — Unified local calendar & profile (2026-11-24)
 
-- Added a separate external calendar library so imported personal calendars coexist with the REA timetable instead of replacing it.
-- Added multi-file `.ics` imports and read-only Google Calendar, Outlook and iCloud iCalendar feed subscriptions.
-- Added a restricted HTTPS Sync Gateway proxy with provider host allowlisting, redirect re-validation, request timeout, 2 MB response cap and no URL/body logging or server-side persistence.
-- Added external calendar events to Today, weekly agenda, workload estimates and manual task conflict validation; transparent events remain non-blocking.
-- Added recurring iCalendar expansion for daily, weekly, monthly and yearly rules, plus all-day and multi-day event support.
-- Added a locally stored display name and a time-of-day greeting on Today (morning/day/evening/night).
-- Preserved REA ICS import behavior, local schema v17, tasks and JSON backup compatibility.
-- Feed subscriptions are read-only ICS, not OAuth sign-in or two-way calendar editing.
+- Replaced the separate REA timetable and external calendars with one local calendar pool used by Today and Week.
+- Added manual multi-file `.ics` import directly on Today; preserved recurring, timezone, all-day and multi-day event parsing.
+- Migrated saved REA events into a local calendar while retaining original event IDs and task links (`linkedUniversityEventId`).
+- Kept already-downloaded Google/Outlook/iCloud feed events as local snapshots, cleared stored feed URLs, and disabled automatic refresh.
+- Removed background timetable and calendar-feed requests from startup, online, visibilitychange, pageshow and timer flows.
+- Added a local profile with editable display name and compressed local avatar; reused Statistics and Plan Health from the profile screen.
+- Simplified More to Profile, Focus and Settings; removed the REA calendar switch and feed manager.
+- Preserved schema v17, storage key `tavrimo-planner-v17`, task behavior, focus history and JSON backup compatibility.
+- Updated the Service Worker cache and release checks for 12.4.0.
 
 # Changelog
 
