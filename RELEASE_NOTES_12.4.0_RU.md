@@ -23,3 +23,10 @@
 ## Ограничения
 
 В 12.4.0 нет автоматического обновления расписания и нет подписок по URL. Для получения новых событий из календаря экспортируй актуальный `.ics` и импортируй его снова.
+
+
+## Hotfix: navigation restored
+
+The navigation crash was caused by treating the result of `querySelector()` as a collection. The tab list now uses `querySelectorAll()`. A new navigation smoke test verifies all five screens and the active topbar/nav state.
+
+CI on hotfix commit `1dbee0d`: **11/11 regression tests passed**.
