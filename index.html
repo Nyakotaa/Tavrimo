@@ -18,7 +18,18 @@
   <link rel="stylesheet" href="calendar-update.css?v=12.4.0" />
   <title>Tavrimo — планирование студенческой жизни</title>
 </head>
-<body>
+<body class="app-booting" aria-busy="true">
+  <div class="startup-splash" id="startupSplash" role="status" aria-live="polite" aria-atomic="true">
+    <div class="startup-splash__content">
+      <img class="startup-splash__mark" src="assets/branding/tavrimo-cup-mark.png" alt="" width="72" height="72" />
+      <span class="startup-splash__wordmark">TAVRIMO</span>
+      <span class="startup-splash__tagline">Планируй спокойно</span>
+      <div class="startup-splash__progress" role="progressbar" aria-label="Загрузка Tavrimo">
+        <span class="startup-splash__progress-fill"></span>
+      </div>
+      <span class="startup-splash__status" id="startupSplashStatus">Готовим твой день</span>
+    </div>
+  </div>
   <div class="app-shell" id="appShell">
     <header class="topbar" id="topbar">
       <span class="topbar-context" id="headerContext">Сегодня</span>

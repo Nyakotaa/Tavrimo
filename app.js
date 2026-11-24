@@ -1793,23 +1793,61 @@
           const worker = swRegistration.installing; if (!worker) return;
           worker.addEventListener('statechange', () => { if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(worker); });
         });
-        navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+        let firstControllerChange = !navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (firstControllerChange) {
+            firstControllerChange = false;
+            return;
+          }
+          location.reload();
+        });
         setTimeout(() => swRegistration?.update?.(), 1500);
       } catch { /* normal browser mode */ }
     });
   }
 
   function showUpdateBanner(worker) { $('#updateBanner').hidden = false; $('#updateBtn').onclick = () => worker?.postMessage({ type: 'SKIP_WAITING' }); }
+  const STARTUP_SPLASH_MIN_MS = 720;
+
+  function finishStartupSplash(startedAt, startTour = true) {
+    const elapsed = Date.now() - startedAt;
+    const delay = Math.max(0, STARTUP_SPLASH_MIN_MS - elapsed);
+    setTimeout(() => {
+      const splash = $('#startupSplash');
+      document.body.classList.remove('app-booting');
+      document.body.setAttribute('aria-busy', 'false');
+      if (splash) {
+        splash.classList.add('is-leaving');
+        setTimeout(() => {
+          splash.hidden = true;
+          if (startTour) setTimeout(() => startOnboarding(false), 120);
+        }, 380);
+      } else if (startTour) {
+        setTimeout(() => startOnboarding(false), 120);
+      }
+    }, delay);
+  }
+
   function boot() {
-    repairAndPersist();
-    updateAppVersion();
-    bindEvents();
-    renderAll();
-    updateFocusUI();
-    registerServiceWorker();
-    // 12.4.0 is local-first: startup never contacts the REA gateway or calendar feeds.
-    if (dataLoadError) showToast(dataLoadError);
-    setTimeout(() => startOnboarding(false), 480);
+    const startedAt = Date.now();
+    let initialized = false;
+    try {
+      repairAndPersist();
+      updateAppVersion();
+      bindEvents();
+      renderAll();
+      updateFocusUI();
+      initialized = true;
+      if (dataLoadError) showToast(dataLoadError);
+    } catch (error) {
+      const status = $('#startupSplashStatus');
+      if (status) status.textContent = 'Не удалось открыть приложение';
+      console.error('Tavrimo startup error:', error);
+      setTimeout(() => showToast('Не удалось полностью загрузить интерфейс. Обнови страницу.'), 900);
+    } finally {
+      registerServiceWorker();
+      finishStartupSplash(startedAt, initialized);
+    }
   }
 
   // Lightweight QA hooks used only by automated regression tests.

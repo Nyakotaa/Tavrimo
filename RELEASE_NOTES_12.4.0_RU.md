@@ -30,3 +30,13 @@
 The navigation crash was caused by treating the result of `querySelector()` as a collection. The tab list now uses `querySelectorAll()`. A new navigation smoke test verifies all five screens and the active topbar/nav state.
 
 CI on hotfix commit `1dbee0d`: **11/11 regression tests passed**.
+
+
+## Фирменная заставка запуска
+
+При открытии PWA показывается оригинальный знак Tavrimo, надпись TAVRIMO и анимированная полоса загрузки. Заставка закрывается после отрисовки Today. При повторных запусках Service Worker сначала отдаёт сохранённую HTML/CSS/JS-оболочку, поэтому установленное приложение не ждёт пробуждения Render, чтобы показать интерфейс.
+
+
+## Заставка запуска
+
+При старте показываются оригинальный знак Tavrimo, надпись TAVRIMO и анимированная полоса. Заставка закрывается после первичной отрисовки интерфейса. Service Worker при повторных запусках отдаёт сохранённую оболочку приложения из кэша, поэтому PWA не должна ждать пробуждения Render, чтобы показать экран запуска.
