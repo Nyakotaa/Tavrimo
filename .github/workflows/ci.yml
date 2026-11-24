@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - update-12.4.0-clean-interface
+      - fix/12.4.0-navigation-and-dom-2026-11-24
   pull_request:
     branches:
       - main

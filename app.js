@@ -1816,6 +1816,8 @@
   if (globalThis.__TAVRIMO_QA__) globalThis.__TAVRIMO_TEST__ = {
     getData: () => clone(data),
     setData: (raw) => { data = normalizeData(raw); },
+    setCurrentViewForTest: (view) => { currentView = view; renderChrome(); },
+    renderChrome,
     setCurrentDate: (value) => { currentDate = startOfDay(value); },
     normalizeData,
     validateManualSlot,

@@ -1,5 +1,7 @@
 ## 12.4.0 — Unified local calendar & profile (2026-11-24)
 
+- Fixed a critical navigation rendering regression: the tab list in `renderChrome()` must use the multi-element `$()` selector, not single-element `$()`.
+- Added navigation smoke coverage for Today, Week, Tasks, More and Profile, plus a static guard against treating single DOM nodes as collections.
 - Replaced the separate REA timetable and external calendars with one local calendar pool used by Today and Week.
 - Added manual multi-file `.ics` import directly on Today; preserved recurring, timezone, all-day and multi-day event parsing.
 - Migrated saved REA events into a local calendar while retaining original event IDs and task links (`linkedUniversityEventId`).
