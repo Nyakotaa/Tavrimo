@@ -1793,7 +1793,14 @@
           const worker = swRegistration.installing; if (!worker) return;
           worker.addEventListener('statechange', () => { if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(worker); });
         });
-        navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+        let firstControllerChange = !navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (firstControllerChange) {
+            firstControllerChange = false;
+            return;
+          }
+          location.reload();
+        });
         setTimeout(() => swRegistration?.update?.(), 1500);
       } catch { /* normal browser mode */ }
     });

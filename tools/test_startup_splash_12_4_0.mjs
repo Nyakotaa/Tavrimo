@@ -16,4 +16,5 @@ assert.ok(css.includes('@keyframes tavrimo-splash-progress'));
 assert.ok(css.includes('body.app-booting #appShell'));
 assert.ok(app.includes('function finishStartupSplash'));
 assert.ok(app.includes('finishStartupSplash(startedAt, initialized)'));
+assert.ok(app.includes('firstControllerChange'), 'First Service Worker control must not force a duplicate reload');
 console.log('Tavrimo branded startup splash tests passed.');
