@@ -194,8 +194,8 @@
     const uidValue = String(event?.uid || '').trim();
     const normalized = {
       uid: uidValue, date, start, end,
-      subject: String(event?.subject || event?.title || 'Событие').trim().slice(0, 160) || 'Занятие',
-      type: String(event?.type || 'Событие').trim().slice(0, 80) || 'Занятие',
+      subject: String(event?.subject || event?.title || 'Событие').trim().slice(0, 160) || 'Событие',
+      type: String(event?.type || 'Событие').trim().slice(0, 80) || 'Событие',
       teacher: String(event?.teacher || '').trim().slice(0, 160),
       room: String(event?.room || event?.location || '').trim().slice(0, 120),
       note: String(event?.note || event?.description || '').trim().slice(0, 500)
