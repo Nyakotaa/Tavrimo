@@ -1,5 +1,5 @@
 {
-  "name": "Tavrimo — планировщик студенческой жизни",
+  "name": "Tavrimo — приложение для личного планирования",
   "short_name": "Tavrimo",
   "lang": "ru",
   "start_url": "./",
@@ -8,7 +8,7 @@
   "orientation": "portrait",
   "background_color": "#121212",
   "theme_color": "#121212",
-  "description": "Расписание университета, учебные задачи и личное планирование в одном PWA-приложении.",
+  "description": "Календарные события, личные задачи и фокус-сессии в одном приложении.",
   "id": "./tavrimo",
   "categories": [
     "productivity",

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#121212" />
-  <meta name="description" content="Tavrimo — расписание университета и персональный планировщик студента." />
+  <meta name="description" content="Tavrimo — приложение для личного планирования: календарь, задачи и фокус-сессии." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Tavrimo" />
@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="style.css?v=12.4.0" />
   <link rel="stylesheet" href="spotify-dark.css?v=12.4.0" />
   <link rel="stylesheet" href="calendar-update.css?v=12.4.0" />
-  <title>Tavrimo — планирование студенческой жизни</title>
+  <title>Tavrimo — личное планирование</title>
 </head>
 <body class="app-booting" aria-busy="true">
   <div class="startup-splash" id="startupSplash" role="status" aria-live="polite" aria-atomic="true">
@@ -39,9 +39,9 @@
       <section class="view active" data-view="today" id="todayView">
         <div class="page-intro">
           <div>
-            <p class="eyebrow" id="todayEyebrow">РАСПИСАНИЕ</p>
+            <p class="eyebrow" id="todayEyebrow">ПЛАН ДНЯ</p>
             <h1 id="todayTitle">Сегодня</h1>
-            <p class="page-subtitle" id="todaySubtitle">Твои пары и задачи — в одном дне.</p>
+            <p class="page-subtitle" id="todaySubtitle">События календаря и задачи — в одном дне.</p>
           </div>
           <button class="date-chip" id="todayDateChip" type="button" aria-label="Выбрать дату">
             <span id="todayDateText">27 сен</span><span aria-hidden="true">⌄</span>
@@ -89,7 +89,7 @@
 
       <section class="view" data-view="calendar" id="calendarView">
         <div class="page-intro compact">
-          <div><p class="eyebrow">РАСПИСАНИЕ</p><h1>Неделя</h1><p class="page-subtitle" id="weekRange">—</p></div>
+          <div><p class="eyebrow">КАЛЕНДАРЬ</p><h1>Неделя</h1><p class="page-subtitle" id="weekRange">—</p></div>
           <div class="calendar-actions"><button class="secondary-button compact-action" id="calendarPrevWeek" type="button" aria-label="Предыдущая неделя">‹</button><button class="secondary-button compact-action" id="calendarToday" type="button">Сегодня</button><button class="secondary-button compact-action" id="calendarNextWeek" type="button" aria-label="Следующая неделя">›</button></div>
         </div>
         <div id="calendarPlanPanel">
@@ -200,7 +200,7 @@
         <div class="two-col"><label>Длительность<select id="taskDuration"><option value="15">15 мин</option><option value="30">30 мин</option><option value="45">45 мин</option><option value="60" selected>1 час</option><option value="90">1 ч 30</option><option value="120">2 часа</option><option value="180">3 часа</option><option value="240">4 часа</option></select></label><label>Приоритет<select id="taskPriority"><option value="3">Высокий</option><option value="2" selected>Средний</option><option value="1">Низкий</option></select></div>
         <div class="two-col"><label>Дедлайн <small class="field-note">необязательно</small><input id="taskDeadline" type="date" /></label><label>Время <small class="field-note">только с датой</small><input id="taskDeadlineTime" type="time" step="900" /></label></div>
         <label>Категория<select id="taskCategory"><option>Учёба</option><option>Работа</option><option>Личное</option><option>Дом</option><option>Другое</option></select></label>
-        <div class="linked-class-note hidden" id="taskLinkedClassContext"><div><span>К ПАРЕ</span><strong id="taskLinkedClassText">—</strong></div><button class="text-btn" id="unlinkTaskClassBtn" type="button">Отвязать</button></div>
+        <div class="linked-class-note hidden" id="taskLinkedClassContext"><div><span>К СОБЫТИЮ</span><strong id="taskLinkedClassText">—</strong></div><button class="text-btn" id="unlinkTaskClassBtn" type="button">Отвязать</button></div>
         <div class="schedule-note"><strong>Время</strong><small>Расставь задачу сам. Можно оставить без времени и назначить позже.</small></div>
         <div class="two-col" id="manualScheduleFields"><label>Дата <small class="field-note">необязательно</small><input id="taskScheduleDate" type="date" /></label><label>Время <small class="field-note">необязательно</small><input id="taskScheduleTime" type="time" step="900" /></label></div><p class="manual-hint" id="manualScheduleHint"></p><p class="logic-hint" id="taskLogicHint"></p>
         <label>Заметка<textarea id="taskNote" rows="3" maxlength="300" placeholder="Опционально"></textarea></label>

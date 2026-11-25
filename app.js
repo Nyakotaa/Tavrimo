@@ -194,8 +194,8 @@
     const uidValue = String(event?.uid || '').trim();
     const normalized = {
       uid: uidValue, date, start, end,
-      subject: String(event?.subject || event?.title || 'Занятие').trim().slice(0, 160) || 'Занятие',
-      type: String(event?.type || 'Занятие').trim().slice(0, 80) || 'Занятие',
+      subject: String(event?.subject || event?.title || 'Событие').trim().slice(0, 160) || 'Событие',
+      type: String(event?.type || 'Событие').trim().slice(0, 80) || 'Событие',
       teacher: String(event?.teacher || '').trim().slice(0, 160),
       room: String(event?.room || event?.location || '').trim().slice(0, 120),
       note: String(event?.note || event?.description || '').trim().slice(0, 500)
@@ -1020,9 +1020,9 @@
   }
 
   function formatImportedAt(value) {
-    if (!value) return 'Расписание ещё не импортировано.';
+    if (!value) return 'Календарь ещё не добавлен.';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Расписание ещё не импортировано.';
+    if (Number.isNaN(date.getTime())) return 'Календарь ещё не добавлен.';
     return `Обновлено ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
   }
 
@@ -1077,7 +1077,7 @@
     if (!data.externalCalendars.some((calendar) => calendar.enabled && calendar.events.length)) summaryBits.push('Импортируй .ics, чтобы добавить события в календарь.');
     else if (!classes.length) summaryBits.push('Событий календаря в этот день нет.');
     if (inbox.length) summaryBits.push(`${inbox.length} ${formatCount(inbox.length, 'задача', 'задачи', 'задач')} без времени.`);
-    $('#todaySubtitle').textContent = summaryBits.join(' ') || 'Пары и ручные задачи — в одном расписании.';
+    $('#todaySubtitle').textContent = summaryBits.join(' ') || 'События календаря и задачи — в одном плане.';
     $('#todayDateText').textContent = shortDate(currentDate);
     $('#todayScheduleTitle').textContent = isToday ? 'Сегодня' : longDate(currentDate);
     $('#todayClassCount').textContent = String(classes.length);
@@ -1113,7 +1113,7 @@
 
   function renderHomeUniversityEvent(event) {
     const meta = [event.calendarKind === 'external' ? event.calendarName : event.type, event.teacher, event.room].filter(Boolean).join(' · ');
-    return `<div class="home-schedule-row university" data-home-uni="${escapeHtml(event.id)}"><button class="home-schedule-main" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="home-time"><strong>${event.allDay ? 'Весь день' : escapeHtml(event.start)}</strong><small>${event.allDay ? '' : escapeHtml(event.end)}</small></span><span class="home-schedule-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Занятие')}</small></span><span class="home-chevron">›</span></button><button class="home-schedule-add" data-add-task-uni="${escapeHtml(event.id)}" type="button" aria-label="Добавить задачу к паре">＋</button></div>`;
+    return `<div class="home-schedule-row university" data-home-uni="${escapeHtml(event.id)}"><button class="home-schedule-main" data-open-uni-event="${escapeHtml(event.id)}" type="button"><span class="home-time"><strong>${event.allDay ? 'Весь день' : escapeHtml(event.start)}</strong><small>${event.allDay ? '' : escapeHtml(event.end)}</small></span><span class="home-schedule-copy"><strong>${escapeHtml(event.subject)}</strong><small>${escapeHtml(meta || 'Событие')}</small></span><span class="home-chevron">›</span></button><button class="home-schedule-add" data-add-task-uni="${escapeHtml(event.id)}" type="button" aria-label="Добавить задачу к событию">＋</button></div>`;
   }
 
   function renderHomeTask(task) {
