@@ -1,145 +1,32 @@
-## 12.4.0 — Unified local calendar & profile (2026-11-24)
+# История изменений Tavrimo
 
-- Added a branded Tavrimo startup splash with the original cup logo and an animated loading indicator.
-- Switched Service Worker navigation and core JS/CSS to cache-first for repeat PWA launches while Render Free is waking.
-- Added a Tavrimo-branded startup splash with the existing logo and animated progress bar.
-- Changed Service Worker navigation and core assets to cache-first on repeat launches, so an installed PWA can show its local splash while a sleeping Render service wakes in the background.
-- Fixed a critical navigation runtime error: `renderChrome()` now uses `$()`/querySelectorAll for the tab collection.
-- Added a navigation smoke test for Today, Week, Tasks, More and Profile, plus DOM selector integrity checks.
-- Hotfix CI result: 11/11 current regression tests passed.
-- Fixed a critical navigation rendering regression: the tab list in `renderChrome()` must use the multi-element `$()` selector, not single-element `$()`.
-- Added navigation smoke coverage for Today, Week, Tasks, More and Profile, plus a static guard against treating single DOM nodes as collections.
-- Replaced the separate REA timetable and external calendars with one local calendar pool used by Today and Week.
-- Added manual multi-file `.ics` import directly on Today; preserved recurring, timezone, all-day and multi-day event parsing.
-- Migrated saved REA events into a local calendar while retaining original event IDs and task links (`linkedUniversityEventId`).
-- Kept already-downloaded Google/Outlook/iCloud feed events as local snapshots, cleared stored feed URLs, and disabled automatic refresh.
-- Removed background timetable and calendar-feed requests from startup, online, visibilitychange, pageshow and timer flows.
-- Added a local profile with editable display name and compressed local avatar; reused Statistics and Plan Health from the profile screen.
-- Simplified More to Profile, Focus and Settings; removed the REA calendar switch and feed manager.
-- Preserved schema v17, storage key `tavrimo-planner-v17`, task behavior, focus history and JSON backup compatibility.
-- Updated the Service Worker cache and release checks for 12.4.0.
+Этот журнал фиксирует изменения, которые заметны пользователю. Технические промежуточные итерации и отдельные исправления остаются в истории Git и не превращают публичную историю продукта в перечень внутренних коммитов.
 
-# Changelog
+## 1.0.0 — первая описываемая редакция
 
-## 12.2.0 — Spotify-inspired Dark UI (2026-11-24)
+**Точка отсчёта продуктовой документации — 25 ноября 2026 года.**
 
-- Updated the existing Tavrimo PWA with the supplied Spotify-inspired dark design reference.
-- Added the original pixel coffee-cup Tavrimo mark to the centered app header.
-- Introduced centralized near-black, charcoal and functional green design tokens.
-- Added pill-shaped search/actions and compact dark cards.
-- Preserved mobile bottom navigation and added a desktop sidebar from 896 px.
-- Kept schema v17, tasks, timetable sync, ICS import, backup format and user data behavior.
-- Set one consistent dark UI; legacy stored theme values remain preserved but no longer switch the appearance.
+В первой описываемой редакции Tavrimo объединяет основные инструменты личного планирования:
 
-## 12.1.5 — ICS import and demo group matching hotfix (9 November 2026)
+- Экран «Сегодня» с календарными событиями, запланированными задачами и оценкой загрузки дня.
+- Недельный календарь с переходом между неделями.
+- Создание и редактирование задач с длительностью, приоритетом, категорией, дедлайном, заметкой и ручным временем выполнения.
+- Поиск и фильтры задач, включая просроченные и задачи без назначенного времени.
+- Ручной импорт файлов `.ics` с поддержкой повторяющихся, часовых, многодневных и событий на весь день.
+- Фокус-таймер с выбором задачи и сохранением истории сессий.
+- Недельная статистика и экран состояния плана.
+- Локальный профиль с именем и фотографией.
+- Настройки рабочего времени, перерыва, временного резерва и длительности фокус-сессии.
+- Экспорт и импорт резервной копии в формате JSON.
+- Вводное обучение, тёмный интерфейс и PWA-оболочка с кэшированием для повторного запуска.
 
-- Fixed Settings → Import so the file picker accepts both `.json` backups and `.ics` calendars, routing each format to its own importer.
-- Added explicit Latin-keyboard/Cyrillic normalization for group identifiers so the built-in `15.14Д-ГГ04/266` snapshot is found for common typed variants.
-- Manual ICS imports are now treated as local schedules and no longer trigger automatic retries against the blocked REA portal.
-- Improved ICS import feedback, group-name consistency checks, UTF-8 reading, and modal cleanup.
-- Bumped the application and Service Worker cache version to 12.1.5 to prevent stale 12.1.4 assets from continuing to run.
+### Что не входит в эту редакцию
 
-## 12.1.4 — bundled demo timetable hotfix (9 November 2026)
+- Автоматическая расстановка задач по времени.
+- Автоматическое получение и обновление расписания университета.
+- Подписка на календарь по URL с периодическим обновлением.
+- Облачная синхронизация и единый аккаунт для нескольких устройств.
 
-- Fixed the demo group's HTTP 503/Offline symptom: its 46-event Vuzio ICS is embedded in `app.js`, so the known group is rendered without requesting Sync Gateway or static assets.
-- The local snapshot is now resolved before the previous live-sync cooldown and is initialized even when `navigator.onLine` reports offline.
-- Added the explicit `15.14Д-ГГ04/26б` alias found in the calendar title, alongside the student's `15.14Д-ГГ04/266` group code.
-- Kept the existing live Sync Gateway path for all other groups.
-- Added an integration regression that forces the gateway to return HTTP 503 and verifies 46 lessons load with zero network calls.
-- Current regression suite: 14/14 tests.
+### Как будет вестись журнал дальше
 
-## QA maintenance — 9 November 2026
-
-- Added a single local regression runner: `node tools/run_regression.mjs` (14 current tests).
-- Added a cross-file version consistency check for app.js, HTML cache-busting URLs, Service Worker, VERSION and release manifest.
-- Moved the obsolete 12.1.1 release assertion into `tools/historical/`; current test runs no longer include stale version expectations.
-- Added `npm test` to the Sync Gateway package as a shortcut to the same regression runner.
-- No user-facing functionality or visual design changed.
-
-## 12.1.2 — REA 403 diagnostics and safe retry behaviour
-
-- HTTP 403 from the official rasp.rea.ru page is now detected from the main navigation response before DOM search begins.
-- The gateway stops immediately instead of retrying the root page and direct `?q=` URLs after an explicit denial.
-- A five-minute in-memory cooldown prevents repeated requests to a source that has just returned HTTP 403; `Retry-After` is included in the response.
-- Tavrimo explains that the denial is from the upstream portal, not an invalid group number, and that the previously saved timetable remains unchanged.
-- Added focused regression coverage for upstream HTTP status classification and the client-facing message.
-
-## 12.1.1 — Reliability hardening
-
-- Импорт резервной копии теперь требует явного подтверждения перед заменой текущих данных.
-- Если браузер не позволяет сохранить импорт в LocalStorage, приложение возвращает предыдущее состояние в памяти.
-- Ограничены размеры кэшей Sync Gateway и очищаются устаревшие записи лимитера запросов.
-- Лимит запросов использует `req.ip` Express, а не непроверенный заголовок `X-Forwarded-For`.
-- `/api/rea/health` проверяет доступность процесса, `/api/rea/ready` отдельно проверяет запуск Chromium.
-- Видимая неделя больше не принимается за полный календарь, если экспорт «За всё время» недоступен; сохранённое расписание не перезаписывается частичными данными.
-- Обновлены версии ресурсов и кэш Service Worker.
-
-## 12.1.0 — Campus Editorial Redesign
-
-- Обновлена визуальная система, типографика и мобильная композиция экранов.
-- Добавлен центрированный текстовый логотип TAVRIMO.
-- Навигация и действия переведены на согласованные SVG-иконки.
-- Улучшена читаемость расписания, задач и элементов управления.
-- Сохранена существующая логика; известные вопросы синхронизации не считаются исправленными этим релизом.
-
-## 12.0.10 — release validation alignment
-
-- Retained the REA search-first sync flow introduced in 12.0.9; no speculative changes were made to the live portal interaction.
-- Updated GitHub Actions to test the current release instead of stale 12.0.6 asset/version expectations.
-- Updated icon validation to match `apple-touch-icon-v17.png`, now referenced by HTML and the Service Worker.
-- Made manual-scheduling and university-schedule regression tests use future dates so they remain valid after the calendar advances.
-- Updated REA fallback smoke-test expectations to match the current diagnostic markers.
-- Live synchronization through Render remains unverified and must be checked after deployment.
-
-## 12.0.9 — REA search order fix
-
-- Fixed a 502 sync failure where the gateway tried direct `?q=` navigation first and then searched for the group field on the resulting page.
-- The gateway now uses the official portal search field first, reloads the canonical `https://rasp.rea.ru/` page once if the field is missing, and only then tries direct query navigation as a fallback.
-- Added broader search-field selectors while excluding login/password fields and extra diagnostics for cases when the portal does not render a search field.
-- Preserved the 12.0.8 all-time calendar export path for importing past and future timetable events when the portal supports it.
-
-## 12.0.8 — Full-range university timetable
-
-- Fixed a control-flow bug that returned the currently visible week before attempting the REA calendar export.
-- The sync gateway now attempts the portal's “За всё время” calendar export first, so past and future lessons can be imported together when REA exposes them.
-- The currently rendered week remains a fallback if the portal export fails; logs explicitly mark that fallback as week-only instead of implying the full calendar was fetched.
-- Bumped static asset and Service Worker versions to avoid keeping the previous release on installed PWAs.
-
-## 12.0.7 — REA Sync resolution hotfix
-
-Принудительный прямой поиск по `?q=`, расширенный выбор результата и разбор уже отображённого расписания до попытки экспортировать `.ics`.
-
-# Changelog
-
-## 12.1.3 — Static schedule provider (9 Nov 2026)
-- Added a group allowlist for repository-hosted iCalendar snapshots.
-- Static snapshots are loaded before the existing Sync Gateway; groups without a file retain the original live-sync path.
-- Added strict compatibility/completeness checks and truthful snapshot source metadata.
-- Added revisioned asset URLs and Service Worker caching; no real ICS data is bundled until the source file is verified.
-
-
-## 12.0.5
-- Исправлен ручной refresh расписания: он больше не теряется из-за фоновой синхронизации.
-- Добавлена явная offline-обратная связь.
-- Sync Gateway получил более надёжный поиск группы через реальные autocomplete/results controls.
-- Добавлены повторные варианты поиска для групп с `/`, пробелами и регистром.
-- Добавлено обнаружение реального timetable state вместо ложного совпадения по глобальному тексту страницы.
-- Добавлен capture сетевых search responses и попытка извлечения расписания без обязательного iCalendar download event.
-- При повторном обновлении stale request не может перезаписать свежий результат.
-
-## 12.0.5
-- Fixed manual timetable refresh interaction.
-- Do not block rasp.rea.ru service workers.
-- Added explicit portal refresh before group search.
-- Improved group search/click flow and rendered fallback.
-- Network-first loading for JS/CSS/config/manifest reduces stale PWA builds after deploy.
-
-## 12.0.5
-- Fixed manual timetable refresh.
-- Fixed stale PWA assets after deployment.
-- Fixed REA portal search by allowing its service worker and explicitly submitting search.
-
-## 12.0.5
-- Fixed refresh interaction and stale PWA assets.
-- Fixed REA portal offline-state caused by blocked service workers.
-- Hardened group search and timetable detection.
+Следующие записи будут добавляться после появления значимых пользовательских изменений. Номер 1.0.0 обозначает новую отправную точку публичной продуктовой истории; техническая версия текущей сборки и схема хранения данных в рамках этой документальной редакции не перенумеровываются.
